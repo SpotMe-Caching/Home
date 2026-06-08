@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+
+  <!-- Eruda -– Mobile Console (nur für Debugging) -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SpotMe · Wochen-Spot</title>
+  <meta name="theme-color" content="#0a0d12">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body {
+      background: #0a0d12;
+      color: #e2e8f0;
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      padding: 0 0 env(safe-area-inset-bottom);
+      overflow-x: hidden;
+    }
+
+    /* ── MAP ── */
+    #map {
+      width: 100%;
+      height: 52vmax;
+      max-height: 320px;
+      filter: brightness(0.85);
+    }
+    .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
+
+    /* ── CONTENT ── */
+    .content {
+      padding: 1.25rem 1.1rem 2rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── HEADER ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1.1rem;
+      padding-top: max(0.85rem, env(safe-area-inset-top));
+      background: rgba(10,13,18,0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #f59e0b;
+      box-shadow: 0 0 10px #f59e0b;
+      animation: pulse-dot 2s ease infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+    .back-link {
+      font-size: 0.8rem;
+      background: rgba(15,19,24,0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 40px;
+      padding: 6px 14px;
+      color: #94a3b8;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    /* ── SPOT INFO ── */
+    .spot-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 1rem 0 0.4rem;
+      line-height: 1.25;
+    }
+    .spot-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      font-family: 'Space Mono', monospace;
+    }
+    .tag-cat { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+    .tag-time { background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.2); color: #22d3ee; }
+    .tag-expired { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
+    .spot-desc { font-size: 0.9rem; color: #94a3b8; line-height: 1.5; margin-bottom: 1rem; }
+
+    /* ── COUNTDOWN ── */
+    .countdown-bar {
+      background: #141a22;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .countdown-icon { font-size: 1.4rem; }
+    .countdown-label { font-size: 0.7rem; color: #64748b; font-weight: 500; margin-bottom: 2px; }
+    .countdown-value { font-family: 'Space Mono', monospace; font-size: 0.9rem; color: #f59e0b; font-weight: 700; }
+    .checkin-count { margin-left: auto; text-align: right; }
+    .checkin-num { font-family: 'Space Mono', monospace; font-size: 1.1rem; font-weight: 700; color: #22d3ee; }
+    .checkin-label { font-size: 0.65rem; color: #64748b; }
+
+    /* ── BUTTONS ── */
+    .btn-row { display: flex; gap: 0.6rem; margin-bottom: 0.6rem; }
+    .btn {
+      flex: 1;
+      padding: 0.85rem;
+      border-radius: 14px;
+      border: none;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn-checkin { background: #f59e0b; color: #0a0d12; }
+    .btn-checkin:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-nav { background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.3); color: #22d3ee; }
+    .btn-share { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; }
+
+    /* ── SHARE BOX ── */
+    .share-box {
+      background: #141a22;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      margin-top: 0.6rem;
+    }
+    .share-box-title { font-size: 0.72rem; color: #64748b; font-weight: 500; margin-bottom: 0.5rem; font-family: 'Space Mono', monospace; letter-spacing: 0.06em; }
+    .share-url {
+      background: #0f1318;
+      border: 1px solid rgba(34,211,238,0.2);
+      border-radius: 10px;
+      padding: 0.6rem 0.85rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: #22d3ee;
+      word-break: break-all;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── STATES ── */
+    .loading-state, .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 50vh;
+      text-align: center;
+      gap: 0.75rem;
+      padding: 2rem;
+    }
+    .state-icon { font-size: 3rem; opacity: 0.5; }
+    .state-title { font-family: 'Space Mono', monospace; font-size: 0.9rem; color: #94a3b8; }
+    .state-sub { font-size: 0.82rem; color: #64748b; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: max(1.75rem, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(20,26,34,0.96);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 0.5rem 1.2rem;
+      font-size: 0.82rem;
+      z-index: 999;
+      opacity: 0;
+      transition: all 0.28s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── CHECKIN SUCCESS BANNER ── */
+    .checkin-banner {
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #10b981;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      display: none;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="page-header">
+  <div class="logo"><div class="logo-dot"></div>SPOT<span style="font-weight:300">ME</span></div>
+  <a href="/" class="back-link">← App öffnen</a>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Dynamic content -->
+<div class="content" id="content">
+  <div class="loading-state">
+    <div class="state-icon">⏳</div>
+    <div class="state-title">Lädt Spot…</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
+
+const API = 'https://spotme-chat-obom.onrender.com/api';
+let spotMap = null;
+let countdownTimer = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function formatTimeLeft(expiresAt) {
+  const rem = new Date(expiresAt) - Date.now();
+  if (rem <= 0) return null; // abgelaufen
+  const d = Math.floor(rem / 86400000);
+  const h = Math.floor((rem % 86400000) / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
+  if (d > 0) return `${d} Tag${d !== 1 ? 'e' : ''} ${h}h`;
+  if (h > 0) return `${h}h ${m}min`;
+  return `${m} Minuten`;
+}
+
+const CATEGORY_EMOJI = {
+  'Bahnhof':'🚉','Club':'🎉','Einkaufsviertel':'🛍️','Filmtheater':'🎬',
+  'Fitnesscenter':'💪','Industriepark':'🏭','Internetcafé':'💻',
+  'Naturschutzgebiet':'🌿','Park':'🌳','Rastplatz':'🛣️','Restaurant':'🍽️',
+  'Sauna':'🧖','Strand':'🏖️','Sonstiges':'📌',
+  // Zusätzlich aus dem Prototyp
+  'Café':'☕','Aussichtspunkt':'⛰️'
+};
+
+// ── Map initialisieren ────────────────────────────────────────────────────────
+function initMap(lat, lng) {
+  if (spotMap) spotMap.remove();
+  spotMap = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/dark',
+    center: [lng, lat],
+    zoom: 14,
+    interactive: false,         // keine Touch-Gesten – nur Anzeige
+    attributionControl: false
+  });
+  spotMap.on('load', () => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width:22px; height:22px;
+      background:#f59e0b; border-radius:50%;
+      border:3px solid white;
+      box-shadow:0 0 18px rgba(245,158,11,0.85);
+    `;
+    new maplibregl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .addTo(spotMap);
+  });
+}
+
+// ── Spot laden & rendern ──────────────────────────────────────────────────────
+async function loadSpot(token) {
+  const content = document.getElementById('content');
+
+  let spot;
+  try {
+    const r = await fetch(`${API}/weekly-spots/${encodeURIComponent(token)}`);
+    if (!r.ok) throw new Error('not_found');
+    spot = await r.json();
+  } catch {
+    content.innerHTML = `
+      <div class="error-state">
+        <div class="state-icon">🔍</div>
+        <div class="state-title">Spot nicht gefunden</div>
+        <div class="state-sub">Der Link ist ungültig oder der Spot wurde gelöscht.</div>
+        <a href="/" style="margin-top:1.5rem;color:#f59e0b;font-weight:600;font-size:0.9rem;">← Zur App</a>
+      </div>`;
+    return;
+  }
+
+  const expired = new Date(spot.expires_at) <= new Date();
+  const catEmoji = CATEGORY_EMOJI[spot.category] || '📍';
+  const shareUrl = window.location.href;
+
+  // Karte rendern
+  initMap(+spot.lat, +spot.lng);
+
+  // Check-in Status (sessionStorage: verhindert Doppel-Checkin in dieser Sitzung)
+  const checkinKey = `wk_checkin_${token}`;
+  const alreadyCheckedIn = !!sessionStorage.getItem(checkinKey);
+
+  content.innerHTML = `
+    ${alreadyCheckedIn && !expired ? `
+      <div class="checkin-banner" id="checkinBanner" style="display:block;">
+        ✅ Du bist eingecheckt!
+      </div>` : ''}
+
+    <div class="spot-name">${esc(spot.name)}</div>
+
+    <div class="spot-tags">
+      ${spot.category ? `<span class="tag tag-cat">${catEmoji} ${esc(spot.category)}</span>` : ''}
+      <span class="tag ${expired ? 'tag-expired' : 'tag-time'}" id="timeTag">
+        ${expired ? '⚠️ Abgelaufen' : `⏳ ${formatTimeLeft(spot.expires_at)}`}
+      </span>
+    </div>
+
+    ${spot.description ? `<div class="spot-desc">${esc(spot.description)}</div>` : ''}
+
+    <div class="countdown-bar">
+      <div class="countdown-icon">🗓️</div>
+      <div>
+        <div class="countdown-label">Status</div>
+        <div class="countdown-value" id="countdownVal">
+          ${expired ? 'Abgelaufen' : formatTimeLeft(spot.expires_at)}
+        </div>
+      </div>
+      <div class="checkin-count">
+        <div class="checkin-num" id="checkinNum">${spot.checkin_count}</div>
+        <div class="checkin-label">Check-ins</div>
+      </div>
+    </div>
+
+    ${!expired ? `
+    <div class="btn-row">
+      <button class="btn btn-checkin" id="checkinBtn"
+              ${alreadyCheckedIn ? 'disabled' : ''}>
+        ${alreadyCheckedIn ? '✅ Eingecheckt' : '📍 Einchecken'}
+      </button>
+      <button class="btn btn-nav" id="navBtn">🧭 Route</button>
+    </div>` : ''}
+
+    <div class="share-box">
+      <div class="share-box-title">🔗 TEILEN</div>
+      <div class="share-url" id="shareUrlBox" onclick="copyLink()"
+           title="Tippen zum Kopieren">${shareUrl}</div>
+      <div class="btn-row" style="margin-bottom:0;">
+        <button class="btn btn-share" onclick="copyLink()">📋 Link kopieren</button>
+        ${navigator.share ? `<button class="btn btn-share" id="nativeShareBtn">↗️ Teilen</button>` : ''}
+      </div>
+    </div>
+  `;
+
+  // Event Listeners
+  if (!expired) {
+    document.getElementById('checkinBtn').addEventListener('click', () => doCheckin(token, checkinKey));
+    document.getElementById('navBtn').addEventListener('click', () => navigate(+spot.lat, +spot.lng));
+    if (navigator.share) {
+      document.getElementById('nativeShareBtn')?.addEventListener('click', () => {
+        navigator.share({ title: `SpotMe · ${spot.name}`, url: shareUrl }).catch(() => {});
+      });
+    }
+    // Countdown live aktualisieren
+    startCountdown(spot.expires_at);
+  }
+}
+
+// ── Aktionen ──────────────────────────────────────────────────────────────────
+async function doCheckin(token, checkinKey) {
+  const btn = document.getElementById('checkinBtn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+
+  try {
+    const r = await fetch(`${API}/weekly-spots/${encodeURIComponent(token)}/checkin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Fehler');
+
+    // Session merken
+    sessionStorage.setItem(checkinKey, '1');
+    btn.textContent = '✅ Eingecheckt';
+    showToast(`✅ Eingecheckt als ${data.label}`);
+
+    // Check-in-Zahl live hochzählen
+    const numEl = document.getElementById('checkinNum');
+    if (numEl) numEl.textContent = parseInt(numEl.textContent || '0') + 1;
+
+    // Banner einblenden
+    const banner = document.getElementById('checkinBanner');
+    if (banner) { banner.style.display = 'block'; }
+
+  } catch(e) {
+    showToast('❌ ' + (e.message || 'Einchecken fehlgeschlagen'));
+    btn.disabled = false;
+    btn.textContent = '📍 Einchecken';
+  }
+}
+
+function navigate(lat, lng) {
+  if (!navigator.geolocation) { showToast('❌ GPS nicht verfügbar'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const url = `https://www.google.com/maps/dir/${pos.coords.latitude},${pos.coords.longitude}/${lat},${lng}`;
+    window.open(url, '_blank');
+  }, () => {
+    // Ohne Startpunkt – nur Ziel
+    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+  });
+}
+
+function copyLink() {
+  const box = document.getElementById('shareUrlBox');
+  if (!box) return;
+  navigator.clipboard?.writeText(box.textContent.trim())
+    .then(() => showToast('🔗 Link kopiert!'))
+    .catch(() => showToast('⚠️ Kopieren fehlgeschlagen'));
+}
+
+// ── Countdown Ticker ──────────────────────────────────────────────────────────
+function startCountdown(expiresAt) {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    const left = formatTimeLeft(expiresAt);
+    const val = document.getElementById('countdownVal');
+    const tag = document.getElementById('timeTag');
+    if (!left) {
+      clearInterval(countdownTimer);
+      if (val) val.textContent = 'Abgelaufen';
+      if (tag) { tag.className = 'tag tag-expired'; tag.textContent = '⚠️ Abgelaufen'; }
+      document.getElementById('checkinBtn')?.remove();
+      document.getElementById('navBtn')?.remove();
+      return;
+    }
+    if (val) val.textContent = left;
+    if (tag) tag.textContent = `⏳ ${left}`;
+  }, 30000); // alle 30 Sekunden
+}
+
+// ── Routing ───────────────────────────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const token  = params.get('token');
+
+if (token) {
+  loadSpot(token);
+} else {
+  document.getElementById('content').innerHTML = `
+    <div class="error-state">
+      <div class="state-icon">🗓️</div>
+      <div class="state-title">Kein Token angegeben</div>
+      <div class="state-sub">Öffne SpotMe und erstelle einen Wochen-Spot.</div>
+      <a href="/" style="margin-top:1.5rem;color:#f59e0b;font-weight:600;font-size:0.9rem;">← Zur App</a>
+    </div>`;
+}
+</script>
+</body>
+</html>
