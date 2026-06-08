@@ -3497,14 +3497,15 @@ async function openDrawerFiltered(spots, km) {
 // ── WOCHEN-SPOTS ─────────────────────────────────────────────────────────────
 
 // Formatiert die verbleibende Zeit bis zum Ablauf des Weekly Spots
-function weeklyTimeLeft(expiresAt) {
-  const rem = new Date(expiresAt) - Date.now();
+function weeklyTimeLeft(timestamp) {
+  const rem = timestamp - Date.now();   // timestamp ist bereits Millisekunden
   if (rem <= 0) return '⚠️ Abgelaufen';
   const d = Math.floor(rem / 86400000);
   const h = Math.floor((rem % 86400000) / 3600000);
-  if (d > 0) return `⏳ Noch ${d} Tag${d !== 1 ? 'e' : ''} ${h}h`;
   const m = Math.floor((rem % 3600000) / 60000);
-  return `⏳ Noch ${h}h ${m}min`;
+  if (d > 0) return `⏳ Noch ${d} Tag${d !== 1 ? 'e' : ''} ${h}h`;
+  if (h > 0) return `⏳ Noch ${h}h ${m}min`;
+  return `⏳ Noch ${m}min`;
 }
 
 // Drawer: Meine aktiven Wochen-Spots laden und anzeigen
@@ -3543,7 +3544,7 @@ async function loadWeeklyDrawer(body) {
       </div>
       <div class="weekly-card-meta">
         ${s.category ? `<span class="weekly-tag">${s.category}</span>` : ''}
-        <span class="weekly-countdown">${weeklyTimeLeft(s.expires_at)}</span>
+        <span class="weekly-countdown">${s.meeting_at ? weeklyTimeLeft(s.meeting_at) : weeklyTimeLeft(s.expires_at)}</span>
         <span style="font-size:0.68rem;color:var(--muted2);">👥 ${s.checkin_count} Check-in${s.checkin_count !== 1 ? 's' : ''}</span>
       </div>
       <div class="weekly-card-actions">
@@ -3588,6 +3589,8 @@ function openWeeklyCreateModal() {
     <select id="wkCat" class="finp">${CATS}</select>
     <span class="finp-label">Beschreibung (optional)</span>
     <input id="wkDesc" class="finp" placeholder="Was erwartet die Besucher?" maxlength="120">
+    <span class="finp-label">Treffpunkt (Datum & Uhrzeit)</span>
+    <input type="datetime-local" id="wkMeetingAt" class="finp">
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeWeeklyModal()">Abbrechen</button>
       <button class="btn-primary" id="wkSubmitBtn" onclick="submitWeeklySpot()">🗓️ Erstellen</button>
@@ -3625,27 +3628,36 @@ async function submitWeeklySpot() {
   const name = document.getElementById('wkName')?.value.trim();
   const cat  = document.getElementById('wkCat')?.value;
   const desc = document.getElementById('wkDesc')?.value.trim();
-  if (!name)        { toast('⚠️ Bitte einen Namen eingeben'); return; }
-  if (!weeklyCoords){ toast('⚠️ Bitte einen Ort auf der Karte tippen'); return; }
+  const meetingAt = document.getElementById('wkMeetingAt')?.value;
+
+  if (!name) { toast('⚠️ Bitte einen Namen eingeben'); return; }
+  if (!weeklyCoords) { toast('⚠️ Bitte einen Ort auf der Karte tippen'); return; }
+  if (!meetingAt) { toast('⚠️ Bitte einen Treffzeitpunkt (Datum & Uhrzeit) wählen'); return; }
+
+  const authToken = localStorage.getItem('sm_token');
+  if (!authToken) { toast('⚠️ Kein Token gefunden – bitte Profil erstellen'); return; }
 
   const btn = document.getElementById('wkSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
 
-  const authToken = localStorage.getItem('sm_token');
   try {
     const r = await fetch(`${API}/weekly-spots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        code: CODE, token: authToken,
-        name, category: cat, description: desc,
-        lat: weeklyCoords.lat, lng: weeklyCoords.lng
+        code: CODE,
+        token: authToken,
+        name,
+        category: cat,
+        description: desc,
+        lat: weeklyCoords.lat,
+        lng: weeklyCoords.lng,
+        meetingAt: new Date(meetingAt).toISOString()   // ← ISO-String für den Server
       })
     });
     const data = await r.json();
     if (!r.ok || !data.spot) throw new Error(data.error || 'Fehler');
 
-    // Mini-Map aufräumen und auf Share-State wechseln
     if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
     if (weeklyMarker)  { weeklyMarker = null; }
     showWeeklyShare(data.spot.token, data.spot.name);
