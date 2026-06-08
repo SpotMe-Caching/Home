@@ -158,6 +158,16 @@
     .radius-choice { padding:0.75rem 0.5rem; border-radius:12px; border:1px solid var(--bord2); background:var(--card); color:var(--muted2); font-family:'Space Mono',monospace; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
     .radius-choice.selected { background:var(--acc-dim); border-color:var(--acc-glow); color:var(--acc); }
 
+    /* Kategorie-Pills im Radius-Modal */
+    .rs-cat-strip { display:flex; gap:0.4rem; overflow-x:auto; padding-bottom:0.4rem; margin-bottom:0.75rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .rs-cat-strip::-webkit-scrollbar { display:none; }
+    .rs-cat-pill { flex-shrink:0; padding:0.35rem 0.75rem; border-radius:100px; border:1px solid var(--bord2); background:var(--card); color:var(--muted2); font-size:0.75rem; font-weight:600; cursor:pointer; transition:all 0.18s; font-family:'Outfit',sans-serif; white-space:nowrap; }
+    .rs-cat-pill.active { background:var(--acc-dim); border-color:var(--acc-glow); color:var(--acc); }
+    .rs-cat-pill:active { opacity:0.7; }
+
+    /* Ergebniskarte im Radius-Drawer: Wetter-Badge */
+    .sc-weather { display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:100px; background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.2); color:var(--cyan); font-size:0.65rem; font-weight:600; font-family:'Space Mono',monospace; }
+
     .match-screen { position:absolute; inset:0; z-index:800; background:rgba(10,13,18,0.96); display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem; }
     .match-screen.show { display:flex; }
     .match-ring { width:120px; height:120px; border-radius:50%; border:2px solid var(--acc-glow); display:flex; align-items:center; justify-content:center; font-size:3.5rem; margin-bottom:1.5rem; position:relative; }
@@ -693,13 +703,20 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">🔍 Radius-Suche</div>
-    <p style="font-size:0.82rem;color:var(--muted2);margin-bottom:0.6rem;">Spots anderer Profile in deiner Umgebung.</p>
-    <div id="radiusFilterHint" style="display:none;font-size:0.75rem;padding:0.4rem 0.75rem;border-radius:8px;background:var(--acc-dim);border:1px solid var(--acc-glow);color:var(--acc);margin-bottom:0.75rem;font-family:'Space Mono',monospace;letter-spacing:0.03em;"></div>
+    <p style="font-size:0.82rem;color:var(--muted2);margin-bottom:0.75rem;">Spots anderer Profile in deiner Umgebung.</p>
+
+    <!-- Kategorie-Filter -->
+    <span style="font-size:0.7rem;color:var(--muted);font-weight:500;display:block;margin-bottom:0.35rem;">Kategorie</span>
+    <div id="rsCatStrip" class="rs-cat-strip"></div>
+
+    <!-- Radius-Auswahl -->
+    <span style="font-size:0.7rem;color:var(--muted);font-weight:500;display:block;margin-bottom:0.35rem;">Umkreis</span>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.8rem;">
       <button class="radius-choice" id="rc2">2 km</button>
       <button class="radius-choice" id="rc5">5 km</button>
       <button class="radius-choice" id="rc10">10 km</button>
     </div>
+
     <div id="radiusResult" style="font-size:0.8rem;color:var(--muted2);text-align:center;min-height:1.2rem;"></div>
     <div class="modal-actions" style="margin-top:0.8rem;">
       <button class="btn-ghost" id="radiusClear">✕ Löschen</button>
@@ -736,6 +753,41 @@ let selectedInviteSpot = null;
 let invitePollInterval = null, knownInviteCount = 0;
 let toastTimer, currentDrawer = null;
 let activeRadius = null, detailSpot = null, detailMiniMap = null;
+let radiusCatFilter = null; // Kategorie-Filter nur für Radius-Suche (unabhängig vom Karten-Filter)
+
+// Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
+function buildRadiusCatPills() {
+  const strip = document.getElementById('rsCatStrip');
+  if (!strip) return;
+
+  const counts = {};
+  allSpots.filter(s => s.code !== CODE).forEach(s => {
+    if (s.area_type) counts[s.area_type] = (counts[s.area_type] || 0) + 1;
+  });
+  const categories = Object.keys(counts).sort();
+  const totalOthers = allSpots.filter(s => s.code !== CODE).length;
+
+  strip.innerHTML = `
+    <div class="rs-cat-pill ${radiusCatFilter === null ? 'active' : ''}" data-cat="">
+      Alle <span style="opacity:0.55;font-size:0.68rem;">${totalOthers}</span>
+    </div>
+    ${categories.map(cat => `
+      <div class="rs-cat-pill ${radiusCatFilter === cat ? 'active' : ''}" data-cat="${cat}">
+        ${CATEGORY_EMOJI[cat] || '📌'} ${cat}
+        <span style="opacity:0.55;font-size:0.68rem;">${counts[cat]}</span>
+      </div>
+    `).join('')}
+  `;
+
+  strip.querySelectorAll('.rs-cat-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      radiusCatFilter = pill.dataset.cat || null;
+      buildRadiusCatPills();
+      // Wenn bereits ein Radius gewählt ist: Ergebnis sofort neu berechnen
+      if (activeRadius) selectRadius(activeRadius);
+    });
+  });
+}
 let spotPhotoData = null;
 let editSpotId    = null;
 // Aktuell gewählte Kategorie – null bedeutet "Alle"
@@ -3263,18 +3315,22 @@ function openNewSpots() {
 function openRadiusSearch() {
   document.querySelectorAll('.radius-choice').forEach(b=>b.classList.remove('selected'));
   if (activeRadius) document.getElementById(`rc${activeRadius}`)?.classList.add('selected');
-  document.getElementById('radiusResult').textContent=activeRadius?`Aktiver Radius: ${activeRadius} km`:'';
 
-  // Aktiven Kategorie-Filter im Modal anzeigen – so sieht der Nutzer sofort,
-  // dass die Radius-Suche auf diese Kategorie eingeschränkt wird.
-  const hint=document.getElementById('radiusFilterHint');
-  if (hint) {
-    if (activeFilter) {
-      hint.textContent=`🔎 Kategorie-Filter: ${CATEGORY_EMOJI[activeFilter]||'📌'} ${activeFilter}`;
-      hint.style.display='block';
-    } else {
-      hint.style.display='none';
-    }
+  // Kategorie-Pills aufbauen (spiegelt aktuellen Stand von allSpots)
+  buildRadiusCatPills();
+
+  // Ergebnis-Text: falls Radius schon aktiv, sofort anzeigen
+  if (activeRadius) {
+    const nearby = allSpots.filter(s =>
+      s.code !== CODE &&
+      haversineKm(userPos?.lat, userPos?.lng, s.lat, s.lng) <= activeRadius &&
+      (radiusCatFilter === null || s.area_type === radiusCatFilter)
+    );
+    const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+    document.getElementById('radiusResult').textContent =
+      `${nearby.length} Spot${nearby.length!==1?'s':''} innerhalb ${activeRadius} km${catSuffix}`;
+  } else {
+    document.getElementById('radiusResult').textContent = '';
   }
 
   document.getElementById('radiusModal').classList.add('show');
@@ -3304,14 +3360,20 @@ function selectRadius(km) {
   const bounds=new maplibregl.LngLatBounds(); coords.forEach(c=>bounds.extend(c));
   map.fitBounds(bounds,{padding:20});
 
-  // Kombinierter Filter: Umkreis UND aktiver Kategorie-Filter (falls gesetzt)
-  const nearby=allSpots.filter(s=>
-    s.code!==CODE &&
-    haversineKm(userPos.lat,userPos.lng,s.lat,s.lng)<=km &&
-    (activeFilter===null||s.area_type===activeFilter)
-  );
-  const catSuffix=activeFilter?` · ${CATEGORY_EMOJI[activeFilter]||'📌'} ${activeFilter}`:'';
-  document.getElementById('radiusResult').textContent=
+  // Kombinierter Filter: Umkreis + radiusCatFilter – nach Distanz sortiert
+  const nearby = allSpots
+    .filter(s =>
+      s.code !== CODE &&
+      haversineKm(userPos.lat, userPos.lng, s.lat, s.lng) <= km &&
+      (radiusCatFilter === null || s.area_type === radiusCatFilter)
+    )
+    .sort((a, b) =>
+      haversineKm(userPos.lat, userPos.lng, a.lat, a.lng) -
+      haversineKm(userPos.lat, userPos.lng, b.lat, b.lng)
+    );
+
+  const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+  document.getElementById('radiusResult').textContent =
     `${nearby.length} Spot${nearby.length!==1?'s':''} innerhalb ${km} km${catSuffix}`;
   document.getElementById('radiusBtn').classList.add('active');
   // Drawer immer öffnen – auch bei 0 Ergebnissen zeigt openDrawerFiltered einen leeren Zustand
@@ -3326,37 +3388,77 @@ function clearRadius() {
   document.getElementById('radiusBtn').classList.remove('active');
 }
 
-function openDrawerFiltered(spots,km) {
+async function openDrawerFiltered(spots, km) {
   document.getElementById('drawerOverlay').classList.add('show');
   document.getElementById('drawer').classList.add('open');
-  // Titel zeigt Radius UND aktiven Kategorie-Filter
-  const catSuffix=activeFilter?` · ${CATEGORY_EMOJI[activeFilter]||'📌'} ${activeFilter}`:'';
-  document.getElementById('drawerTitle').textContent=`RADIUS ${km} KM${catSuffix}`;
-  currentDrawer='radius';
-  const body=document.getElementById('drawerBody');
 
-  // Leerer Zustand: Kategorie-Hinweis damit der Nutzer weiß warum nichts gefunden wurde
+  // Titel zeigt Radius + aktiven Kategorie-Filter
+  const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+  document.getElementById('drawerTitle').textContent = `RADIUS ${km} KM${catSuffix}`;
+  currentDrawer = 'radius';
+  const body = document.getElementById('drawerBody');
+
+  // Leerer Zustand mit Kategorie-Hinweis
   if (!spots.length) {
-    const catNote=activeFilter?` in der Kategorie „${activeFilter}"`:'';
-    body.innerHTML=`<div class="empty-state"><div class="es-icon">🔍</div>Keine Spots${catNote} innerhalb ${km} km.</div>`;
+    const catNote = radiusCatFilter ? ` in der Kategorie „${radiusCatFilter}"` : '';
+    body.innerHTML = `<div class="empty-state"><div class="es-icon">🔍</div>Keine Spots${catNote} innerhalb ${km} km.</div>`;
     return;
   }
 
-  body.innerHTML=spots.map(s=>{
-    const dist=haversineKm(userPos.lat,userPos.lng,s.lat,s.lng);
-    return `<div class="spot-card">
-      <div class="sc-icon">📍</div>
-      <div class="sc-info"><div class="sc-name">${esc(s.name)}</div>
-      <div class="sc-detail"><span class="sc-tag">${s.wishTag||''}</span>
-      <span style="font-size:0.68rem;color:var(--muted);">~${dist<1?Math.round(dist*1000)+'m':dist.toFixed(1)+'km'}</span>
-      ${spotAgeHtml(s.createdAt||s.created_at)}</div></div>
+  // Karten sofort rendern (Wetter kommt async nach)
+  body.innerHTML = spots.map(s => {
+    const dist = haversineKm(userPos.lat, userPos.lng, s.lat, s.lng);
+    const distLabel = dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km';
+    const catIcon = CATEGORY_EMOJI[s.area_type] || '📍';
+    return `<div class="spot-card" data-sid="${s.id}">
+      <div class="sc-icon">${catIcon}</div>
+      <div class="sc-info">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-detail">
+          <span class="sc-tag">${s.wishTag || ''}</span>
+          <span style="font-size:0.68rem;color:var(--acc);font-weight:700;font-family:'Space Mono',monospace;">~${distLabel}</span>
+          <span class="sc-weather" id="sw-${s.id}">⏳</span>
+          ${spotAgeHtml(s.createdAt || s.created_at)}
+        </div>
+      </div>
       <div class="sc-actions">
-        <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>
-        <button class="sc-btn primary" data-det="${s.id}">📋</button>
-      </div></div>`;
+        <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}" title="Route">🧭</button>
+        <button class="sc-btn primary" data-det="${s.id}" title="Details">📋</button>
+      </div>
+    </div>`;
   }).join('');
-  body.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>navigateToSpot(+b.dataset.lat,+b.dataset.lng)));
-  body.querySelectorAll('[data-det]').forEach(b=>b.addEventListener('click',()=>{const s=allSpots.find(x=>x.id==b.dataset.det);if(s){closeDrawer();setTimeout(()=>openSpotDetail(s.id),300);}}));
+
+  body.querySelectorAll('[data-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng)));
+  body.querySelectorAll('[data-det]').forEach(b =>
+    b.addEventListener('click', () => {
+      const s = allSpots.find(x => x.id == b.dataset.det);
+      if (s) { closeDrawer(); setTimeout(() => openSpotDetail(s.id), 300); }
+    }));
+
+  // Wetter für User-Position einmal holen und auf alle Karten anwenden
+  // (Alle Spots sind nah beieinander – ein Abruf genügt)
+  try {
+    const w = await fetchWeather(userPos.lat, userPos.lng);
+    if (w) {
+      const emoji = weatherEmoji(w.current.weather_code);
+      const temp  = Math.round(w.current.temperature_2m);
+      spots.forEach(s => {
+        const badge = document.getElementById(`sw-${s.id}`);
+        if (badge) badge.textContent = `${emoji} ${temp}°`;
+      });
+    } else {
+      spots.forEach(s => {
+        const badge = document.getElementById(`sw-${s.id}`);
+        if (badge) badge.textContent = '🌡️';
+      });
+    }
+  } catch {
+    spots.forEach(s => {
+      const badge = document.getElementById(`sw-${s.id}`);
+      if (badge) badge.textContent = '🌡️';
+    });
+  }
 }
 
 // ── MATCH ────────────────────────────────────────────────────────────────────
