@@ -2,16 +2,6 @@
 <html lang="de">
 <head>
 
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "2f3953a1-9b2b-44a1-b1d0-f96f798a9a36",
-    });
-  });
-</script>
-
 <!-- Eruda -– Mobile Console (nur für Debugging)
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script> -->
@@ -679,6 +669,10 @@
     🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
   </button>
 
+  <!-- Push-Benachrichtigungen -->
+  <button class="icon-btn" id="pushBtn" onclick="togglePushNotifications()"
+          title="Benachrichtigungen">🔔</button>
+
   <button class="icon-btn" onclick="location.reload()">↺</button>
 </div>
 
@@ -910,7 +904,7 @@ const CODE = localStorage.getItem('sm_code') || '000000';
 // ── OpenRouteService API-Key ──────────────────────────────────────────────────
 // Kostenlos registrieren: https://openrouteservice.org → Dashboard → API Key
 // Dann hier eintragen:
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
+const ORS_KEY = '';
 
 let map, userPos, placeMode = false, tempLatLng = null;
 let mySpots = [], allSpots = [], markers = [];
@@ -4022,6 +4016,113 @@ async function loadWeeklyBadge() {
   } catch {}
 }
 
+// ── WEB PUSH NOTIFICATIONS ────────────────────────────────────────────────────
+
+// Konvertiert den VAPID Public Key von Base64 zu Uint8Array (Browser-Anforderung)
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Button-Zustand synchronisieren (aktiv / inaktiv / blockiert / nicht unterstützt)
+async function updatePushBtnState() {
+  const btn = document.getElementById('pushBtn');
+  if (!btn) return;
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    btn.style.opacity = '0.3'; btn.title = 'Push nicht unterstützt'; return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'denied') {
+    btn.textContent = '🔕'; btn.title = 'Benachrichtigungen blockiert (Browser-Einstellungen)';
+    btn.style.background = 'rgba(239,68,68,0.1)'; btn.style.borderColor = 'rgba(239,68,68,0.3)';
+    return;
+  }
+  // Prüfen ob eine aktive Subscription existiert
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      btn.textContent = '🔔'; btn.title = 'Benachrichtigungen aktiv – tippe zum Deaktivieren';
+      btn.style.background = 'var(--acc-dim)'; btn.style.borderColor = 'var(--acc-glow)';
+      btn.style.color = 'var(--acc)';
+    } else {
+      btn.textContent = '🔔'; btn.title = 'Benachrichtigungen aktivieren';
+      btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = '';
+    }
+  } catch {}
+}
+
+// 🔔 Button tippen → aktivieren oder deaktivieren
+async function togglePushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    toast('⚠️ Push-Benachrichtigungen werden nicht unterstützt'); return;
+  }
+  if (Notification.permission === 'denied') {
+    toast('🔕 Benachrichtigungen sind blockiert – bitte in den Browser-Einstellungen erlauben'); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Bereits aktiv → deaktivieren
+      await existing.unsubscribe();
+      const token = localStorage.getItem('sm_token');
+      await fetch(`${API}/push/unsubscribe`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: CODE, token, endpoint: existing.endpoint })
+      }).catch(() => {});
+      toast('🔕 Benachrichtigungen deaktiviert');
+    } else {
+      // Noch nicht aktiv → Berechtigung anfragen und subscriben
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { toast('❌ Berechtigung verweigert'); await updatePushBtnState(); return; }
+      await subscribeToPush(reg);
+      toast('🔔 Benachrichtigungen aktiviert!');
+    }
+  } catch (e) {
+    toast('⚠️ Fehler: ' + e.message);
+  }
+  await updatePushBtnState();
+}
+
+async function subscribeToPush(reg) {
+  // VAPID Public Key vom Server holen
+  const keyRes  = await fetch(`${API}/push/vapid-public-key`);
+  const keyData = await keyRes.json();
+  if (!keyData.publicKey) throw new Error('Kein VAPID-Key – Push nicht konfiguriert');
+
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly:      true,
+    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+  });
+
+  const token = localStorage.getItem('sm_token');
+  const r = await fetch(`${API}/push/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: CODE, token, subscription })
+  });
+  if (!r.ok) throw new Error('Subscription konnte nicht gespeichert werden');
+}
+
+// Wenn der Nutzer auf eine Push-Notification tippt → in der App navigieren
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'PUSH_NAVIGATE' && event.data.url) {
+      const url = event.data.url;
+      if (url.startsWith('/spot-woche')) {
+        window.location.href = url;
+      } else {
+        // Intern: Drawer oder Modal öffnen könnten hier ergänzt werden
+        toast('🔔 ' + url);
+      }
+    }
+  });
+}
+
 // ── MATCH ────────────────────────────────────────────────────────────────────
 function showMatch(name,spot) {
   document.getElementById('matchName').textContent=name;
@@ -4082,6 +4183,7 @@ initMap();
 startGlobalChatPolling(); // Hintergrund-Wächter: prüft alle 10 Sek. auf neue Chat-Nachrichten
 loadFavoritesCache();     // Favoriten einmalig laden damit der ⭐-Button sofort den Status kennt
 loadWeeklyBadge();        // Wochen-Spot Badge beim Start laden
+updatePushBtnState();     // 🔔 Button-Zustand beim Start synchronisieren
 
 document.getElementById('weeklyModal').addEventListener('click', function(e) {
   if (e.target === this) closeWeeklyModal();
