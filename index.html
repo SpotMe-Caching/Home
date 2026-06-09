@@ -3836,7 +3836,7 @@ function openWeeklyCreateModal() {
     const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
     weeklyMiniMap = new maplibregl.Map({
       container: 'weeklyCreateMap',
-      style: 'https://tiles.openfreemap.org/styles/dark',
+      style: 'https://tiles.openfreemap.org/styles/bright',
       center,
       zoom: 13,
       attributionControl: false
