@@ -54,18 +54,27 @@
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  z-index: 100;
+  z-index: 200;
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.75rem 1rem;
-  padding-top: max(0.75rem, env(safe-area-inset-top));
-  background: linear-gradient(to bottom, rgba(10,13,18,0.95) 0%, transparent 100%);
+  padding: max(0.7rem, env(safe-area-inset-top)) 1rem 0.7rem;
+  background: linear-gradient(to right, rgba(10,13,18,0.9) 0%, transparent 100%);
   pointer-events: none;
 }
-    
-    .topbar > * { pointer-events:all; }
+.topbar > * { pointer-events: all; }
+
+/* Vertikale Icon-Spalte rechts */
+#sideIcons {
+  position: fixed;
+  right: 10px;
+  top: max(10px, env(safe-area-inset-top));
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+#sideIcons > * { pointer-events: all; }
     .logo { font-family:'Space Mono',monospace; font-size:1rem; font-weight:700; color:var(--acc); letter-spacing:0.05em; margin-right:auto; display:flex; align-items:center; gap:0.4rem; }
     .logo-dot { width:7px; height:7px; border-radius:50%; background:var(--acc); box-shadow:0 0 10px var(--acc); animation:pulse-dot 2s ease infinite; }
     @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
@@ -634,46 +643,43 @@
 </div>
   
   <div class="topbar">
-  <div class="logo">
-    <div class="logo-dot"></div>
-    SPOT<span style="color:var(--text);font-weight:300;">ME</span>
-    <span class="logo-sub">Caching V1</span>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      SPOT<span style="color:var(--text);font-weight:300;">ME</span>
+      <span class="logo-sub">Caching V1</span>
+    </div>
   </div>
-  <button class="icon-btn" onclick="location.href='profil-caching.html'">👤</button>
 
-  <!-- Push-Benachrichtigungen -->
-  <button class="icon-btn" id="pushBtn" onclick="togglePushNotifications()"
-          title="Benachrichtigungen">🔔</button>
-      
-  <button class="icon-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')">
-    📨<span class="badge" id="inviteBadge" style="display:none">0</span>
-  </button>
+  <!-- Vertikale Icon-Spalte rechts -->
+  <div id="sideIcons">
+    <button class="icon-btn" onclick="location.href='profil-caching.html'" title="Profil">👤</button>
 
-  <!-- Bevorstehende Treffen Button -->
-  <button class="icon-btn" id="meetingsBtn" onclick="openMeetingsModal()"
-          title="Bevorstehende Treffen">
-    📅<span class="badge" id="meetingsBadge" style="display:none;background:#10b981;">0</span>
-  </button>
+    <button class="icon-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
+      📨<span class="badge" id="inviteBadge" style="display:none">0</span>
+    </button>
 
-  <!-- Chat-Benachrichtigungs-Button -->
-  <!-- Öffnet die Chat-Liste mit allen Gesprächen -->
-  <button class="icon-btn" id="chatHeaderBtn" onclick="openDrawer('chats')">
-    💬<span class="badge" id="chatBadge" style="display:none">0</span>
-  </button>
+    <button class="icon-btn" id="meetingsBtn" onclick="openMeetingsModal()" title="Bevorstehende Treffen">
+      📅<span class="badge" id="meetingsBadge" style="display:none;background:#10b981;">0</span>
+    </button>
 
-  <!-- Favoriten-Button -->
-  <button class="icon-btn" onclick="openDrawer('favorites')"
-          title="Meine Favoriten">
-    ⭐<span class="badge" id="favBadge" style="display:none">0</span>
-  </button>
+    <button class="icon-btn" id="chatHeaderBtn" onclick="openDrawer('chats')" title="Chat">
+      💬<span class="badge" id="chatBadge" style="display:none">0</span>
+    </button>
 
-  <!-- Wochen-Spot Button -->
-  <button class="icon-btn" id="weeklyBtn" onclick="openDrawer('weekly')"
-          title="Wochen-Spots">
-    🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
-  </button>
+    <button class="icon-btn" onclick="openDrawer('favorites')" title="Favoriten">
+      ⭐<span class="badge" id="favBadge" style="display:none">0</span>
+    </button>
 
-</div>
+    <button class="icon-btn" id="weeklyBtn" onclick="openDrawer('weekly')" title="Wochen-Spots">
+      🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
+    </button>
+
+    <button class="icon-btn" id="pushBtn" onclick="togglePushNotifications()" title="Benachrichtigungen">🔔</button>
+
+    <button class="icon-btn" onclick="location.href='waypoints.html'" title="WayPoint Caching">🗺️</button>
+
+    <button class="icon-btn" onclick="location.reload()" title="Neu laden">↺</button>
+  </div>
 
 <div class="stats-strip">
   <div class="stat-pill">SPOTS <span class="val" id="statSpots">0</span></div>

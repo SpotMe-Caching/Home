@@ -5,7 +5,7 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'v30.8';
+const CACHE_VERSION = 'v31.0';
 const CACHE_STATIC  = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API     = `spotme-api-${CACHE_VERSION}`;
 
@@ -15,6 +15,7 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/spot-woche.html',
+  'waypoints.html',
   '/profil-caching.html',
   '/landing.html',
   '/404.html',
