@@ -897,6 +897,11 @@
 const API  = 'https://spotme-chat-obom.onrender.com/api';
 const CODE = localStorage.getItem('sm_code') || '000000';
 
+// ── OpenRouteService API-Key ──────────────────────────────────────────────────
+// Kostenlos registrieren: https://openrouteservice.org → Dashboard → API Key
+// Dann hier eintragen:
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
+
 let map, userPos, placeMode = false, tempLatLng = null;
 let mySpots = [], allSpots = [], markers = [];
 let onlineSet = new Set();
@@ -1570,14 +1575,26 @@ async function naviFetchRoute() {
   naviRouting = true;
   naviLastRoutePos = { ...userPos };
 
-  const base = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
-  const [footData, carData] = await Promise.all([
-    fetch(`https://router.project-osrm.org/route/v1/foot/${base}`).then(r => r.json()).catch(() => null),
-    fetch(`https://router.project-osrm.org/route/v1/driving/${base}`).then(r => r.json()).catch(() => null)
-  ]);
+  const start = `${userPos.lng},${userPos.lat}`;
+  const end   = `${naviTarget.lng},${naviTarget.lat}`;
+
+  // Auto-Route: OSRM (kein Key nötig)
+  const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
+  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
+    .then(r => r.json()).catch(() => null);
+
+  // Fußweg: ORS foot-hiking (Wanderwege, Trampelpfade, Off-Road)
+  // Fallback auf OSRM foot wenn kein Key eingetragen ist
+  const footPromise = ORS_KEY
+    ? fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`)
+        .then(r => r.json()).catch(() => null)
+    : fetch(`https://router.project-osrm.org/route/v1/foot/${osrmBase}`)
+        .then(r => r.json()).catch(() => null);
+
+  const [carData, footRaw] = await Promise.all([carPromise, footPromise]);
 
   naviRouting = false;
-  if (!naviMap) return; // Overlay wurde während des Fetches geschlossen
+  if (!naviMap) return; // Overlay geschlossen während Fetch lief
 
   naviClearRouteLayers();
 
@@ -1586,7 +1603,7 @@ async function naviFetchRoute() {
     return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
   };
 
-  // Auto-Route (amber, durchgezogen)
+  // Auto-Route zeichnen (OSRM-Format)
   if (carData?.routes?.length) {
     const r = carData.routes[0];
     naviMap.addSource('navi-src-car', { type: 'geojson', data: { type: 'Feature', geometry: r.geometry } });
@@ -1595,13 +1612,24 @@ async function naviFetchRoute() {
     document.getElementById('naviCarVal').textContent = fmtMin(r.duration);
   }
 
-  // Fußweg (cyan, gestrichelt)
-  if (footData?.routes?.length) {
-    const r = footData.routes[0];
-    naviMap.addSource('navi-src-foot', { type: 'geojson', data: { type: 'Feature', geometry: r.geometry } });
+  // Fußweg zeichnen – ORS und OSRM haben unterschiedliche Response-Formate
+  let footGeometry = null, footDuration = null;
+
+  if (ORS_KEY && footRaw?.features?.length) {
+    // ORS-Format: features[0].geometry + features[0].properties.summary.duration
+    footGeometry = footRaw.features[0].geometry;
+    footDuration  = footRaw.features[0].properties?.summary?.duration;
+  } else if (!ORS_KEY && footRaw?.routes?.length) {
+    // OSRM-Fallback-Format: routes[0].geometry + routes[0].duration
+    footGeometry = footRaw.routes[0].geometry;
+    footDuration  = footRaw.routes[0].duration;
+  }
+
+  if (footGeometry) {
+    naviMap.addSource('navi-src-foot', { type: 'geojson', data: { type: 'Feature', geometry: footGeometry } });
     naviMap.addLayer({ id: 'navi-foot-casing', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 6, 'line-opacity': 0.6 } });
     naviMap.addLayer({ id: 'navi-foot', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-color': '#22d3ee', 'line-width': 3, 'line-opacity': 1, 'line-dasharray': [2, 2] } });
-    document.getElementById('naviFootVal').textContent = fmtMin(r.duration);
+    if (footDuration) document.getElementById('naviFootVal').textContent = fmtMin(footDuration);
   }
 }
 
