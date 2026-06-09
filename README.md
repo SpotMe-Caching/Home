@@ -1,7 +1,7 @@
 # 🗺️ SpotMe · Caching
 
 > **Entdecke. Verbinde. Triff dich.**  
-> Eine mobile-first PWA zum Setzen, Teilen und Entdecken von geheimen Spots — mit integriertem Einladungssystem, Profilen, Chat und Navigation.
+> Eine mobile-first PWA zum Setzen, Teilen und Entdecken von geheimen Spots — mit integriertem Einladungssystem, Profilen, Chat, Wochen-Spots und In-App-Navigation.
 
 ---
 
@@ -19,18 +19,41 @@ Das Projekt läuft als Progressive Web App (PWA) direkt im Browser — keine App
 - **MapLibre GL** mit OpenFreeMap Tiles — 100% Open Source, kein API-Key
 - Eigene Spot-Marker (Amber) mit Online-Puls-Indikator
 - Fremde Spot-Marker mit Live-Online-Status
-- Radius-Suche (2 / 5 / 10 km) mit GeoJSON-Kreis auf der Karte
-- **Neue Spots** — zeigt Spots der letzten 24h im 2km Umkreis mit grünem Puls-Marker
-- Doppelte Navigation: 🚶 Fußweg (Cyan) + 🚗 Auto (Amber) via OSRM — Open Source Routing
+- **Kategorie-Filter-Strip** — horizontale Pills auf der Karte (Park, Restaurant, Strand …) filtern Spots live nach Kategorie
+- **Radius-Suche** (2 / 5 / 10 km) mit GeoJSON-Kreis und kombiniertem Kategorie-Filter direkt im Such-Modal — Ergebnisse sortiert nach Entfernung, mit Wetter-Badge und Navigations-Button
+- **Neue Spots** — zeigt Spots der letzten 24h im 2 km Umkreis mit grünem Puls-Marker
+
+### 🧭 In-App Navigation
+- **Vollbild-Overlay** ersetzt Google Maps komplett — kein App-Wechsel
+- Live-GPS-Tracking via `watchPosition` — User-Marker bewegt sich in Echtzeit
+- **Zwei Routen gleichzeitig:**
+  - 🚶 Fußweg (Cyan, gestrichelt) via **OpenRouteService `foot-hiking`** — kennt Wanderwege, Trampelpfade und unbefestigte Off-Road-Tracks
+  - 🚗 Auto (Amber) via **OSRM** — klassisches Straßenrouting
+- **25 m Schwelle** — Route wird nur neu berechnet wenn der Nutzer wirklich weitergelaufen ist (kein API-Spam, keine Unruhe)
+- Karte folgt dem Nutzer automatisch — ⊕-Button holt die Zentrierung zurück nach manuellem Scrollen
+- Distanz, Fußzeit und Fahrzeit permanent im unteren Panel sichtbar
+- Schließen per ✕, „Navigation beenden"-Button oder ESC
+
+### 🗓️ Wochen-Spots
+- **Privater Spot mit 7-Tage-Ablauf** — erstellen, Link teilen, fertig
+- Kein Login für Besucher nötig — jeder mit dem Link kann den Spot sehen und einchecken
+- Anonyme Check-ins mit Label (Anonym #1, #2 …)
+- Countdown bis zum Ablauf live auf der Ansichtsseite (`spot-woche.html`)
+- Eigene Wochen-Spots verwalten (Erstellen, Teilen, Löschen) über neues 🗓️-Icon in der Topbar
+- Automatische Datenbankbereinigung nach Ablauf
+- Native Share-API für iOS/Android — ein Tap zum Teilen
 
 ### 📍 Spots
-- Spot setzen durch Tap auf die Karte
+- Spot setzen über dedizierte Erstellungsseite (`spot-erstellen.html`) mit Kategorie, Tageszeit, Andrang und Intimität
+- Kategorien mit Emoji (Park 🌳, Restaurant 🍽️, Strand 🏖️ …)
 - Name, Beschreibung, Wunsch-Tag und optionales Foto pro Spot
+- Foto-Upload mit automatischer Canvas-Komprimierung (JPEG 72%)
 - Spot bearbeiten und löschen
-- **Spot deaktivieren / reaktivieren** — Soft Delete: Spot bleibt in der Datenbank erhalten, verschwindet aber von der Karte bis er wieder aktiviert wird
+- **Spot deaktivieren / reaktivieren** — Soft Delete
 - Spot-Alter-Anzeige (gerade eben / vor X Min / vor Xh / gestern)
 - Foto-Fullscreen per Tap
-- Bild-Moderation: jedes neue Spot-Foto muss vom Admin freigegeben werden
+- Bild-Moderation: neues Spot-Foto muss vom Admin freigegeben werden
+- **Open-Meteo Wetter** — Vorhersage für die nächsten 8 Stunden direkt im Spot-Detail
 
 ### 👤 Profile
 - Anzeigename, Geburtsjahr (einmalig), Region/Provinz/Stadt
@@ -38,20 +61,19 @@ Das Projekt läuft als Progressive Web App (PWA) direkt im Browser — keine App
 - Avatar-Upload mit automatischer Komprimierung (Canvas, JPEG 72%)
 - Avatar-Moderation durch Admin
 - Meine Spots Tab — alle eigenen Spots in der Profilansicht
-- Export als JSON
 - **Account-Backup & Restore** — vollständiger Export als JSON-Datei inkl. Code + Token; nach Cache-Löschen oder Gerätewechsel vollständig wiederherstellbar durch Serverabgleich
 
 ### 📨 Einladungssystem
 - Einladung an Spot-Inhaber senden (Zeitraum wählen)
 - Akzeptieren / Ablehnen
-- Check-in per GPS wenn beide am Spot sind (50m-Radius-Prüfung)
+- Check-in per GPS wenn beide am Spot sind (50 m-Radius-Prüfung)
 - Match-Screen bei gegenseitigem Check-in + automatische gegenseitige Verifikation
-- **Abgelaufene Einladungen** werden automatisch archiviert (`expired`) und in einem zusammenklappbaren "Vergangene Treffen"-Bereich angezeigt — nach 30 Tagen automatisch gelöscht
+- **Abgelaufene Einladungen** werden automatisch archiviert (`expired`) — nach 30 Tagen automatisch gelöscht
 
 ### 💬 Chat & Messenger
-- Direktnachrichten zwischen Nutzer und Spot-Inhaber — **ohne vorherige Einladung** erreichbar direkt aus dem Spot-Detail-Modal
-- **Chat-Liste** (WhatsApp-Style) mit Vorschautext, Uhrzeit und Ungelesen-Zähler pro Gespräch
-- **Hintergrund-Benachrichtigung** — neues Chat-Icon in der Topbar pulsiert mit Badge-Zähler wenn neue Nachrichten eingegangen sind, auch wenn die App im Hintergrund läuft
+- Direktnachrichten zwischen Nutzer und Spot-Inhaber — ohne vorherige Einladung
+- **Chat-Liste** (WhatsApp-Style) mit Vorschautext, Uhrzeit und Ungelesen-Zähler
+- **Hintergrund-Benachrichtigung** — Chat-Icon pulsiert mit Badge-Zähler für neue Nachrichten
 - Offline-Nachrichten — werden zugestellt wenn der Empfänger wieder online ist
 - Nachrichten werden clientseitig im localStorage gespeichert für sofortige Anzeige
 
@@ -64,8 +86,8 @@ Das Projekt läuft als Progressive Web App (PWA) direkt im Browser — keine App
 ### 📱 PWA
 - Installierbar auf iOS und Android
 - Offline-fähig via Service Worker
-- Cache-Strategie: Static Files → Stale-While-Revalidate, API → immer Network (niemals gecacht)
-- `CACHE_VERSION` in `sw.js` bei jedem Deploy hochzählen um Nutzer auf den neuesten Stand zu bringen
+- Cache-Strategie: Static Files → Stale-While-Revalidate, API → immer Network
+- `CACHE_VERSION` in `sw.js` bei jedem Deploy hochzählen
 
 ---
 
@@ -75,8 +97,10 @@ Das Projekt läuft als Progressive Web App (PWA) direkt im Browser — keine App
 |---|---|
 | Frontend | Vanilla JS, HTML5, CSS3 — keine Frameworks, keine Dependencies |
 | Karte | [MapLibre GL](https://maplibre.org/) |
-| Tiles | [OpenFreeMap](https://openfreemap.org/) (Liberty Style) |
-| Routing | [OSRM](https://project-osrm.org/) (Open Source Routing Machine) |
+| Tiles | [OpenFreeMap](https://openfreemap.org/) (Liberty / Bright Style) |
+| Routing Fußweg | [OpenRouteService](https://openrouteservice.org/) `foot-hiking` (kostenloser API-Key) |
+| Routing Auto | [OSRM](https://project-osrm.org/) (kein Key nötig) |
+| Wetter | [Open-Meteo](https://open-meteo.com/) (kostenlos, kein Key) |
 | Backend | Node.js + Express |
 | Datenbank | PostgreSQL via [Neon](https://neon.tech/) (Serverless) |
 | Hosting | GitHub Pages (Frontend) + [Render](https://render.com/) (Backend) |
@@ -89,7 +113,9 @@ Das Projekt läuft als Progressive Web App (PWA) direkt im Browser — keine App
 
 ```
 spotme-caching/
-├── index.html              # Hauptkarte — Spots, Navigation, Einladungen, Chat
+├── index.html              # Hauptkarte — Spots, Navigation, Chat, Wochen-Spots
+├── spot-erstellen.html     # Spot-Erstellungsseite (Kategorie, Foto, GPS)
+├── spot-woche.html         # Öffentliche Ansicht für geteilte Wochen-Spots
 ├── profil-caching.html     # Profil erstellen / bearbeiten / Backup
 ├── admin.html              # Admin-Panel (Avatar + Spot-Bild Moderation)
 ├── 404.html                # Custom 404-Seite (PWA-Style)
@@ -103,7 +129,7 @@ spotme-caching/
 ## 🚀 Setup
 
 ### Voraussetzungen
-Node.js ≥ 18 und eine PostgreSQL-Datenbank (z.B. via [Neon](https://neon.tech/) oder [Render](https://render.com/)) werden benötigt.
+Node.js ≥ 18 und eine PostgreSQL-Datenbank (z.B. via [Neon](https://neon.tech/)) werden benötigt.
 
 ### Backend starten
 
@@ -121,11 +147,22 @@ DATABASE_URL=postgres://... ADMIN_KEY=dein-geheimes-key CRYPTO_KEY=$(openssl ran
 | `CRYPTO_KEY` | 64-stelliger Hex-String für AES-256-Datenverschlüsselung (`openssl rand -hex 32`) |
 | `PORT` | Server-Port (Standard: 3000, wird von Render automatisch gesetzt) |
 
+### OpenRouteService API-Key
+
+Für `foot-hiking` Navigation kostenlos registrieren unter [openrouteservice.org](https://openrouteservice.org).  
+Key in `index.html` eintragen:
+
+```js
+const ORS_KEY = 'dein-ors-key-hier'; // Zeile ~902
+```
+
+Ohne Key: automatischer Fallback auf OSRM `foot` (nur befestigte Wege).
+
 ### Frontend deployen
 
 Alle HTML-Dateien auf GitHub Pages deployen. Der Service Worker wird automatisch registriert.
 
-**Wichtig bei jedem Update:** `CACHE_VERSION` in `sw.js` hochzählen — sonst erhalten Nutzer weiterhin die alte gecachte Version, da der Browser nicht weiß dass sich etwas geändert hat.
+**Wichtig bei jedem Update:** `CACHE_VERSION` in `sw.js` hochzählen.
 
 ```js
 const CACHE_VERSION = 'v9'; // bei jedem Deploy um 1 erhöhen
@@ -133,11 +170,7 @@ const CACHE_VERSION = 'v9'; // bei jedem Deploy um 1 erhöhen
 
 ### Datenbank einrichten
 
-Die Tabellen werden beim ersten Serverstart automatisch durch `initDB()` erstellt. Für das Spot-Deaktivierungs-Feature muss einmalig diese Migration in Neon ausgeführt werden:
-
-```sql
-ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
-```
+Alle Tabellen werden beim ersten Serverstart automatisch durch `initDB()` erstellt — inklusive `weekly_spots`. Keine manuellen Migrationen nötig.
 
 ---
 
@@ -146,32 +179,12 @@ ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 | Tabelle | Inhalt |
 |---|---|
 | `profiles` | Nutzerprofile (verschlüsselt via AES-256) |
-| `user_spots` | Spots mit Koordinaten, Foto, Beschreibung, `active`-Status |
+| `user_spots` | Spots mit Koordinaten, Foto, Beschreibung, Kategorie, `active`-Status |
 | `spot_cache_invites` | Treffpunkt-Einladungen mit Zeitfenstern und Status-Lifecycle |
-| `spot_cache_requests` | SpotCache Anfragen (Legacy) |
 | `offline_messages` | Nachrichten an offline Nutzer + Chat-Nachrichten (`spot_type`) |
-| `missed_calls` | Verpasste Anrufe |
 | `verifications` | Persönliche Verifikationen nach erfolgreichem Check-in |
 | `profile_comments` | Story-Kommentare |
-
-### Datenbank zurücksetzen (nur Entwicklung)
-
-```sql
-TRUNCATE TABLE spot_cache_invites   RESTART IDENTITY CASCADE;
-TRUNCATE TABLE spot_cache_requests  RESTART IDENTITY CASCADE;
-TRUNCATE TABLE profile_comments     RESTART IDENTITY CASCADE;
-TRUNCATE TABLE offline_messages     RESTART IDENTITY CASCADE;
-TRUNCATE TABLE missed_calls         RESTART IDENTITY CASCADE;
-TRUNCATE TABLE verifications        RESTART IDENTITY CASCADE;
-TRUNCATE TABLE user_spots           RESTART IDENTITY CASCADE;
-TRUNCATE TABLE profiles             RESTART IDENTITY CASCADE;
-```
-
----
-
-## 🔒 Admin-Panel
-
-Das Admin-Panel (`admin.html`) ermöglicht die Moderation von Avatar-Fotos (Freigeben oder Ablehnen) und Spot-Fotos (Freigeben oder Ablehnen). Der Zugang erfolgt mit dem `ADMIN_KEY` aus den Environment Variables. Neue Fotos sind standardmäßig `pending` und erst nach manueller Freigabe für andere Nutzer sichtbar.
+| `weekly_spots` | Wochen-Spots (privat, 7-Tage-Ablauf, anonyme Check-ins via Link) |
 
 ---
 
@@ -180,7 +193,7 @@ Das Admin-Panel (`admin.html`) ermöglicht die Moderation von Avatar-Fotos (Frei
 ```
 GET    /api/userspots/all               Alle aktiven Spots (WHERE active = true)
 GET    /api/userspots/:code             Spots eines Nutzers
-POST   /api/userspots                   Neuen Spot anlegen (active = true)
+POST   /api/userspots                   Neuen Spot anlegen
 PUT    /api/userspots/:id               Spot bearbeiten
 PATCH  /api/userspots/:id/toggle        Spot aktivieren / deaktivieren (Soft Delete)
 DELETE /api/userspots/:id               Spot endgültig löschen
@@ -198,6 +211,12 @@ POST   /api/spotcache/checkin           Check-in am Spot (50m-Radius-Prüfung)
 POST   /api/message                     Chat-Nachricht senden
 GET    /api/messages/:code              Chat-Nachrichten abrufen
 
+POST   /api/weekly-spots                Wochen-Spot erstellen (Auth required)
+GET    /api/weekly-spots/mine           Meine Wochen-Spots (Auth required)
+GET    /api/weekly-spots/:token         Spot öffentlich abrufen (kein Login)
+POST   /api/weekly-spots/:token/checkin Anonym einchecken (kein Login)
+DELETE /api/weekly-spots/:token         Wochen-Spot löschen (Auth required)
+
 GET    /api/admin/pending-avatars       Avatar-Moderation
 POST   /api/admin/avatar-action         Avatar freigeben / ablehnen
 GET    /api/admin/pending-spot-images   Spot-Bild-Moderation
@@ -206,10 +225,19 @@ POST   /api/admin/spot-image-action     Spot-Bild freigeben / ablehnen
 
 ---
 
+## 🔒 Admin-Panel
+
+Das Admin-Panel (`admin.html`) ermöglicht die Moderation von Avatar-Fotos und Spot-Fotos (Freigeben oder Ablehnen). Der Zugang erfolgt mit dem `ADMIN_KEY` aus den Environment Variables. Neue Fotos sind standardmäßig `pending` und erst nach manueller Freigabe sichtbar.
+
+---
+
 ## 🔮 Roadmap
 
 ### ✅ Bereits implementiert
 - [x] Spot setzen, bearbeiten, löschen
+- [x] Spot-Kategorie-System mit Emoji (Park, Restaurant, Strand …)
+- [x] Kategorie-Filter-Strip auf der Karte
+- [x] Kombinierte Radius + Kategorie-Suche mit Wetter-Badge und Distanz-Sortierung
 - [x] Einladungssystem mit Zeitfenstern
 - [x] GPS Check-in mit 50m-Radius-Prüfung
 - [x] Gegenseitige Verifikation nach Check-in
@@ -222,16 +250,15 @@ POST   /api/admin/spot-image-action     Spot-Bild freigeben / ablehnen
 - [x] AES-256-Verschlüsselung aller Profildaten
 - [x] Avatar- und Spot-Foto-Moderation durch Admin
 - [x] Service Worker mit intelligenter Cache-Strategie
-- [x] Open-Meteo der Dir das Wetter für die nächsten 8 Stunden für den Spot zeigt.
+- [x] Open-Meteo Wetter im Spot-Detail und Einladungen
+- [x] Wochen-Spot — privater 7-Tage-Spot mit anonymem Link-Sharing
+- [x] In-App Navigation — Vollbild-Overlay mit Live-GPS, foot-hiking (ORS) + Auto (OSRM)
 
 ### 🔜 Demnächst geplant
-- [ ] **Spot-Besuchshistorie** — nach einem erfolgreichen Check-in wird der Spot in einer persönlichen "Bereits besucht"-Liste gespeichert, die im Profil einsehbar ist
-- [ ] **Wish-Tag-Filter auf der Karte** — Nutzer können die Karte nach bestimmten Wunsch-Tags filtern um nur relevante Spots zu sehen
-- [ ] **Einladungs-Benachrichtigung** — ähnlich wie der Chat-Badge soll ein pulsierender Badge erscheinen wenn eine neue Einladung eingegangen ist, auch wenn die App im Hintergrund läuft
-- [ ] **Marker-Clustering** — bei vielen Spots in einem Bereich werden diese zu einer Gruppe zusammengefasst um die Karte übersichtlich zu halten
-- [ ] **Spot-Kategorie-System** — Spots können einer Kategorie zugewiesen werden (z.B. Natur, Stadt, Geheim) um die Suche zu verbessern
-- [ ] **Öffentliche Spot-Liste im Profil** — alle Spots eines Nutzers sind auf seinem öffentlichen Profil einsehbar
-- [ ] **Haptic Feedback** — kurze Vibration bei wichtigen Aktionen (Check-in erfolgreich, neue Nachricht)
+- [ ] **Ankunftserkennung** — „Du bist angekommen"-Meldung wenn Nutzer <20 m vom Spot entfernt ist
+- [ ] **Spot-Besuchshistorie** — nach erfolgreichem Check-in wird der Spot in einer persönlichen „Bereits besucht"-Liste im Profil gespeichert
+- [ ] **Marker-Clustering** — bei vielen Spots in einem Bereich werden diese zu einer Gruppe zusammengefasst
+- [ ] **Haptic Feedback** — kurze Vibration bei wichtigen Aktionen (Check-in, neue Nachricht)
 - [ ] **Spot-Ablaufdatum** — Eigentümer kann einen Zeitraum setzen nach dem der Spot automatisch deaktiviert wird
 
 ---

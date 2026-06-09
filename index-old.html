@@ -2,9 +2,9 @@
 <html lang="de">
 <head>
 
-<!-- Eruda -– Mobile Console (nur für Debugging)
+<!-- Eruda -– Mobile Console (nur für Debugging) -->
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script> -->
+  <script>eruda.init();</script>
 
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0a0d12">
@@ -167,6 +167,18 @@
 
     /* Ergebniskarte im Radius-Drawer: Wetter-Badge */
     .sc-weather { display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:100px; background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.2); color:var(--cyan); font-size:0.65rem; font-weight:600; font-family:'Space Mono',monospace; }
+
+    /* ── Wochen-Spot ──────────────────────────────────────────────────── */
+    #weeklyCreateMap { width:100%; height:175px; border-radius:12px; overflow:hidden; margin-bottom:0.75rem; border:1px solid var(--bord2); }
+    .weekly-share-url { background:var(--card); border:1px solid rgba(34,211,238,0.25); border-radius:11px; padding:0.75rem 1rem; font-family:'Space Mono',monospace; font-size:0.7rem; color:var(--cyan); word-break:break-all; margin:0.75rem 0; letter-spacing:0.02em; cursor:pointer; }
+    .weekly-countdown { font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--acc); text-align:center; padding:0.35rem 0 0.1rem; }
+    .weekly-card { background:var(--card); border:1px solid var(--bord); border-radius:14px; padding:0.9rem 1rem; margin-bottom:0.5rem; }
+    .weekly-card-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; }
+    .weekly-card-icon { width:38px; height:38px; border-radius:10px; background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.2); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .weekly-card-name { font-weight:600; font-size:0.9rem; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .weekly-card-meta { font-size:0.7rem; color:var(--muted2); display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.55rem; align-items:center; }
+    .weekly-card-actions { display:flex; gap:0.4rem; }
+    .weekly-tag { display:inline-block; padding:2px 7px; border-radius:100px; background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.2); color:var(--cyan); font-size:0.65rem; font-weight:600; font-family:'Space Mono',monospace; }
 
     .match-screen { position:absolute; inset:0; z-index:800; background:rgba(10,13,18,0.96); display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem; }
     .match-screen.show { display:flex; }
@@ -566,6 +578,12 @@
     ⭐<span class="badge" id="favBadge" style="display:none">0</span>
   </button>
 
+  <!-- Wochen-Spot Button -->
+  <button class="icon-btn" id="weeklyBtn" onclick="openDrawer('weekly')"
+          title="Wochen-Spots">
+    🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
+  </button>
+
   <button class="icon-btn" onclick="location.reload()">↺</button>
 </div>
 
@@ -725,6 +743,16 @@
   </div>
 </div>
 
+<!-- ── Wochen-Spot Modal (Erstellen + Share in einem) ───────────────── -->
+<div class="modal-overlay" id="weeklyModal" style="z-index:660;">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="weeklyModalContent">
+      <!-- Wird per JS befüllt: create-State oder share-State -->
+    </div>
+  </div>
+</div>
+
 <div class="match-screen" id="matchScreen">
   <div class="match-ring">🎯</div>
   <div class="match-label">Match gefunden</div>
@@ -754,6 +782,7 @@ let invitePollInterval = null, knownInviteCount = 0;
 let toastTimer, currentDrawer = null;
 let activeRadius = null, detailSpot = null, detailMiniMap = null;
 let radiusCatFilter = null; // Kategorie-Filter nur für Radius-Suche (unabhängig vom Karten-Filter)
+let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null; // Wochen-Spot Erstell-Karte
 
 // Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
 function buildRadiusCatPills() {
@@ -1504,6 +1533,10 @@ function openDrawer(type) {
   } else if (type === 'invites') {
     title.textContent='EINLADUNGEN';
     loadInvitesIntoDrawer(body);
+
+  } else if (type === 'weekly') {
+    title.textContent = '🗓️ WOCHEN-SPOTS';
+    loadWeeklyDrawer(body);
   }
 }
 
@@ -3461,6 +3494,270 @@ async function openDrawerFiltered(spots, km) {
   }
 }
 
+// ── WOCHEN-SPOTS ─────────────────────────────────────────────────────────────
+
+// Formatiert die verbleibende Zeit bis zum Ablauf des Weekly Spots
+function weeklyTimeLeft(timestamp) {
+  const rem = timestamp - Date.now();   // timestamp ist bereits Millisekunden
+  if (rem <= 0) return '⚠️ Abgelaufen';
+  const d = Math.floor(rem / 86400000);
+  const h = Math.floor((rem % 86400000) / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
+  if (d > 0) return `⏳ Noch ${d} Tag${d !== 1 ? 'e' : ''} ${h}h`;
+  if (h > 0) return `⏳ Noch ${h}h ${m}min`;
+  return `⏳ Noch ${m}min`;
+}
+
+// Drawer: Meine aktiven Wochen-Spots laden und anzeigen
+async function loadWeeklyDrawer(body) {
+  body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  const token = localStorage.getItem('sm_token');
+  let spots = [];
+  try {
+    const r = await fetch(`${API}/weekly-spots/mine?code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(token)}`);
+    if (r.ok) spots = await r.json();
+  } catch {}
+
+  // Badge-Zahl aktualisieren
+  const badge = document.getElementById('weeklyBadge');
+  if (badge) {
+    badge.textContent = spots.length;
+    badge.style.display = spots.length ? 'flex' : 'none';
+  }
+
+  // Erstellen-Button immer oben
+  const createBtn = `<button class="btn-primary" style="margin-bottom:0.75rem;font-size:0.88rem;padding:0.7rem;"
+    onclick="openWeeklyCreateModal()">✨ Neuen Wochen-Spot erstellen</button>`;
+
+  if (!spots.length) {
+    body.innerHTML = createBtn + `<div class="empty-state"><div class="es-icon">🗓️</div>Noch keine Wochen-Spots.<br><span style="font-size:0.75rem;">Erstelle einen und teile den Link.</span></div>`;
+    return;
+  }
+
+  body.innerHTML = createBtn + spots.map(s => {
+    const catEmoji = CATEGORY_EMOJI[s.category] || '📍';
+    const shareUrl = `${window.location.origin}/spot-woche.html?token=${s.token}`;
+    return `<div class="weekly-card">
+      <div class="weekly-card-head">
+        <div class="weekly-card-icon">${catEmoji}</div>
+        <div class="weekly-card-name">${esc(s.name)}</div>
+      </div>
+      <div class="weekly-card-meta">
+        ${s.category ? `<span class="weekly-tag">${s.category}</span>` : ''}
+        <span class="weekly-countdown">${s.meeting_at ? weeklyTimeLeft(s.meeting_at) : weeklyTimeLeft(s.expires_at)}</span>
+        <span style="font-size:0.68rem;color:var(--muted2);">👥 ${s.checkin_count} Check-in${s.checkin_count !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="weekly-card-actions">
+        <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}" title="Route">🧭</button>
+        <button class="sc-btn success" data-share-token="${s.token}" data-share-name="${esc(s.name)}" title="Teilen">🔗 Teilen</button>
+        <button class="sc-btn danger" data-del-weekly="${s.token}" title="Löschen">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.querySelectorAll('[data-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng))
+  );
+  body.querySelectorAll('[data-share-token]').forEach(b =>
+    b.addEventListener('click', () => {
+      closeDrawer();
+      setTimeout(() => showWeeklyShare(b.dataset.shareToken, b.dataset.shareName), 300);
+    })
+  );
+  body.querySelectorAll('[data-del-weekly]').forEach(b =>
+    b.addEventListener('click', () => deleteWeeklySpot(b.dataset.delWeekly))
+  );
+}
+
+// Erstell-Modal öffnen: Create-State rendern + Mini-Map starten
+function openWeeklyCreateModal() {
+  closeDrawer();
+  weeklyCoords = null;
+
+  const CATS = Object.entries(CATEGORY_EMOJI).map(([k,v]) =>
+    `<option value="${k}">${v} ${k}</option>`).join('');
+
+  document.getElementById('weeklyModalContent').innerHTML = `
+    <div class="modal-title">✨ Wochen-Spot erstellen</div>
+    <p style="font-size:0.8rem;color:var(--muted2);margin-bottom:0.75rem;">
+      Tippe auf die Karte um den Ort festzulegen – der Spot läuft nach 7 Tagen ab.
+    </p>
+    <div id="weeklyCreateMap"></div>
+    <span class="finp-label">Name</span>
+    <input id="wkName" class="finp" placeholder="z.B. Kaffee im Park" maxlength="50">
+    <span class="finp-label">Kategorie</span>
+    <select id="wkCat" class="finp">${CATS}</select>
+    <span class="finp-label">Beschreibung (optional)</span>
+    <input id="wkDesc" class="finp" placeholder="Was erwartet die Besucher?" maxlength="120">
+    <span class="finp-label">Treffpunkt (Datum & Uhrzeit)</span>
+    <input type="datetime-local" id="wkMeetingAt" class="finp">
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeWeeklyModal()">Abbrechen</button>
+      <button class="btn-primary" id="wkSubmitBtn" onclick="submitWeeklySpot()">🗓️ Erstellen</button>
+    </div>
+  `;
+
+  document.getElementById('weeklyModal').classList.add('show');
+
+  // Mini-Map leicht verzögert initialisieren (Modal muss erst sichtbar sein)
+  setTimeout(() => {
+    if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+    const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
+    weeklyMiniMap = new maplibregl.Map({
+      container: 'weeklyCreateMap',
+      style: 'https://tiles.openfreemap.org/styles/dark',
+      center,
+      zoom: 13,
+      attributionControl: false
+    });
+    weeklyMiniMap.on('click', e => {
+      weeklyCoords = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+      if (weeklyMarker) weeklyMarker.remove();
+      const el = document.createElement('div');
+      el.style.cssText = 'width:22px;height:22px;background:#f59e0b;border-radius:50%;border:3px solid white;box-shadow:0 0 14px rgba(245,158,11,0.8);';
+      weeklyMarker = new maplibregl.Marker({ element: el })
+        .setLngLat([weeklyCoords.lng, weeklyCoords.lat])
+        .addTo(weeklyMiniMap);
+      toast('📍 Position gesetzt');
+    });
+  }, 120);
+}
+
+// Wochen-Spot über API anlegen
+async function submitWeeklySpot() {
+  const name = document.getElementById('wkName')?.value.trim();
+  const cat  = document.getElementById('wkCat')?.value;
+  const desc = document.getElementById('wkDesc')?.value.trim();
+  const meetingAt = document.getElementById('wkMeetingAt')?.value;
+
+  if (!name) { toast('⚠️ Bitte einen Namen eingeben'); return; }
+  if (!weeklyCoords) { toast('⚠️ Bitte einen Ort auf der Karte tippen'); return; }
+  if (!meetingAt) { toast('⚠️ Bitte einen Treffzeitpunkt (Datum & Uhrzeit) wählen'); return; }
+
+  const authToken = localStorage.getItem('sm_token');
+  if (!authToken) { toast('⚠️ Kein Token gefunden – bitte Profil erstellen'); return; }
+
+  const btn = document.getElementById('wkSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+
+  try {
+    const r = await fetch(`${API}/weekly-spots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: CODE,
+        token: authToken,
+        name,
+        category: cat,
+        description: desc,
+        lat: weeklyCoords.lat,
+        lng: weeklyCoords.lng,
+        meetingAt: new Date(meetingAt).toISOString()   // ← ISO-String für den Server
+      })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.spot) throw new Error(data.error || 'Fehler');
+
+    if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+    if (weeklyMarker)  { weeklyMarker = null; }
+    showWeeklyShare(data.spot.token, data.spot.name);
+  } catch(e) {
+    toast('❌ ' + (e.message || 'Erstellen fehlgeschlagen'));
+    if (btn) { btn.disabled = false; btn.textContent = '🗓️ Erstellen'; }
+  }
+}
+
+// Share-State: Link anzeigen + Teilen-Button
+function showWeeklyShare(token, name) {
+  const shareUrl = `${window.location.origin}/spot-woche.html?token=${token}`;
+
+  document.getElementById('weeklyModalContent').innerHTML = `
+    <div class="modal-title">🔗 Bereit zum Teilen!</div>
+    <p style="font-size:0.85rem;font-weight:600;margin-bottom:0.25rem;">${esc(name)}</p>
+    <p style="font-size:0.78rem;color:var(--muted2);margin-bottom:0.1rem;">
+      Teile diesen Link – Besucher können 7 Tage einchecken.
+    </p>
+    <div class="weekly-share-url" id="wkShareUrlBox" onclick="copyWeeklyLink()"
+         title="Tippen zum Kopieren">${shareUrl}</div>
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;margin-bottom:0.75rem;">
+      Tippe auf den Link zum Kopieren
+    </p>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="copyWeeklyLink()">📋 Kopieren</button>
+      <button class="btn-primary" id="wkNativeShareBtn">↗️ Teilen</button>
+    </div>
+    <button class="btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.82rem;"
+            onclick="closeWeeklyModal();setTimeout(()=>openDrawer('weekly'),300);">
+      ← Zurück zu meinen Spots
+    </button>
+  `;
+
+  // Native Share API falls verfügbar (iOS/Android)
+  const nativeBtn = document.getElementById('wkNativeShareBtn');
+  if (navigator.share) {
+    nativeBtn.addEventListener('click', () => {
+      navigator.share({ title: `SpotMe · ${name}`, url: shareUrl })
+        .catch(() => {});
+    });
+  } else {
+    // Fallback: einfach Link kopieren
+    nativeBtn.textContent = '📋 Kopieren';
+    nativeBtn.addEventListener('click', copyWeeklyLink);
+  }
+
+  document.getElementById('weeklyModal').classList.add('show');
+  // Badge aktualisieren
+  loadWeeklyBadge();
+}
+
+// Link in Zwischenablage kopieren
+function copyWeeklyLink() {
+  const box = document.getElementById('wkShareUrlBox');
+  if (!box) return;
+  navigator.clipboard?.writeText(box.textContent.trim())
+    .then(() => toast('🔗 Link kopiert!'))
+    .catch(() => toast('⚠️ Kopieren fehlgeschlagen'));
+}
+
+// Wochen-Spot löschen
+async function deleteWeeklySpot(token) {
+  const authToken = localStorage.getItem('sm_token');
+  try {
+    const r = await fetch(`${API}/weekly-spots/${token}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: CODE, token: authToken })
+    });
+    if (r.ok) {
+      toast('🗑️ Wochen-Spot gelöscht');
+      openDrawer('weekly'); // Drawer neu laden
+    }
+  } catch { toast('❌ Fehler beim Löschen'); }
+}
+
+// Modal schließen + Mini-Map aufräumen
+function closeWeeklyModal() {
+  document.getElementById('weeklyModal').classList.remove('show');
+  if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+  if (weeklyMarker)  { weeklyMarker = null; }
+  weeklyCoords = null;
+}
+
+// Badge-Zahl ohne den Drawer öffnen
+async function loadWeeklyBadge() {
+  const authToken = localStorage.getItem('sm_token');
+  try {
+    const r = await fetch(`${API}/weekly-spots/mine?code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(authToken)}`);
+    if (!r.ok) return;
+    const spots = await r.json();
+    const badge = document.getElementById('weeklyBadge');
+    if (badge) {
+      badge.textContent = spots.length;
+      badge.style.display = spots.length ? 'flex' : 'none';
+    }
+  } catch {}
+}
+
 // ── MATCH ────────────────────────────────────────────────────────────────────
 function showMatch(name,spot) {
   document.getElementById('matchName').textContent=name;
@@ -3520,6 +3817,11 @@ document.getElementById('rc10').addEventListener('click', ()=>selectRadius(10));
 initMap();
 startGlobalChatPolling(); // Hintergrund-Wächter: prüft alle 10 Sek. auf neue Chat-Nachrichten
 loadFavoritesCache();     // Favoriten einmalig laden damit der ⭐-Button sofort den Status kennt
+loadWeeklyBadge();        // Wochen-Spot Badge beim Start laden
+
+document.getElementById('weeklyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeWeeklyModal();
+});
 </script>
 </body>
 </html>
