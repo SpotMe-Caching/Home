@@ -14,6 +14,7 @@ const CACHE_API     = `spotme-api-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/spot-woche.html',
   '/profil-caching.html',
   '/landing.html',
   '/404.html',
