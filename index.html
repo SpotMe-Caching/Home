@@ -2,6 +2,16 @@
 <html lang="de">
 <head>
 
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "2f3953a1-9b2b-44a1-b1d0-f96f798a9a36",
+    });
+  });
+</script>
+
 <!-- Eruda -– Mobile Console (nur für Debugging)
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script> -->
