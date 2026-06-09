@@ -153,3 +153,50 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+// Empfängt Push-Nachrichten vom Server und zeigt sie als System-Notification.
+// Funktioniert auch wenn der Browser geschlossen ist.
+
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data?.json() || {}; }
+  catch { data = { title: 'SpotMe', body: event.data?.text() || '' }; }
+
+  const options = {
+    body:      data.body  || '',
+    icon:      '/icons/icon-192.png',
+    badge:     '/icons/icon-72.png',
+    data:      { url: data.url || '/' },
+    vibrate:   [200, 100, 200],
+    tag:       data.tag   || 'spotme',
+    renotify:  true,
+    silent:    false
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'SpotMe', options)
+  );
+});
+
+// Tippen auf die Notification → App öffnen / fokussieren
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        // App schon offen? → Fokussieren und per Message navigieren
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.focus();
+            client.postMessage({ type: 'PUSH_NAVIGATE', url });
+            return;
+          }
+        }
+        // App geschlossen → neues Fenster
+        if (clients.openWindow) return clients.openWindow(url);
+      })
+  );
+});
