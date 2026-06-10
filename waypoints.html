@@ -272,12 +272,15 @@ select.finp{appearance:none;cursor:pointer}
         <button class="btn-primary" id="crCreateBtn" onclick="createRoute()">Route anlegen →</button>
       </div>
 
-      <!-- Schritt 2: WayPoints hinzufügen (erst nach Route-Anlegen sichtbar) -->
-      <div class="create-step" id="createStep2" style="display:none;">
+        <div class="create-step" id="createStep2" style="display:none;">
         <div class="create-step-label">SCHRITT 2 · WAYPOINTS HINZUFÜGEN</div>
-        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
-          Tippe auf die Karte um den WayPoint zu setzen, dann fülle die Frage aus.
-        </p>
+
+        <!-- Dynamischer Hinweis: welcher WayPoint als nächstes gesetzt wird -->
+        <div id="wpNextHint" style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem 0.85rem;border-radius:10px;background:var(--acc-dim);border:1px solid var(--acc-glow);margin-bottom:0.5rem;">
+          <span style="font-size:1.1rem;">📍</span>
+          <span id="wpNextHintText" style="font-size:0.82rem;font-weight:600;color:var(--acc);">Tippe auf die Karte für WayPoint 1</span>
+        </div>
+
         <div id="createMap"></div>
 
         <span class="finp-label" style="margin-top:0.75rem;">Frage an diesem WayPoint</span>
@@ -305,7 +308,14 @@ select.finp{appearance:none;cursor:pointer}
         <!-- Veröffentlichen (erst ab 2 WayPoints) -->
         <div id="publishSection" style="display:none;">
           <div style="height:1px;background:var(--bord);margin:0.75rem 0;"></div>
-          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.5rem;">Mindestens 2 WayPoints vorhanden ✅</div>
+          <!-- Info: letzter WayPoint = Finale -->
+          <div style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem 0.85rem;border-radius:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);margin-bottom:0.75rem;">
+            <span style="font-size:1rem;">🏁</span>
+            <span id="finaleHint" style="font-size:0.8rem;color:var(--green);line-height:1.35;">
+              WayPoint <strong id="finaleNum">2</strong> ist das <strong>Finale</strong> –
+              der Zielort den die Spieler am Ende erreichen müssen.
+            </span>
+          </div>
           <button class="btn-success" onclick="publishRoute()">🚀 Route veröffentlichen</button>
           <button class="btn-ghost" onclick="resetCreate()">Abbrechen</button>
         </div>
@@ -838,14 +848,26 @@ async function addWaypoint() {
     createCoords=null;
     if (createMarker) { createMarker.remove(); createMarker=null; }
 
+    // Hinweis + Finale-Anzeige aktualisieren
+    const hintEl = document.getElementById('wpNextHintText');
+    if (hintEl) hintEl.textContent = `Tippe auf die Karte für WayPoint ${draftWpCount + 1}`;
+    if (draftWpCount >= 2) {
+      document.getElementById('publishSection').style.display = '';
+      document.getElementById('finaleNum').textContent = draftWpCount;
+    }
+
     // Liste aktualisieren
     const item=document.createElement('div');
     item.className='wp-draft-item';
     item.innerHTML=`<div class="wp-draft-num">${draftWpCount}</div><div class="wp-draft-q">${esc(q)}<br><span style="font-size:0.7rem;color:var(--muted2);">A:${esc(a)} · B:${esc(b)} · C:${esc(c)} → <b style="color:var(--cyan);">${savedCorrect.toUpperCase()}</b></span></div>`;
     document.getElementById('wpDraftList').appendChild(item);
 
-    if (draftWpCount>=2) document.getElementById('publishSection').style.display='';
-    toast(`✅ WayPoint ${draftWpCount} hinzugefügt`);
+    toast(`✅ WayPoint ${draftWpCount} gespeichert – tippe jetzt WayPoint ${draftWpCount + 1} auf der Karte`);
+
+    // Auto-Scroll zurück zur Karte
+    setTimeout(() => {
+      document.getElementById('createMap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
   } catch(e) {
     toast('❌ '+(e.message||'Fehler'));
   }
@@ -931,7 +953,12 @@ if (savedDraftId) {
   draftWpCount = +(sessionStorage.getItem('wp_draft_count') || '0');
   document.getElementById('createStep1').style.display = 'none';
   document.getElementById('createStep2').style.display = '';
-  if (draftWpCount >= 2) document.getElementById('publishSection').style.display = '';
+  if (draftWpCount >= 2) {
+    document.getElementById('publishSection').style.display = '';
+    document.getElementById('finaleNum').textContent = draftWpCount;
+  }
+  const hintEl = document.getElementById('wpNextHintText');
+  if (hintEl) hintEl.textContent = `Tippe auf die Karte für WayPoint ${draftWpCount + 1}`;
   // Hinweis in der Entwurfsliste
   if (draftWpCount > 0) {
     document.getElementById('wpDraftList').innerHTML =
