@@ -1,0 +1,5066 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+
+<!-- Eruda -– Mobile Console (nur für Debugging)
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script> -->
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a0d12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- iPhone X, XS, 11 Pro, 12 Mini, 13 Mini -->
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash-1125x2436.png">
+<!-- iPhone 8, 7, 6, SE -->
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/icons/splash-750x1334.png">
+<!-- iPhone 14, 15 Pro -->
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash-1179x2556.png">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SpotMe · Caching</title>
+  <meta name="theme-color" content="#0a0d12">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+
+:root {
+  --bg:           #0a0c10;
+  --sur:          #0f1117;
+  --glass:        rgba(15, 17, 23, 0.88);
+  --glass2:       rgba(20, 22, 30, 0.92);
+  --card:         #14161e;
+  --card2:        #1a1d26;
+  --bord:         rgba(255, 255, 255, 0.06);
+  --bord2:        rgba(255, 255, 255, 0.12);
+  --acc:          #ff9f00;
+  --acc-dim:      rgba(255, 159, 0, 0.12);
+  --acc-glow:     rgba(255, 159, 0, 0.3);
+  --cyan:         #00e5ff;
+  --green:        #10b981;
+  --red:          #ef4444;
+  --text:         #eef2ff;
+  --muted:        #6b7280;
+  --muted2:       #9ca3af;
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+}
+#map {
+  position: absolute;
+  inset: 0;
+  filter: brightness(0.75) contrast(1.15);
+  z-index: 0;
+}
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo {
+  display: none !important;
+}
+/* ========== TOPBAR (links, horizontal) ========== */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: max(0.7rem, env(safe-area-inset-top)) 1.2rem 0.7rem;
+  background: linear-gradient(to right, rgba(10,12,16,0.96) 0%, transparent 100%);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.topbar > * {
+  pointer-events: all;
+}
+/* ========== VERTIKALE ICON-SPALTE (rechts) ========== */
+#sideIcons {
+  position: fixed;
+  right: 12px;
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+#sideIcons > * {
+  pointer-events: all;
+}
+/* ========== LOGO ========== */
+.logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--acc);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.logo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--acc-glow);
+  animation: pulse-dot 2s ease infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+.logo-sub {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+}
+/* ========== ICON BUTTONS ========== */
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,159,0,0.2);
+  background: rgba(15,17,23,0.8);
+  backdrop-filter: blur(10px);
+  color: var(--muted2);
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 3px 8px rgba(0,0,0,0.4);
+}
+.icon-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.icon-btn.active {
+  background: var(--acc-dim);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+  text-shadow: 0 0 6px var(--acc-glow);
+}
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 20px;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg);
+}
+/* ========== STATS STRIP ========== */
+.stats-strip {
+  position: absolute;
+  top: 72px;
+  left: 1rem;
+  right: 1rem;
+  z-index: 100;
+  display: flex;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bord2);
+  border-radius: 100px;
+  font-size: 0.72rem;
+  color: var(--muted2);
+  font-family: 'Space Mono', monospace;
+}
+.stat-pill .val {
+  color: var(--acc);
+  font-weight: 700;
+}
+/* ========== FAB (PLACE MODE) ========== */
+.fab-wrap {
+  position: absolute;
+  bottom: 100px;
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border: none;
+  background: linear-gradient(145deg, #e68a00, #cc7a00);
+  color: #0a0d12;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(255,159,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: all 0.1s;
+}
+.fab:active {
+  transform: scale(0.94);
+  box-shadow: 0 2px 8px rgba(255,159,0,0.3);
+}
+.fab.active {
+  background: linear-gradient(145deg, #cc3300, #aa2200);
+  box-shadow: 0 6px 16px rgba(239,68,68,0.4);
+}
+.fab-label {
+  font-size: 0.6rem;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+/* ========== CROSSHAIR (PLACE MODE) ========== */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 250;
+  pointer-events: none;
+  display: none;
+}
+.crosshair.show { display: block; }
+.crosshair::before, .crosshair::after {
+  content: '';
+  position: absolute;
+  background: var(--acc);
+}
+.crosshair::before {
+  width: 2px;
+  height: 28px;
+  top: -14px;
+  left: -1px;
+}
+.crosshair::after {
+  width: 28px;
+  height: 2px;
+  top: -1px;
+  left: -14px;
+}
+/* ========== PLACE MODE BAR ========== */
+.place-mode-bar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 300;
+  background: var(--glass2);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--acc-glow);
+  border-radius: 24px;
+  padding: 1rem 1.8rem;
+  text-align: center;
+  display: none;
+}
+.place-mode-bar.show { display: block; }
+.place-mode-bar .pm-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.place-mode-bar .pm-text { font-size: 0.9rem; font-weight: 500; }
+.place-mode-bar .pm-sub { font-size: 0.72rem; color: var(--muted2); margin-top: 0.2rem; }
+/* ========== DOCK (UNTERE LEISTE) ========== */
+.dock {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  padding: 0.65rem 1rem;
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(10,12,16,0.98) 0%, transparent 100%);
+  backdrop-filter: blur(12px);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.dock-btn {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--bord);
+  background: rgba(15,17,23,0.7);
+  backdrop-filter: blur(8px);
+  color: var(--muted2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  transition: all 0.15s;
+}
+.dock-btn .di { font-size: 1.2rem; }
+.dock-btn:active,
+.dock-btn.active {
+  border-color: var(--acc-glow);
+  background: var(--acc-dim);
+  color: var(--acc);
+  transform: translateY(1px);
+}
+/* ========== DRAWER ========== */
+.drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  z-index: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.drawer-overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.drawer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background: var(--glass2);
+  backdrop-filter: blur(24px);
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
+  border-top: 1px solid var(--bord2);
+  max-height: 70vh;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.drawer.open {
+  transform: translateY(0);
+}
+.drawer-handle {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--acc);
+  opacity: 0.6;
+  margin: 0.75rem auto 0;
+  flex-shrink: 0;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--bord);
+  flex-shrink: 0;
+}
+.drawer-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--acc);
+  letter-spacing: 0.08em;
+  flex: 1;
+}
+.drawer-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: rgba(0,0,0,0.3);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem 1rem 1.5rem;
+}
+/* ========== SPOT CARD (Listen) ========== */
+.spot-card {
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.3);
+  transition: all 0.2s;
+}
+.spot-card:active {
+  transform: scale(0.98);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+.sc-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--acc-dim);
+  border: 1px solid var(--acc-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.sc-info {
+  flex: 1;
+  min-width: 0;
+}
+.sc-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-detail {
+  font-size: 0.72rem;
+  color: var(--muted2);
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sc-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--acc-dim);
+  border: 1px solid var(--acc-glow);
+  color: var(--acc);
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+.sc-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.sc-btn {
+  height: 34px;
+  padding: 0 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--bord2);
+  background: var(--card2);
+  color: var(--muted2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Outfit', sans-serif;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 1px 2px rgba(0,0,0,0.2);
+}
+.sc-btn:active {
+  opacity: 0.7;
+  transform: translateY(1px);
+}
+.sc-btn.primary {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #0a0d12;
+  text-shadow: none;
+}
+.sc-btn.navigate {
+  background: rgba(0,229,255,0.1);
+  border-color: rgba(0,229,255,0.4);
+  color: var(--cyan);
+}
+.sc-btn.danger {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.4);
+  color: var(--red);
+}
+.sc-btn.success {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.4);
+  color: var(--green);
+}
+/* ========== STATUS PILLS ========== */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+.status-pill.pending {
+  background: rgba(255,159,0,0.12);
+  color: var(--acc);
+  border: 1px solid var(--acc-glow);
+}
+.status-pill.accepted {
+  background: rgba(16,185,129,0.12);
+  color: var(--green);
+  border: 1px solid rgba(16,185,129,0.3);
+}
+.status-pill.now {
+  background: rgba(16,185,129,0.2);
+  color: var(--green);
+  border: 1px solid rgba(16,185,129,0.4);
+  animation: glow-green 1.5s ease infinite;
+}
+@keyframes glow-green {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+}
+/* ========== MODAL (BOTTOM SHEET) ========== */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  z-index: 600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: var(--glass2);
+  backdrop-filter: blur(28px);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  border-top: 1px solid var(--bord2);
+  padding: 1.25rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  transform: translateY(30px);
+  transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.modal-overlay.show .modal {
+  transform: translateY(0);
+}
+.modal-handle {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--acc);
+  margin: 0 auto 1rem;
+  opacity: 0.5;
+}
+.modal-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--acc);
+  margin-bottom: 1rem;
+  letter-spacing: 0.06em;
+}
+.finp {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--bord2);
+  border-radius: 14px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.92rem;
+  outline: none;
+  margin-bottom: 0.8rem;
+  transition: all 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+}
+.finp:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px var(--acc-dim), inset 0 1px 2px rgba(0,0,0,0.2);
+}
+.finp-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  display: block;
+  font-weight: 600;
+}
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.btn-primary {
+  padding: 0.8rem;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(145deg, #ff9f00, #e67e22);
+  color: #0a0d12;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255,159,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+  transition: all 0.1s;
+}
+.btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+.btn-ghost {
+  padding: 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--bord2);
+  background: rgba(0,0,0,0.3);
+  color: var(--muted2);
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+}
+/* ========== PROFILE, CHIPS, ETC ========== */
+.profile-avatar-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc), #e67e22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 auto 0.75rem;
+  overflow: hidden;
+  border: 2px solid var(--acc-glow);
+  box-shadow: 0 0 12px rgba(255,159,0,0.3);
+}
+.profile-avatar-lg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: var(--acc-dim);
+  border: 1px solid var(--acc-glow);
+  color: var(--acc);
+  font-size: 0.7rem;
+  margin: 2px;
+}
+.profile-chip.offer {
+  background: rgba(0,229,255,0.08);
+  border-color: rgba(0,229,255,0.3);
+  color: var(--cyan);
+}
+/* ========== SPOT DETAIL MODAL ========== */
+#spotDetailMap {
+  width: 100%;
+  height: 160px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border: 1px solid var(--bord2);
+  filter: brightness(0.8);
+}
+.spot-detail-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--acc), #e67e22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--acc-glow);
+}
+/* ========== RADIUS CHOICE ========== */
+.radius-choice {
+  padding: 0.7rem 0.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--bord2);
+  background: var(--card);
+  color: var(--muted2);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.radius-choice.selected {
+  background: var(--acc-dim);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+}
+/* ========== FILTER PILLS (KATEGORIEN) ========== */
+.rs-cat-strip {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  scrollbar-width: none;
+}
+.rs-cat-strip::-webkit-scrollbar { display: none; }
+.rs-cat-pill {
+  flex-shrink: 0;
+  padding: 0.4rem 0.9rem;
+  border-radius: 100px;
+  border: 1px solid var(--bord2);
+  background: var(--card);
+  color: var(--muted2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Outfit', sans-serif;
+  white-space: nowrap;
+}
+.rs-cat-pill.active {
+  background: var(--acc-dim);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+}
+.sc-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(0,229,255,0.1);
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--cyan);
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+/* ========== NAVIGATION OVERLAY ========== */
+#naviOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: #06080c;
+  display: none;
+  flex-direction: column;
+}
+#naviOverlay.active { display: flex; }
+#naviMap {
+  width: 100%;
+  height: 100%;
+  filter: brightness(0.7) contrast(1.1);
+}
+.navi-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: max(0.85rem, env(safe-area-inset-top)) 1rem 0.85rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(to bottom, rgba(6,8,12,0.94), transparent);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+.navi-topbar > * { pointer-events: auto; }
+.navi-close-btn, .navi-recenter-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,159,0,0.3);
+  color: var(--text);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.navi-close-btn:active, .navi-recenter-btn:active {
+  transform: scale(0.94);
+}
+.navi-spot-label {
+  flex: 1;
+  min-width: 0;
+}
+.navi-spot-label-name {
+  font-weight: 700;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--acc);
+}
+.navi-spot-label-sub {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  margin-top: 2px;
+}
+.navi-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: rgba(6,8,12,0.96);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,159,0,0.2);
+  border-radius: 24px 24px 0 0;
+  padding: 1rem 1.1rem;
+  padding-bottom: max(1.1rem, env(safe-area-inset-bottom));
+}
+.navi-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.navi-stat {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,159,0,0.2);
+  border-radius: 14px;
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  backdrop-filter: blur(4px);
+}
+.navi-stat-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--cyan);
+  line-height: 1.2;
+  text-shadow: 0 0 4px rgba(0,229,255,0.4);
+}
+.navi-stat-val.amber {
+  color: var(--acc);
+  text-shadow: 0 0 4px rgba(255,159,0,0.4);
+}
+.navi-stat-label {
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.navi-legend {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.7rem;
+  color: var(--muted2);
+  align-items: center;
+}
+.navi-legend-dot {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.navi-stop-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.5);
+  border-radius: 14px;
+  color: #ff6b6b;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.navi-stop-btn:active {
+  transform: scale(0.97);
+}
+/* ========== WOCHEN-SPOT MODAL & CARDS ========== */
+#weeklyCreateMap {
+  width: 100%;
+  height: 175px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--bord2);
+  filter: brightness(0.8);
+}
+.weekly-share-url {
+  background: var(--card);
+  border: 1px solid rgba(0,229,255,0.4);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--cyan);
+  word-break: break-all;
+  margin: 0.75rem 0;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.1s;
+}
+.weekly-share-url:active {
+  opacity: 0.7;
+}
+.weekly-countdown {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--acc);
+  text-align: center;
+  padding: 0.35rem 0;
+}
+.weekly-card {
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.5rem;
+}
+.weekly-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.weekly-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(0,229,255,0.08);
+  border: 1px solid rgba(0,229,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.weekly-card-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.weekly-card-meta {
+  font-size: 0.7rem;
+  color: var(--muted2);
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+  align-items: center;
+}
+.weekly-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.weekly-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(0,229,255,0.08);
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--cyan);
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+/* ========== MATCH SCREEN ========== */
+.match-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  background: rgba(6,8,12,0.98);
+  backdrop-filter: blur(16px);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+.match-screen.show { display: flex; }
+.match-ring {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 2px solid var(--acc-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.8rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  background: rgba(0,0,0,0.3);
+}
+.match-ring::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--acc);
+  animation: spin 1.5s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.match-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--acc);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.match-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+.match-spot {
+  font-size: 0.9rem;
+  color: var(--muted2);
+  margin-bottom: 2rem;
+}
+.match-btn {
+  padding: 0.9rem 2.5rem;
+  border-radius: 60px;
+  border: none;
+  background: linear-gradient(145deg, #ff9f00, #e67e22);
+  color: #0a0d12;
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(255,159,0,0.4);
+}
+/* ========== TOAST ========== */
+.toast {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--glass2);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--bord2);
+  border-radius: 100px;
+  padding: 0.5rem 1.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 900;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  white-space: nowrap;
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+/* ========== MARKER ========== */
+.my-spot-marker {
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle, #ffbf40, var(--acc));
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,240,0.95);
+  box-shadow: 0 0 14px rgba(255,159,0,0.8), inset 0 1px 2px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.my-spot-marker:active {
+  transform: scale(1.2);
+}
+.other-spot-marker {
+  width: 16px;
+  height: 16px;
+  background: #5f7f9f;
+  border-radius: 50%;
+  border: 2px solid rgba(0,229,255,0.7);
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 0 8px rgba(0,229,255,0.4);
+}
+.other-spot-marker.is-online::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 1.5px solid var(--bg);
+  box-shadow: 0 0 6px var(--green);
+  animation: online-pulse 2s ease infinite;
+}
+@keyframes online-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+.user-marker {
+  width: 16px;
+  height: 16px;
+  background: var(--cyan);
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.9);
+  box-shadow: 0 0 12px rgba(0,229,255,0.7);
+}
+.new-spot-marker {
+  width: 22px;
+  height: 22px;
+  background: var(--green);
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.9);
+  box-shadow: 0 0 14px rgba(16,185,129,0.6);
+  cursor: pointer;
+  position: relative;
+}
+.new-spot-marker::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  opacity: 0.6;
+  animation: new-spot-ring 1.5s ease-out infinite;
+}
+@keyframes new-spot-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+/* ========== EMPTY STATE ========== */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.empty-state .es-icon {
+  font-size: 2.8rem;
+  margin-bottom: 0.7rem;
+  opacity: 0.6;
+}
+/* ========== FULLSCREEN IMG ========== */
+.img-fullscreen {
+  position: absolute;
+  inset: 0;
+  z-index: 950;
+  background: rgba(0,0,0,0.96);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+.img-fullscreen.show { display: flex; }
+.img-fullscreen img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,159,0,0.3);
+  border-radius: 4px;
+}
+/* ========== CHAT DRAWER (ÜBERLEGT) ========== */
+.chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 52vh;
+}
+.chat-partner-bar {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--acc);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--bord);
+  margin-bottom: 0.5rem;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.chat-bubble {
+  max-width: 80%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 18px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.chat-bubble.mine {
+  align-self: flex-end;
+  background: rgba(255,159,0,0.2);
+  border: 1px solid rgba(255,159,0,0.5);
+  color: #fff5e6;
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble.theirs {
+  align-self: flex-start;
+  background: rgba(0,229,255,0.08);
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble-author {
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-bottom: 3px;
+  display: block;
+}
+.chat-bubble-time {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  margin-top: 3px;
+  text-align: right;
+}
+.chat-input-row {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--bord);
+  flex-shrink: 0;
+}
+.chat-input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--bord2);
+  border-radius: 100px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+}
+.chat-input:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px var(--acc-dim);
+}
+.chat-send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--acc);
+  color: #0a0d12;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+/* ========== BADGES & PULSE ========== */
+#chatBadge {
+  background: var(--cyan);
+  color: #0a0d12;
+}
+#chatHeaderBtn.has-new {
+  animation: chatPulse 2s ease-in-out infinite;
+}
+@keyframes chatPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+/* ========== MEETINGS MODAL ========== */
+.meetings-modal {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.meeting-card {
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 0.9rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  overflow: hidden;
+}
+.meeting-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 18px 0 0 18px;
+}
+.meeting-card.urgent::before  { background: #ef4444; }
+.meeting-card.today::before   { background: var(--acc); }
+.meeting-card.upcoming::before{ background: var(--green); }
+.meeting-spot {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+.meeting-time {
+  font-size: 0.72rem;
+  color: var(--muted2);
+  margin-bottom: 0.35rem;
+}
+.meeting-countdown {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  margin-bottom: 0.5rem;
+}
+.meeting-card.urgent   .meeting-countdown { background: rgba(239,68,68,0.15); color: #ef4444; }
+.meeting-card.today    .meeting-countdown { background: rgba(255,159,0,0.15); color: var(--acc); }
+.meeting-card.upcoming .meeting-countdown { background: rgba(16,185,129,0.15); color: var(--green); }
+.meeting-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+/* ========== WEATHER COMPONENTS ========== */
+.weather-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-radius: 12px 12px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted2);
+}
+.weather-bar-standalone {
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+}
+.weather-icon { font-size: 1.4rem; flex-shrink: 0; }
+.weather-temp {
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.weather-details { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.weather-desc { font-size: 0.72rem; color: var(--muted2); }
+.weather-wind { font-size: 0.65rem; color: var(--muted); }
+.weather-forecast {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.25rem;
+  scrollbar-width: none;
+}
+.weather-forecast::-webkit-scrollbar { display: none; }
+.wf-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.4rem 0.7rem;
+  min-width: 58px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--bord);
+}
+.wf-card:last-child { border-right: none; }
+.wf-card.now {
+  background: var(--acc-dim);
+  border-radius: 10px;
+}
+.wf-hour {
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+}
+.wf-emoji { font-size: 1.2rem; }
+.wf-temp {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+}
+.wf-rain {
+  font-size: 0.58rem;
+  color: var(--cyan);
+  font-family: 'Space Mono', monospace;
+}
+.weather-loading {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+}
+/* ========== FAVORITEN ========== */
+#spotFavoriteBtn {
+  background: none;
+  border: 1px solid var(--bord2);
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+#spotFavoriteBtn.active {
+  background: var(--acc-dim);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+  text-shadow: 0 0 4px var(--acc-glow);
+}
+.fav-card {
+  background: var(--card);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 0.9rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.fav-icon { font-size: 1.3rem; flex-shrink: 0; }
+.fav-info { flex: 1; min-width: 0; }
+.fav-name { font-weight: 700; font-size: 0.92rem; margin-bottom: 2px; }
+.fav-meta { font-size: 0.68rem; color: var(--muted); }
+.fav-checkin {
+  font-size: 0.65rem;
+  color: var(--cyan);
+  font-family: 'Space Mono', monospace;
+  margin-top: 2px;
+}
+#favBadge {
+  background: var(--acc);
+  color: #0a0d12;
+}
+
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="crosshair" id="crosshair"></div>
+<div class="place-mode-bar" id="placeModeBar">
+  <div class="pm-icon">📍</div>
+  <div class="pm-text">Spot platzieren</div>
+  <div class="pm-sub">Tippe auf die Karte</div>
+</div>
+  
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      SPOT<span style="color:var(--text);font-weight:300;">ME</span>
+      <span class="logo-sub">Caching V1</span>
+    </div>
+  </div>
+
+  <!-- Vertikale Icon-Spalte rechts -->
+  <div id="sideIcons">
+    <button class="icon-btn" onclick="location.href='profil-caching.html'" title="Profil">👤</button>
+
+    <button class="icon-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
+      📨<span class="badge" id="inviteBadge" style="display:none">0</span>
+    </button>
+
+    <button class="icon-btn" id="meetingsBtn" onclick="openMeetingsModal()" title="Bevorstehende Treffen">
+      📅<span class="badge" id="meetingsBadge" style="display:none;background:#10b981;">0</span>
+    </button>
+
+    <button class="icon-btn" id="chatHeaderBtn" onclick="openDrawer('chats')" title="Chat">
+      💬<span class="badge" id="chatBadge" style="display:none">0</span>
+    </button>
+
+    <button class="icon-btn" onclick="openDrawer('favorites')" title="Favoriten">
+      ⭐<span class="badge" id="favBadge" style="display:none">0</span>
+    </button>
+
+    <button class="icon-btn" id="weeklyBtn" onclick="openDrawer('weekly')" title="Wochen-Spots">
+      🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
+    </button>
+
+    <button class="icon-btn" id="pushBtn" onclick="togglePushNotifications()" title="Benachrichtigungen">🔔</button>
+
+    <button class="icon-btn" onclick="location.href='waypoints.html'" title="WayPoint Caching">🗺️</button>
+
+    <button class="icon-btn" onclick="location.reload()" title="Neu laden">↺</button>
+  </div>
+
+<div class="stats-strip">
+  <div class="stat-pill">SPOTS <span class="val" id="statSpots">0</span></div>
+  <div class="stat-pill">INVITES <span class="val" id="statInvites">0</span></div>
+</div>
+
+<!-- Kategorie-Filter – wird dynamisch aus allSpots befüllt -->
+<div class="filter-strip" id="filterStrip" style="display:none;"></div>
+
+<div class="fab-wrap">
+  <button class="fab" id="fabBtn" onclick="togglePlaceMode()">📍</button>
+  <span class="fab-label" id="fabLabel">SPOT</span>
+</div>
+
+<div class="dock">
+  <button class="dock-btn" onclick="openDrawer('myspots')"><span class="di">🟠</span>Meine Spots</button>
+  <button class="dock-btn" onclick="openDrawer('all')"><span class="di">🌐</span>Alle Spots</button>
+  <button class="dock-btn" id="newSpotsBtn" onclick="openNewSpots()"><span class="di">✨</span>Neue Spots</button>
+  <button class="dock-btn" id="radiusBtn" onclick="openRadiusSearch()"><span class="di">🔍</span>Radius</button>
+</div>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-head">
+    <div class="drawer-title" id="drawerTitle">Spots</div>
+    <button class="drawer-close" id="drawerCloseBtn">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div class="modal-overlay" id="spotModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="spotModalTitle">📍 Spot anlegen</div>
+    <span class="finp-label">Name</span>
+    <input id="spotName" class="finp" placeholder="z.B. Schöner Brunnen" maxlength="50">
+    <span class="finp-label">Beschreibung (optional)</span>
+    <input id="spotDesc" class="finp" placeholder="Was macht diesen Spot besonders?" maxlength="120">
+    <span class="finp-label">Wunsch-Tag</span>
+    <select id="spotWish" class="finp"></select>
+    <span class="finp-label">Foto (optional)</span>
+    <div id="spotPhotoPreview" style="display:none;margin-bottom:0.6rem;position:relative;">
+      <img id="spotPhotoImg" src="" alt="" style="width:100%;max-height:160px;object-fit:cover;border-radius:11px;border:1px solid var(--bord2);">
+      <button id="spotPhotoClear" style="position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <button id="spotPhotoBtn" style="width:100%;padding:0.65rem;border-radius:11px;border:1px dashed var(--bord2);background:var(--card);color:var(--muted2);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'Outfit',sans-serif;margin-bottom:0.6rem;">
+      📷 Foto hinzufügen
+    </button>
+    <input type="file" id="spotPhotoInput" accept="image/*" style="display:none">
+    <!-- Status-Hinweis für Bild-Moderation – wird von openSpotEdit() befüllt -->
+    <div id="spotPhotoHint"
+         style="display:none;font-size:0.7rem;color:var(--muted);
+                font-family:'Space Mono',monospace;margin-bottom:0.5rem;
+                padding:0.3rem 0.5rem;background:var(--card);
+                border-radius:8px;border:1px solid var(--bord);">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="spotModalCancel">Abbrechen</button>
+      <button class="btn-primary" id="spotModalSave">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Persistenter Toast für dringende Treffen (< 2h) -->
+<div id="urgentToast" onclick="openMeetingsModal()">
+  <span style="font-size:1.2rem;">⏰</span>
+  <div style="flex:1;">
+    <div id="urgentToastText" style="font-weight:600;"></div>
+    <div style="font-size:0.7rem;opacity:0.85;">Tippen für Details →</div>
+  </div>
+  <button onclick="event.stopPropagation();dismissUrgentToast()"
+          style="background:none;border:none;color:#fff;font-size:1.1rem;
+                 cursor:pointer;padding:0.2rem;opacity:0.7;">✕</button>
+</div>
+
+<!-- Bevorstehende Treffen Modal -->
+<div class="modal-overlay" id="meetingsModal" style="z-index:700;">
+  <div class="modal meetings-modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📅 Bevorstehende Treffen</div>
+    <div id="meetingsContent">
+      <div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>
+    </div>
+    <div class="modal-actions" style="margin-top:0.5rem;">
+      <button class="btn-ghost" onclick="closeModals()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="inviteModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📨 Einladung senden</div>
+    <div id="inviteSpotInfo" style="font-size:0.85rem;color:var(--muted2);margin-bottom:0.8rem;"></div>
+    <span class="finp-label">Von</span>
+    <input type="datetime-local" id="inviteStart" class="finp">
+    <span class="finp-label">Bis</span>
+    <input type="datetime-local" id="inviteEnd" class="finp">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="inviteModalCancel">Abbrechen</button>
+      <button class="btn-primary" id="inviteModalSend">Senden</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="spotDetailModal" style="z-index:650;">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="spotDetailMap"></div>
+    <div id="spotDetailContent"><div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div></div>
+     <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+       <button class="btn-ghost" style="flex:1;" id="spotDetailClose">Schließen</button>
+       <button id="spotFavoriteBtn" title="Als Favorit speichern">⭐</button>
+       <button class="btn-primary" style="flex:1;background:var(--cyan);border-color:var(--cyan);" 
+          id="spotDetailChatBtn">💬 Chat</button>
+       <button class="btn-primary" style="flex:2;" id="spotDetailInviteBtn">📨 Einladung</button>
+     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="profileModal" style="z-index:700;">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="profileModalContent"><div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div></div>
+    <div style="margin-top:1rem;">
+      <button class="btn-ghost" style="width:100%;" id="profileModalClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="radiusModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔍 Radius-Suche</div>
+    <p style="font-size:0.82rem;color:var(--muted2);margin-bottom:0.75rem;">Spots anderer Profile in deiner Umgebung.</p>
+
+    <!-- Kategorie-Filter -->
+    <span style="font-size:0.7rem;color:var(--muted);font-weight:500;display:block;margin-bottom:0.35rem;">Kategorie</span>
+    <div id="rsCatStrip" class="rs-cat-strip"></div>
+
+    <!-- Radius-Auswahl -->
+    <span style="font-size:0.7rem;color:var(--muted);font-weight:500;display:block;margin-bottom:0.35rem;">Umkreis</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.8rem;">
+      <button class="radius-choice" id="rc2">2 km</button>
+      <button class="radius-choice" id="rc5">5 km</button>
+      <button class="radius-choice" id="rc10">10 km</button>
+    </div>
+
+    <div id="radiusResult" style="font-size:0.8rem;color:var(--muted2);text-align:center;min-height:1.2rem;"></div>
+    <div class="modal-actions" style="margin-top:0.8rem;">
+      <button class="btn-ghost" id="radiusClear">✕ Löschen</button>
+      <button class="btn-primary" id="radiusClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Wochen-Spot Modal (Erstellen + Share in einem) ───────────────── -->
+<div class="modal-overlay" id="weeklyModal" style="z-index:660;">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="weeklyModalContent">
+      <!-- Wird per JS befüllt: create-State oder share-State -->
+    </div>
+  </div>
+</div>
+
+<!-- ── Navigation Overlay ─────────────────────────────────────────────── -->
+<div id="naviOverlay">
+  <div id="naviMap"></div>
+
+  <!-- Topbar -->
+  <div class="navi-topbar">
+    <button class="navi-close-btn" onclick="closeNavOverlay()" title="Schließen">✕</button>
+    <div class="navi-spot-label">
+      <div class="navi-spot-label-name" id="naviSpotName">—</div>
+      <div class="navi-spot-label-sub" id="naviSpotSub">NAVIGATION</div>
+    </div>
+    <button class="navi-recenter-btn" id="naviRecenterBtn" title="Neu zentrieren">⊕</button>
+  </div>
+
+  <!-- Bottom panel -->
+  <div class="navi-bottom">
+    <div class="navi-stats">
+      <div class="navi-stat">
+        <div class="navi-stat-val" id="naviDistVal">…</div>
+        <div class="navi-stat-label">Entfernung</div>
+      </div>
+      <div class="navi-stat">
+        <div class="navi-stat-val" id="naviFootVal">…</div>
+        <div class="navi-stat-label">🚶 zu Fuß</div>
+      </div>
+      <div class="navi-stat">
+        <div class="navi-stat-val amber" id="naviCarVal">…</div>
+        <div class="navi-stat-label">🚗 Auto</div>
+      </div>
+    </div>
+    <div class="navi-legend">
+      <span><span class="navi-legend-dot" style="background:#22d3ee;"></span>Fußweg</span>
+      <span><span class="navi-legend-dot" style="background:#f59e0b;"></span>Auto</span>
+    </div>
+    <button class="navi-stop-btn" onclick="closeNavOverlay()">■ Navigation beenden</button>
+  </div>
+</div>
+
+<div class="match-screen" id="matchScreen">
+  <div class="match-ring">🎯</div>
+  <div class="match-label">Match gefunden</div>
+  <div class="match-name" id="matchName"></div>
+  <div class="match-spot" id="matchSpot"></div>
+  <button class="match-btn" id="matchCloseBtn">✨ Weiter</button>
+</div>
+
+<div class="img-fullscreen" id="imgFullscreen" onclick="this.classList.remove('show')">
+  <img id="imgFullscreenSrc" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
+
+const API  = 'https://spotme-chat-obom.onrender.com/api';
+const CODE = localStorage.getItem('sm_code') || '000000';
+
+// ── OpenRouteService API-Key ──────────────────────────────────────────────────
+// Kostenlos registrieren: https://openrouteservice.org → Dashboard → API Key
+// Dann hier eintragen:
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
+
+let map, userPos, placeMode = false, tempLatLng = null;
+let mySpots = [], allSpots = [], markers = [];
+let onlineSet = new Set();
+let selectedInviteSpot = null;
+let invitePollInterval = null, knownInviteCount = 0;
+let toastTimer, currentDrawer = null;
+let activeRadius = null, detailSpot = null, detailMiniMap = null;
+let radiusCatFilter = null; // Kategorie-Filter nur für Radius-Suche (unabhängig vom Karten-Filter)
+let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null; // Wochen-Spot Erstell-Karte
+
+// Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
+function buildRadiusCatPills() {
+  const strip = document.getElementById('rsCatStrip');
+  if (!strip) return;
+
+  const counts = {};
+  allSpots.filter(s => s.code !== CODE).forEach(s => {
+    if (s.area_type) counts[s.area_type] = (counts[s.area_type] || 0) + 1;
+  });
+  const categories = Object.keys(counts).sort();
+  const totalOthers = allSpots.filter(s => s.code !== CODE).length;
+
+  strip.innerHTML = `
+    <div class="rs-cat-pill ${radiusCatFilter === null ? 'active' : ''}" data-cat="">
+      Alle <span style="opacity:0.55;font-size:0.68rem;">${totalOthers}</span>
+    </div>
+    ${categories.map(cat => `
+      <div class="rs-cat-pill ${radiusCatFilter === cat ? 'active' : ''}" data-cat="${cat}">
+        ${CATEGORY_EMOJI[cat] || '📌'} ${cat}
+        <span style="opacity:0.55;font-size:0.68rem;">${counts[cat]}</span>
+      </div>
+    `).join('')}
+  `;
+
+  strip.querySelectorAll('.rs-cat-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      radiusCatFilter = pill.dataset.cat || null;
+      buildRadiusCatPills();
+      // Wenn bereits ein Radius gewählt ist: Ergebnis sofort neu berechnen
+      if (activeRadius) selectRadius(activeRadius);
+    });
+  });
+}
+let spotPhotoData = null;
+let editSpotId    = null;
+// Aktuell gewählte Kategorie – null bedeutet "Alle"
+let activeFilter  = null;
+
+// IndexedDB Wrapper Start
+
+const DB_NAME = 'SpotMeDB';
+const DB_VERSION = 1;
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('spots')) {
+        db.createObjectStore('spots', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('invites')) {
+        db.createObjectStore('invites', { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => { db = request.result; resolve(db); };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveSpotsOffline(spots) {
+  const db = await openDB();
+  const tx = db.transaction('spots', 'readwrite');
+  spots.forEach(spot => tx.objectStore('spots').put(spot));
+  await tx.done;
+}
+
+async function loadSpotsOffline() {
+  const db = await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('spots', 'readonly');
+    const all = tx.objectStore('spots').getAll();
+    all.onsuccess = () => resolve(all.result || []);
+    all.onerror = () => resolve([]);
+  });
+}
+
+// InsexedDB Wrapper End
+
+function openSpotEdit(s) {
+  const profile=JSON.parse(localStorage.getItem('sm_profile_caching')||'{}');
+  const wishes=profile.wishes?.length?profile.wishes:['Kaffee','Strand','Park','Wandern','Kino'];
+  document.getElementById('spotWish').innerHTML=wishes.map(w=>`<option value="${w}">${w}</option>`).join('');
+
+  editSpotId = s.id;
+  document.getElementById('spotModalTitle').textContent = '✏️ Spot bearbeiten';
+  document.getElementById('spotName').value = s.name || '';
+  document.getElementById('spotDesc').value = s.description || '';
+  document.getElementById('spotWish').value = s.wishTag || '';
+
+  // Bestehendes Bild anzeigen – jetzt auch wenn es noch 'pending' ist.
+  // Vorher wurde pending-Bild als null zurückgegeben und hier nicht gezeigt,
+  // was dazu führte dass beim Speichern image=null mitgeschickt wurde.
+  // Jetzt speichern wir das bestehende Bild in spotPhotoData damit es
+  // beim Speichern erhalten bleibt wenn kein neues Bild gewählt wird.
+  spotPhotoData = null;
+  if (s.image) {
+    spotPhotoData = s.image; // bestehend Bild merken – wird beim PUT mitgeschickt
+    document.getElementById('spotPhotoImg').src = s.image;
+    document.getElementById('spotPhotoPreview').style.display = 'block';
+    document.getElementById('spotPhotoBtn').style.display = 'none';
+
+    // Status-Hinweis: unterscheide zwischen approved und pending
+    const hint = document.getElementById('spotPhotoHint');
+    if (hint) {
+      if (s.image_status === 'pending') {
+        hint.textContent = '⏳ Bild wird noch moderiert';
+        hint.style.display = 'block';
+      } else if (s.image_status === 'approved') {
+        hint.textContent = '✅ Bild freigegeben';
+        hint.style.display = 'block';
+      } else {
+        hint.style.display = 'none';
+      }
+    }
+  } else {
+    document.getElementById('spotPhotoPreview').style.display = 'none';
+    document.getElementById('spotPhotoBtn').style.display = 'block';
+    const hint = document.getElementById('spotPhotoHint');
+    if (hint) hint.style.display = 'none';
+  }
+  document.getElementById('spotPhotoInput').value = '';
+  document.getElementById('spotModal').classList.add('show');
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function esc(s) { const d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+
+function haversineKm(a,b,c,d) {
+  const R=6371, dL=(c-a)*Math.PI/180, dG=(d-b)*Math.PI/180;
+  const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function spotAge(ts) {
+  if (!ts) return null;
+  const diff=Date.now()-Number(ts), min=Math.floor(diff/60000), h=Math.floor(diff/3600000), d=Math.floor(diff/86400000);
+  if (min<2)  return {label:'gerade eben',color:'#10b981',fresh:true};
+  if (min<60) return {label:`vor ${min} Min`,color:'#10b981',fresh:true};
+  if (h<6)    return {label:`vor ${h}h`,color:'#f59e0b',fresh:false};
+  if (h<24)   return {label:`vor ${h}h`,color:'#94a3b8',fresh:false};
+  if (d===1)  return {label:'gestern',color:'#64748b',fresh:false};
+  return {label:`vor ${d} Tagen`,color:'#475569',fresh:false};
+}
+function spotAgeHtml(ts) {
+  const a=spotAge(ts); if(!a) return '';
+  return `<span style="font-size:0.65rem;color:${a.color};font-family:'Space Mono',monospace;">${a.fresh?'● ':'○ '}${a.label}</span>`;
+}
+function formatDateTime(ts) {
+  const d=new Date(Number(ts)); if(isNaN(d)) return '–';
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+function formatCountdown(ts) {
+  const diff=Number(ts)-Date.now(); if(diff<=0) return 'jetzt';
+  const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000);
+  return h>=24?`in ${Math.floor(h/24)}d`:h>0?`in ${h}h ${m}min`:`in ${m}min`;
+}
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('show')); }
+
+function openImg(src) {
+  document.getElementById('imgFullscreenSrc').src = src;
+  document.getElementById('imgFullscreen').classList.add('show');
+}
+
+// ── MAP ──────────────────────────────────────────────────────────────────────
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/bright',
+    center: [-0.38, 39.47],
+    zoom: 14,
+    attributionControl: false
+  });
+
+  map.on('load', () => {
+    loadAllSpots();
+    startInvitePolling();
+  });
+
+  navigator.geolocation?.getCurrentPosition(pos => {
+    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    map.setCenter([userPos.lng, userPos.lat]);
+    map.setZoom(15);
+    const el = document.createElement('div');
+    el.className = 'user-marker';
+    new maplibregl.Marker({ element: el }).setLngLat([userPos.lng, userPos.lat]).addTo(map);
+  });
+
+  map.on('click', e => {
+    if (placeMode) {
+      tempLatLng = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+      const el = document.createElement('div');
+      el.style.cssText='width:12px;height:12px;border-radius:50%;background:rgba(245,158,11,0.5);border:2px solid #f59e0b;';
+      new maplibregl.Marker({element:el}).setLngLat([e.lngLat.lng,e.lngLat.lat]).addTo(map);
+      placeMode=false; hidePlaceModeUI();
+      window.location.href = `spot-erstellen.html?lat=${tempLatLng.lat}&lng=${tempLatLng.lng}`;
+    } else {
+      if (currentDrawer) closeDrawer();
+    }
+  });
+
+  if ('Notification' in window) Notification.requestPermission();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('✅ Service Worker registriert:', reg.scope))
+      .catch(err => console.warn('Service Worker fehlgeschlagen:', err));
+  });
+}
+
+// @@ Start
+
+// ── SPOTS ────────────────────────────────────────────────────────────────────
+async function loadAllSpots() {
+  // 1. Zuerst offline gespeicherte Spots laden (sofort sichtbar)
+  const offlineSpots = await loadSpotsOffline();
+  if (offlineSpots.length) {
+    allSpots = offlineSpots;
+    mySpots = allSpots.filter(s => s.code === CODE);
+    document.getElementById('statSpots').textContent = mySpots.length;
+    await renderMarkers();
+  }
+
+  // 2. Dann frisch von der API holen und updaten (nur wenn online)
+  try {
+    const r = await fetch(`${API}/userspots/all?noimage=1`);
+    if (r.ok) {
+      const freshSpots = await r.json();
+      allSpots = freshSpots;
+      document.getElementById('statSpots').textContent =
+        allSpots.filter(s => s.code === CODE).length;
+      await renderMarkers();
+      await saveSpotsOffline(allSpots);
+    }
+
+    // Eigene Spots separat laden – dieser Endpunkt liefert image + image_status
+    // damit der Bearbeiten-Dialog und der mySpots-Drawer korrekte Daten haben.
+    // Das passiert parallel zum allSpots-Laden damit es nicht blockiert.
+    const r2 = await fetch(`${API}/userspots/${CODE}`);
+    if (r2.ok) {
+      mySpots = await r2.json();
+      document.getElementById('statSpots').textContent = mySpots.length;
+    } else {
+      mySpots = allSpots.filter(s => s.code === CODE);
+    }
+  } catch (err) {
+    mySpots = allSpots.filter(s => s.code === CODE);
+    console.warn('Kein Netzwerk, verwende Cache-Daten');
+  }
+}
+// @@ End
+
+// ── SPOTS ────────────────────────────────────────────────────────────────────
+// async function loadAllSpots() {
+//  try {
+//    // Spots ohne Bilder laden (schnell für Karte)
+//    const r = await fetch(`${API}/userspots/all?noimage=1`);
+//    if (r.ok) allSpots = await r.json();
+//  } catch { allSpots=[]; }
+//  mySpots = allSpots.filter(s => s.code === CODE);
+//  document.getElementById('statSpots').textContent = mySpots.length;
+//  await renderMarkers();
+//}
+
+// ── KATEGORIE-FILTER ─────────────────────────────────────────────────────────
+// Emoji-Mapping für die Kategorie-Pills – gleiche Icons wie in spot-erstellen.html
+const CATEGORY_EMOJI = {
+  'Bahnhof':          '🚉',
+  'Club':             '🎉',
+  'Einkaufsviertel':  '🛍️',
+  'Filmtheater':      '🎬',
+  'Fitnesscenter':    '💪',
+  'Industriepark':    '🏭',
+  'Internetcafé':     '💻',
+  'Naturschutzgebiet':'🌿',
+  'Park':             '🌳',
+  'Rastplatz':        '🛣️',
+  'Restaurant':       '🍽️',
+  'Sauna':            '🧖',
+  'Strand':           '🏖️',
+  'Sonstiges':        '📌',
+};
+
+// Baut die Filter-Leiste aus den aktuell vorhandenen Kategorien in allSpots.
+// Nur Kategorien die wirklich vorkommen werden als Pill angezeigt –
+// keine leeren Filter für Kategorien ohne Spots.
+function buildFilterStrip() {
+  const strip = document.getElementById('filterStrip');
+  if (!strip) return;
+
+  // Alle vorhandenen Kategorien sammeln und zählen
+  const counts = {};
+  allSpots.forEach(s => {
+    if (s.area_type) {
+      counts[s.area_type] = (counts[s.area_type] || 0) + 1;
+    }
+  });
+
+  const categories = Object.keys(counts);
+
+  // Filter-Leiste nur anzeigen wenn mindestens eine Kategorie vorhanden ist
+  if (!categories.length) {
+    strip.style.display = 'none';
+    return;
+  }
+
+  strip.style.display = 'flex';
+
+  // "Alle"-Pill zählt alle Spots (auch die ohne Kategorie)
+  const allCount = allSpots.length;
+  strip.innerHTML = `
+    <div class="filter-pill all-pill ${activeFilter === null ? 'active' : ''}"
+         data-cat="">
+      Alle <span class="pill-count">${allCount}</span>
+    </div>
+    ${categories.sort().map(cat => `
+      <div class="filter-pill ${activeFilter === cat ? 'active' : ''}"
+           data-cat="${cat}">
+        ${CATEGORY_EMOJI[cat] || '📌'} ${cat}
+        <span class="pill-count">${counts[cat]}</span>
+      </div>
+    `).join('')}`;
+
+  // Klick-Handler für jede Pill
+  strip.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const cat = pill.dataset.cat || null;
+      activeFilter = cat === '' ? null : cat;
+      buildFilterStrip();   // Leiste neu rendern (active-Klasse aktualisieren)
+      applyFilter();         // Marker auf der Karte filtern
+    });
+  });
+}
+
+// Zeigt oder versteckt Marker basierend auf activeFilter.
+// Wir entfernen keine Marker – wir setzen nur display:none auf das Element.
+// Das ist effizienter als Marker zu löschen und neu zu erstellen.
+function applyFilter() {
+  allSpots.forEach((s, i) => {
+    const marker = markers[i];
+    if (!marker) return;
+    const el = marker.getElement();
+    if (!el) return;
+
+    // Spot anzeigen wenn: kein Filter aktiv, oder Kategorie stimmt überein,
+    // oder eigener Spot (eigene Spots immer anzeigen)
+    const show = activeFilter === null
+      || s.code === CODE
+      || s.area_type === activeFilter;
+
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+async function renderMarkers() {
+  markers.forEach(m => m.remove());
+  markers = [];
+  onlineSet = new Set();
+
+  await Promise.all(allSpots.filter(s=>s.code!==CODE).map(async s => {
+    try {
+      const r=await fetch(`${API}/online/${s.code}?spot=caching`);
+      if (r.ok) { const d=await r.json(); if(d.online) onlineSet.add(s.code); }
+    } catch {}
+  }));
+
+  allSpots.forEach(s => {
+    const isMine=s.code===CODE, isOnline=!isMine&&onlineSet.has(s.code);
+    const el=document.createElement('div');
+    el.className=isMine?'my-spot-marker':`other-spot-marker${isOnline?' is-online':''}`;
+    const marker=new maplibregl.Marker({element:el}).setLngLat([s.lng,s.lat]).addTo(map);
+    markers.push(marker);
+    el.addEventListener('click', e => { e.stopPropagation(); openMarkerDrawer(s,isMine,isOnline); });
+  });
+
+  // Filter-Leiste aktualisieren und aktiven Filter anwenden
+  buildFilterStrip();
+  applyFilter();
+}
+
+function openMarkerDrawer(s, isMine, isOnline) {
+  document.getElementById('drawerOverlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerTitle').textContent = isMine ? 'MEIN SPOT' : 'SPOT';
+  currentDrawer = 'marker';
+
+  const onlineBadge = isOnline
+    ? `<span style="font-size:0.72rem;color:var(--green);font-weight:600;font-family:'Space Mono',monospace;">● Online</span>`
+    : `<span style="font-size:0.72rem;color:var(--muted);font-family:'Space Mono',monospace;">○ Offline</span>`;
+
+  document.getElementById('drawerBody').innerHTML = `
+    <div class="spot-card" style="margin-bottom:1rem;">
+      <div class="sc-icon">${isMine?'🟠':'📍'}</div>
+      <div class="sc-info">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-detail">
+          <span class="sc-tag">${s.wishTag||''}</span>
+          ${onlineBadge}
+          ${spotAgeHtml(s.createdAt||s.created_at)}
+        </div>
+        ${s.description ? `<div style="font-size:0.78rem;color:var(--muted2);margin-top:5px;line-height:1.45;">${esc(s.description)}</div>` : ''}
+        ${s.image ? `<img src="${s.image}" alt="" onclick="openImg('${s.image}')" style="width:100%;max-height:120px;object-fit:cover;border-radius:9px;margin-top:8px;border:1px solid var(--bord);cursor:zoom-in;">` : ''}
+      </div>
+    </div>
+    ${isMine
+      ? `<div style="display:flex;gap:0.5rem;">
+           <button id="md-edit" class="sc-btn navigate" style="flex:1;padding:0.8rem;font-size:0.9rem;border-radius:12px;">✏️ Bearbeiten</button>
+           <button id="md-del"  class="sc-btn danger"   style="flex:1;padding:0.8rem;font-size:0.9rem;border-radius:12px;">🗑️ Löschen</button>
+         </div>`
+      : `<div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+           <button id="md-nav"  class="sc-btn navigate" style="flex:1;padding:0.8rem;border-radius:12px;">🧭 Route</button>
+           <button id="md-prof" class="sc-btn"          style="flex:1;padding:0.8rem;border-radius:12px;">👤 Profil</button>
+         </div>
+         <button id="md-det" class="sc-btn primary" style="width:100%;padding:0.8rem;font-size:0.9rem;border-radius:12px;">📋 Details & Einladung</button>`
+    }
+  `;
+
+  if (isMine) {
+    document.getElementById('md-edit').addEventListener('click', () => { closeDrawer(); setTimeout(() => openSpotEdit(s), 300); });
+    document.getElementById('md-del').addEventListener('click', () => { deleteSpot(s.id); closeDrawer(); });
+  } else {
+    document.getElementById('md-nav').addEventListener('click', () => { navigateToSpot(s.lat, s.lng, s.name); closeDrawer(); });
+    document.getElementById('md-prof').addEventListener('click', () => { closeDrawer(); setTimeout(()=>showSpotOwnerProfile(s.code),300); });
+    document.getElementById('md-det').addEventListener('click', () => { closeDrawer(); setTimeout(()=>openSpotDetail(s.id),300); });
+  }
+}
+
+async function saveSpot() {
+  const name=document.getElementById('spotName').value.trim();
+  const desc=document.getElementById('spotDesc').value.trim();
+  const wish=document.getElementById('spotWish').value;
+  if (!name) { toast('⚠️ Name eingeben'); return; }
+
+  if (editSpotId) {
+    // ── BEARBEITEN ──
+    // spotPhotoData enthält entweder:
+    //   - das bestehende Bild (pending oder approved) → mitschicken damit es bleibt
+    //   - ein neues Bild das der Nutzer gerade gewählt hat → mitschicken
+    //   - null wenn das Bild manuell entfernt wurde → null mitschicken
+    closeModals();
+    try {
+      await fetch(`${API}/userspots/${editSpotId}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ code:CODE, name, description:desc, wishTag:wish, image:spotPhotoData||null })
+      });
+    } catch {}
+    toast('✅ Spot aktualisiert');
+    editSpotId=null; spotPhotoData=null;
+    loadAllSpots();
+  } else {
+    // ── NEU ANLEGEN ──
+    if (!tempLatLng) { toast('⚠️ Kein Standort'); return; }
+    closeModals();
+    try {
+      await fetch(`${API}/userspots`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ code:CODE, lat:tempLatLng.lat, lng:tempLatLng.lng, name, description:desc, wishTag:wish, image:spotPhotoData||null })
+      });
+    } catch {}
+    toast('✅ Spot gespeichert');
+    spotPhotoData=null;
+    loadAllSpots();
+  }
+}
+
+async function deleteSpot(id) {
+  try {
+    await fetch(`${API}/userspots/${id}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:CODE})});
+  } catch {}
+  toast('🗑️ Spot gelöscht');
+  loadAllSpots();
+}
+
+// ── PLACE MODE ───────────────────────────────────────────────────────────────
+function togglePlaceMode() {
+  placeMode=!placeMode;
+  const fab=document.getElementById('fabBtn'), label=document.getElementById('fabLabel');
+  if (placeMode) {
+    fab.classList.add('active'); fab.textContent='✕'; label.textContent='ABBRUCH';
+    document.getElementById('placeModeBar').classList.add('show');
+    document.getElementById('crosshair').classList.add('show');
+    toast('Tippe auf die Karte');
+  } else { hidePlaceModeUI(); }
+}
+function hidePlaceModeUI() {
+  placeMode=false;
+  const fab=document.getElementById('fabBtn'), label=document.getElementById('fabLabel');
+  fab.classList.remove('active'); fab.textContent='📍'; label.textContent='SPOT';
+  document.getElementById('placeModeBar').classList.remove('show');
+  document.getElementById('crosshair').classList.remove('show');
+}
+function openSpotForm() {
+  const profile=JSON.parse(localStorage.getItem('sm_profile_caching')||'{}');
+  const wishes=profile.wishes?.length?profile.wishes:['Kaffee','Strand','Park','Wandern','Kino'];
+  document.getElementById('spotWish').innerHTML=wishes.map(w=>`<option value="${w}">${w}</option>`).join('');
+  editSpotId = null;
+  document.getElementById('spotModalTitle').textContent = '📍 Spot anlegen';
+  document.getElementById('spotName').value='';
+  document.getElementById('spotDesc').value='';
+  spotPhotoData=null;
+  document.getElementById('spotPhotoPreview').style.display='none';
+  document.getElementById('spotPhotoBtn').style.display='block';
+  document.getElementById('spotPhotoInput').value='';
+  document.getElementById('spotModal').classList.add('show');
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────────────────────
+function clearRoutes() {
+  ['route-foot','route-foot-casing','route-car','route-car-casing'].forEach(id => {
+    if (map.getLayer(id)) map.removeLayer(id);
+  });
+  ['route-foot-src','route-car-src'].forEach(id => {
+    if (map.getSource(id)) map.removeSource(id);
+  });
+}
+
+// ── NAVIGATION OVERLAY ───────────────────────────────────────────────────────
+// Ersetzt alle Google-Maps-Links durch ein vollbildiges In-App-Navi-Overlay.
+// OSRM-Route wird nur neu geholt wenn der Nutzer >25 m weitergelaufen ist.
+
+let naviMap = null, naviUserMarker = null, naviSpotMarker = null;
+let naviWatchId = null, naviLastRoutePos = null, naviRouting = false;
+let naviTarget = null; // { lat, lng, name }
+let naviCentered = true; // Karte folgt Nutzer solange aktiv
+
+// Öffentlicher Einstiegspunkt – ersetzt die alte navigateToSpot()
+function navigateToSpot(lat, lng, name) {
+  openNavOverlay(lat, lng, name || 'Spot');
+}
+
+function openNavOverlay(lat, lng, name) {
+  naviTarget = { lat, lng, name: name || 'Spot' };
+  naviLastRoutePos = null;
+  naviRouting = false;
+  naviCentered = true;
+
+  // UI befüllen
+  document.getElementById('naviSpotName').textContent = naviTarget.name;
+  document.getElementById('naviSpotSub').textContent = 'NAVIGATION · GPS aktiv';
+  document.getElementById('naviDistVal').textContent = '…';
+  document.getElementById('naviFootVal').textContent = '…';
+  document.getElementById('naviCarVal').textContent = '…';
+
+  // Overlay einblenden
+  document.getElementById('naviOverlay').classList.add('active');
+
+  // Recenter-Button
+  document.getElementById('naviRecenterBtn').onclick = () => {
+    naviCentered = true;
+    if (naviMap && userPos) {
+      naviMap.flyTo({ center: [userPos.lng, userPos.lat], zoom: 15, duration: 600 });
+    }
+  };
+
+  // Karte leicht verzögert init (Overlay muss erst sichtbar sein)
+  setTimeout(() => {
+    if (naviMap) { naviMap.remove(); naviMap = null; }
+    naviUserMarker = null; naviSpotMarker = null;
+
+    const center = userPos
+      ? [(userPos.lng + lng) / 2, (userPos.lat + lat) / 2]
+      : [lng, lat];
+
+    naviMap = new maplibregl.Map({
+      container: 'naviMap',
+      style: 'https://tiles.openfreemap.org/styles/bright',
+      center, zoom: 14,
+      attributionControl: false
+    });
+
+    // Wenn Nutzer die Karte bewegt: Zentrierungsmodus deaktivieren
+    naviMap.on('dragstart', () => { naviCentered = false; });
+
+    naviMap.on('load', () => {
+      // Spot-Marker (amber)
+      const sEl = document.createElement('div');
+      sEl.style.cssText = 'width:22px;height:22px;background:#f59e0b;border-radius:50%;border:3px solid white;box-shadow:0 0 16px rgba(245,158,11,0.8);';
+      naviSpotMarker = new maplibregl.Marker({ element: sEl })
+        .setLngLat([lng, lat]).addTo(naviMap);
+
+      if (userPos) {
+        naviAddUserMarker();
+        naviUpdateDistDisplay();
+        naviFitBounds();
+        naviFetchRoute();
+      }
+    });
+
+    // GPS-Live-Tracking starten
+    if (navigator.geolocation) {
+      naviWatchId = navigator.geolocation.watchPosition(pos => {
+        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+        // User-Marker bewegen
+        if (naviUserMarker) naviUserMarker.setLngLat([userPos.lng, userPos.lat]);
+        else naviAddUserMarker();
+
+        // Karte nachführen wenn Zentrierungsmodus aktiv
+        if (naviCentered && naviMap) {
+          naviMap.easeTo({ center: [userPos.lng, userPos.lat], duration: 400 });
+        }
+
+        naviUpdateDistDisplay();
+
+        // Route nur neu holen wenn >25 m weiterbewegt
+        const moved = naviLastRoutePos
+          ? haversineKm(naviLastRoutePos.lat, naviLastRoutePos.lng, userPos.lat, userPos.lng) * 1000
+          : 999;
+        if (moved > 25) naviFetchRoute();
+
+      }, () => toast('⚠️ GPS Signal verloren'),
+         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    }
+  }, 80);
+}
+
+function naviAddUserMarker() {
+  if (!naviMap || !userPos) return;
+  if (naviUserMarker) naviUserMarker.remove();
+  const uEl = document.createElement('div');
+  uEl.style.cssText = 'width:18px;height:18px;background:#22d3ee;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(34,211,238,0.9);';
+  naviUserMarker = new maplibregl.Marker({ element: uEl })
+    .setLngLat([userPos.lng, userPos.lat]).addTo(naviMap);
+}
+
+function naviFitBounds() {
+  if (!naviMap || !userPos || !naviTarget) return;
+  const bounds = new maplibregl.LngLatBounds(
+    [userPos.lng, userPos.lat], [naviTarget.lng, naviTarget.lat]
+  );
+  naviMap.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+}
+
+function naviUpdateDistDisplay() {
+  if (!userPos || !naviTarget) return;
+  const m = haversineKm(userPos.lat, userPos.lng, naviTarget.lat, naviTarget.lng) * 1000;
+  document.getElementById('naviDistVal').textContent =
+    m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
+}
+
+function naviClearRouteLayers() {
+  if (!naviMap) return;
+  ['navi-foot-casing','navi-foot','navi-car-casing','navi-car'].forEach(id => {
+    if (naviMap.getLayer(id)) naviMap.removeLayer(id);
+  });
+  ['navi-src-foot','navi-src-car'].forEach(id => {
+    if (naviMap.getSource(id)) naviMap.removeSource(id);
+  });
+}
+
+async function naviFetchRoute() {
+  if (!userPos || !naviTarget || !naviMap || naviRouting) return;
+  naviRouting = true;
+  naviLastRoutePos = { ...userPos };
+
+  const start = `${userPos.lng},${userPos.lat}`;
+  const end   = `${naviTarget.lng},${naviTarget.lat}`;
+
+  // Auto-Route: OSRM (kein Key nötig)
+  const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
+  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
+    .then(r => r.json()).catch(() => null);
+
+  // Fußweg: ORS foot-hiking (Wanderwege, Trampelpfade, Off-Road)
+  // Fallback auf OSRM foot wenn kein Key eingetragen ist
+  const footPromise = ORS_KEY
+    ? fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`)
+        .then(r => r.json()).catch(() => null)
+    : fetch(`https://router.project-osrm.org/route/v1/foot/${osrmBase}`)
+        .then(r => r.json()).catch(() => null);
+
+  const [carData, footRaw] = await Promise.all([carPromise, footPromise]);
+
+  naviRouting = false;
+  if (!naviMap) return; // Overlay geschlossen während Fetch lief
+
+  naviClearRouteLayers();
+
+  const fmtMin = s => {
+    const m = Math.round(s / 60);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
+
+  // Auto-Route zeichnen (OSRM-Format)
+  if (carData?.routes?.length) {
+    const r = carData.routes[0];
+    naviMap.addSource('navi-src-car', { type: 'geojson', data: { type: 'Feature', geometry: r.geometry } });
+    naviMap.addLayer({ id: 'navi-car-casing', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 8, 'line-opacity': 0.7 } });
+    naviMap.addLayer({ id: 'navi-car', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#f59e0b', 'line-width': 5, 'line-opacity': 0.9 } });
+    document.getElementById('naviCarVal').textContent = fmtMin(r.duration);
+  }
+
+  // Fußweg zeichnen – ORS und OSRM haben unterschiedliche Response-Formate
+  let footGeometry = null, footDuration = null;
+
+  if (ORS_KEY && footRaw?.features?.length) {
+    // ORS-Format: features[0].geometry + features[0].properties.summary.duration
+    footGeometry = footRaw.features[0].geometry;
+    footDuration  = footRaw.features[0].properties?.summary?.duration;
+  } else if (!ORS_KEY && footRaw?.routes?.length) {
+    // OSRM-Fallback-Format: routes[0].geometry + routes[0].duration
+    footGeometry = footRaw.routes[0].geometry;
+    footDuration  = footRaw.routes[0].duration;
+  }
+
+  if (footGeometry) {
+    naviMap.addSource('navi-src-foot', { type: 'geojson', data: { type: 'Feature', geometry: footGeometry } });
+    naviMap.addLayer({ id: 'navi-foot-casing', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 6, 'line-opacity': 0.6 } });
+    naviMap.addLayer({ id: 'navi-foot', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-color': '#22d3ee', 'line-width': 3, 'line-opacity': 1, 'line-dasharray': [2, 2] } });
+    if (footDuration) document.getElementById('naviFootVal').textContent = fmtMin(footDuration);
+  }
+}
+
+function closeNavOverlay() {
+  if (naviWatchId) { navigator.geolocation.clearWatch(naviWatchId); naviWatchId = null; }
+  if (naviMap) { naviMap.remove(); naviMap = null; }
+  naviUserMarker = null; naviSpotMarker = null;
+  naviLastRoutePos = null; naviTarget = null; naviRouting = false;
+  document.getElementById('naviOverlay').classList.remove('active');
+}
+
+// ── DRAWER ───────────────────────────────────────────────────────────────────
+
+// ── DRAWER ───────────────────────────────────────────────────────────────────
+function openDrawer(type) {
+  currentDrawer = type;
+
+  // Badge-Verwaltung: je nach Drawer-Typ den richtigen Badge löschen
+  if (type === 'chats')   showChatBadge(0);        // Chat-Badge löschen
+  if (type === 'invites') updateInviteBadge(0);     // Einladungs-Badge löschen
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('show');
+  const title = document.getElementById('drawerTitle');
+  const body  = document.getElementById('drawerBody');
+
+  if (type === 'chats') {
+    // ── NEU: Chat-Liste – alle Gespräche anzeigen ─────────────────────
+    title.textContent = '💬 CHATS';
+    loadChatListIntoDrawer(body);
+
+  } else if (type === 'favorites') {
+    // ── Favoriten-Liste ───────────────────────────────────────────────
+    title.textContent = '⭐ FAVORITEN';
+    // Badge löschen wenn Favoriten geöffnet werden
+    document.getElementById('favBadge').style.display = 'none';
+    loadFavoritesIntoDrawer(body);
+
+  } else if (type === 'myspots') {
+    title.textContent = 'MEINE SPOTS';
+    body.innerHTML = mySpots.length
+      ? mySpots.map(s => {
+          const isActive = s.active !== false;
+          return `<div class="spot-card" style="opacity:${isActive ? '1' : '0.55'};">
+            <div class="sc-icon">
+              <span style="color:${isActive ? 'var(--acc)' : 'var(--muted)'};">🟠</span>
+            </div>
+            <div class="sc-info">
+              <div class="sc-name">${esc(s.name)}</div>
+              <div class="sc-detail">
+                <span class="sc-tag">${s.wishTag || ''}</span>
+                ${spotAgeHtml(s.createdAt || s.created_at)}
+                <span style="font-size:0.62rem;font-weight:600;
+                             color:${isActive ? '#10b981' : 'var(--muted)'};
+                             font-family:'Space Mono',monospace;">
+                  ${isActive ? '● Aktiv' : '○ Pausiert'}
+                </span>
+                ${s.image_status === 'pending'
+                  ? `<span style="font-size:0.62rem;color:var(--acc);
+                                  font-family:'Space Mono',monospace;">⏳ Bild pending</span>`
+                  : ''}
+              </div>
+            </div>
+            <div class="sc-actions">
+              <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>
+              <button class="sc-btn" data-edit="${s.id}"
+                      style="background:rgba(245,158,11,0.08);
+                             border-color:rgba(245,158,11,0.3);
+                             color:var(--acc);"
+                      title="Spot bearbeiten">✏️</button>
+              <button class="sc-btn" data-toggle="${s.id}"
+                      style="background:${isActive
+                        ? 'rgba(245,158,11,0.12)'
+                        : 'rgba(16,185,129,0.12)'};
+                             border-color:${isActive
+                        ? 'rgba(245,158,11,0.35)'
+                        : 'rgba(16,185,129,0.35)'};
+                             color:${isActive ? 'var(--acc)' : '#10b981'};"
+                      title="${isActive ? 'Spot pausieren' : 'Spot aktivieren'}">
+                ${isActive ? '⏸' : '▶'}
+              </button>
+              <button class="sc-btn danger" data-del="${s.id}">🗑️</button>
+            </div>
+          </div>`;
+        }).join('')
+      : `<div class="empty-state"><div class="es-icon">🗺️</div>Noch keine Spots.</div>`;
+
+    body.querySelectorAll('[data-lat]').forEach(b =>
+      b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng))
+    );
+
+    // Bearbeiten-Button: lädt den Spot frisch vom Server um image_status zu kennen
+    // dann öffnet es das Bearbeiten-Modal mit allen aktuellen Daten
+    body.querySelectorAll('[data-edit]').forEach(b =>
+      b.addEventListener('click', async () => {
+        const spotId = +b.dataset.edit;
+        try {
+          // Eigene Spots vom Server laden – enthält image + image_status
+          const r = await fetch(`${API}/userspots/${CODE}`);
+          if (r.ok) {
+            const spots = await r.json();
+            const spot  = spots.find(s => s.id === spotId);
+            if (spot) {
+              closeDrawer();
+              setTimeout(() => openSpotEdit(spot), 300);
+            }
+          }
+        } catch {
+          toast('⚠️ Fehler beim Laden');
+        }
+      })
+    );
+
+    // Toggle-Button: Spot aktivieren oder pausieren
+    body.querySelectorAll('[data-toggle]').forEach(b =>
+      b.addEventListener('click', async () => {
+        const token = localStorage.getItem('sm_token');
+        try {
+          const res = await fetch(`${API}/userspots/${b.dataset.toggle}/toggle`, {
+            method:  'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ code: CODE, token })
+          });
+          const data = await res.json();
+          if (data.success) {
+            // Spot-Array lokal aktualisieren damit kein neuer Server-Aufruf nötig ist
+            const spot = mySpots.find(s => s.id == b.dataset.toggle);
+            if (spot) spot.active = data.active;
+            // Drawer sofort neu rendern – der Nutzer sieht die Änderung sofort
+            openDrawer('myspots');
+            toast(data.active ? '▶ Spot aktiviert' : '⏸ Spot pausiert');
+            // Karte aktualisieren damit der Spot dort auch sofort erscheint/verschwindet
+            await loadAllSpots();
+          }
+        } catch (e) {
+          toast('⚠️ Fehler beim Umschalten');
+        }
+      })
+    );
+
+    body.querySelectorAll('[data-del]').forEach(b =>
+      b.addEventListener('click', () => { deleteSpot(+b.dataset.del); closeDrawer(); })
+    );
+
+  } else if (type === 'all') {
+    title.textContent='ALLE SPOTS';
+    const others=allSpots.filter(s=>s.code!==CODE);
+    body.innerHTML=others.length
+      ? others.map(s=>`<div class="spot-card">
+          <div class="sc-icon" style="position:relative;">⚪${onlineSet.has(s.code)?'<span style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:#10b981;border:1.5px solid var(--bg);"></span>':''}</div>
+          <div class="sc-info"><div class="sc-name">${esc(s.name)}</div>
+          <div class="sc-detail"><span class="sc-tag">${s.wishTag||''}</span>
+          ${onlineSet.has(s.code)?'<span style="font-size:0.65rem;color:#10b981;font-weight:600;">● Online</span>':''}
+          ${spotAgeHtml(s.createdAt||s.created_at)}</div></div>
+          <div class="sc-actions">
+            <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>
+            <button class="sc-btn primary" data-det="${s.id}">📋</button>
+          </div></div>`).join('')
+      : `<div class="empty-state"><div class="es-icon">🌐</div>Keine Spots.</div>`;
+    body.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>navigateToSpot(+b.dataset.lat,+b.dataset.lng)));
+    body.querySelectorAll('[data-det]').forEach(b=>b.addEventListener('click',()=>{const s=allSpots.find(x=>x.id==b.dataset.det);if(s){closeDrawer();setTimeout(()=>openSpotDetail(s.id),300);}}));
+
+  } else if (type === 'invites') {
+    title.textContent='EINLADUNGEN';
+    loadInvitesIntoDrawer(body);
+
+  } else if (type === 'weekly') {
+    title.textContent = '🗓️ WOCHEN-SPOTS';
+    loadWeeklyDrawer(body);
+  }
+}
+
+function closeDrawer() {
+  // NEU: Chat aufräumen wenn Drawer geschlossen wird
+  stopChatPolling();
+  chatMyCode      = null;
+  chatPartnerCode = null;
+  chatPartnerName = null;
+  chatRoom        = null;
+  chatPollTimer   = null;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('show');
+  // Neue-Spot-Marker aufräumen
+  if (currentDrawer === 'newspots') {
+    newSpotMarkers.forEach(m => m.remove());
+    newSpotMarkers = [];
+    document.getElementById('newSpotsBtn')?.classList.remove('active');
+  }
+  clearRoutes();
+  const nt=document.getElementById('navToast'); if(nt) nt.remove();
+  currentDrawer = null;
+}
+
+// ── INVITES ──────────────────────────────────────────────────────────────────
+async function loadInvitesIntoDrawer(body) {
+  body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  let invites = [];
+  try {
+    const r = await fetch(`${API}/spotcache/invites/${CODE}`);
+    if (r.ok) invites = await r.json();
+  } catch {}
+
+  document.getElementById('statInvites').textContent = invites.length;
+  updateInviteBadge(0);
+  document.getElementById('inviteHeaderBtn').classList.remove('active');
+
+  if (!invites.length) {
+    body.innerHTML = `<div class="empty-state"><div class="es-icon">📨</div>Keine Einladungen.</div>`;
+    return;
+  }
+
+  const now = Date.now();
+
+  // Einladungen in zwei Gruppen aufteilen.
+  // Aktiv = Status ist noch pending/accepted UND Zeitfenster liegt in der Zukunft.
+  // Abgelaufen = entweder vom Server als 'expired' markiert, ODER time_end
+  // liegt bereits in der Vergangenheit (der Server-Cleanup läuft erst täglich,
+  // das Frontend erkennt es also sofort).
+  const active  = invites.filter(inv =>
+    inv.status !== 'expired' && (inv.time_end || 0) >= now
+  );
+  const expired = invites.filter(inv =>
+    inv.status === 'expired' || (inv.time_end || 0) < now
+  );
+
+  // ── Hilfsfunktion: eine einzelne Einladungskarte rendern ─────────────────
+  // isExpired steuert die visuelle Darstellung (reduzierte Opacity)
+  // und blendet Aktions-Buttons aus die keinen Sinn mehr machen
+  const renderInvite = (inv, isExpired = false) => {
+    const isSender  = inv.from_code === CODE;
+    const timeStart = inv.time_start || 0;
+    const timeEnd   = inv.time_end   || 0;
+
+    let statusHtml = inv.status === 'pending'
+
+    
+      ? `<span class="status-pill pending">⏳ Ausstehend</span>`
+      : inv.status === 'accepted'
+        ? (timeStart <= now && timeEnd >= now
+          ? `<span class="status-pill now">🟢 JETZT!</span>`
+          : `<span class="status-pill accepted">✅ Akzeptiert</span>`)
+          : inv.status === 'expired'
+          ? `<span class="status-pill"
+                   style="background:rgba(100,116,139,0.2);
+                          color:#64748b;
+                          border-color:rgba(100,116,139,0.3);">
+               📁 Abgelaufen</span>`
+          : '';
+
+    const cd = timeStart > now
+      ? `<span style="font-size:0.65rem;color:var(--muted);">
+           ⏰ ${formatCountdown(timeStart)}</span>`
+      : '';
+
+    // Abgelaufene Karten werden mit reduzierter Opacity dargestellt –
+    // der Nutzer sieht sie noch, aber sie treten optisch in den Hintergrund
+    const cardStyle = isExpired
+      ? 'flex-direction:column;align-items:stretch;opacity:0.5;'
+      : 'flex-direction:column;align-items:stretch;';
+
+    return `
+      <div class="spot-card" style="${cardStyle}">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div class="sc-icon">${isSender ? '📤' : '📨'}</div>
+          <div class="sc-info">
+            <div class="sc-name">${esc(inv.spot_name || 'Spot')}</div>
+            <div class="sc-detail">${statusHtml} ${cd}</div>
+            <div class="sc-detail">
+              ${formatDateTime(timeStart)} – ${formatDateTime(timeEnd)}
+            </div>
+            ${!isSender
+              ? `<div class="sc-detail" style="font-size:0.72rem;color:var(--muted2);">
+                   📨 Von: <strong>${esc(inv.from_name || inv.from_code)}</strong>
+                 </div>`
+              : `<div class="sc-detail" style="font-size:0.72rem;color:var(--muted2);">
+                   📤 An: <strong>${esc(inv.to_name || inv.to_code)}</strong>
+                 </div>`
+            }
+          </div>
+        </div>
+
+        ${inv.status === 'pending' && !isSender && !isExpired
+          ? `<div style="margin-top:0.75rem;">
+               <button class="sc-btn success" style="width:100%;padding:0.65rem;"
+                       data-acc="${inv.id}">✅ Akzeptieren</button>
+             </div>`
+          : ''}
+
+        ${inv.status === 'accepted' && !isExpired
+          ? `<div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+               <button class="sc-btn navigate" style="flex:1;padding:0.65rem;"
+                       data-nav-spot="${inv.spot_id || ''}">🧭 Route</button>
+               <button class="sc-btn primary" style="flex:1;padding:0.65rem;"
+                       data-ci="${inv.id}">📍 Check-in</button>
+               <button class="sc-btn success" style="padding:0.65rem 0.9rem;"
+                       data-chat="${inv.from_code === CODE ? inv.to_code : inv.from_code}"
+                       data-chatname="${esc(inv.spot_name || '')}">💬</button>
+             </div>
+
+             <!-- Wetter-Vorhersage für den Treffpunkt-Zeitraum.
+                  Das div bekommt eine eindeutige ID basierend auf der Einladungs-ID,
+                  damit renderInviteWeather() das richtige Element findet
+                  wenn mehrere akzeptierte Einladungen gleichzeitig angezeigt werden. -->
+             <div id="invWeather_${inv.id}"
+                  style="margin-top:0.5rem;font-size:0.7rem;color:var(--muted);
+                         font-family:'Space Mono',monospace;">
+               ⏳ Wetter wird geladen…
+             </div>`
+          : ''}
+      </div>`;
+  };
+
+  // ── HTML zusammenbauen ───────────────────────────────────────────────────
+  let html = '';
+
+  if (active.length) {
+    html += active.map(inv => renderInvite(inv, false)).join('');
+  } else {
+    html += `<div class="empty-state" style="padding:1rem 0;">
+      <div class="es-icon">📭</div>Keine aktiven Einladungen.</div>`;
+  }
+
+  // Abgelaufene Einladungen in einem <details>-Block – pures HTML,
+  // kein JavaScript nötig für das Aufklappen. Der Browser erledigt das selbst.
+  if (expired.length) {
+    html += `
+      <details style="margin-top:1rem;">
+        <summary style="cursor:pointer;font-size:0.75rem;color:var(--muted);
+                        font-family:'Space Mono',monospace;padding:0.5rem 0;
+                        list-style:none;display:flex;align-items:center;gap:0.5rem;">
+          📁 Vergangene Treffen (${expired.length})
+          <span style="font-size:0.6rem;opacity:0.6;">▼ tippen zum öffnen</span>
+        </summary>
+        <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.5rem;">
+          ${expired.map(inv => renderInvite(inv, true)).join('')}
+        </div>
+      </details>`;
+  }
+
+  body.innerHTML = html;
+
+  // ── Event-Listener ───────────────────────────────────────────────────────
+  body.querySelectorAll('[data-acc]').forEach(b =>
+    b.addEventListener('click', () => acceptInvite(+b.dataset.acc))
+  );
+  body.querySelectorAll('[data-nav-spot]').forEach(b =>
+    b.addEventListener('click', () => {
+      const s = allSpots.find(x => x.id == b.dataset.navSpot);
+      if (s) navigateToSpot(s.lat, s.lng);
+    })
+  );
+  body.querySelectorAll('[data-ci]').forEach(b =>
+    b.addEventListener('click', () => checkIn(+b.dataset.ci))
+  );
+  body.querySelectorAll('[data-chat]').forEach(b =>
+    b.addEventListener('click', () => {
+      openChatDrawer(b.dataset.chat, b.dataset.chatname || b.dataset.chat);
+    })
+  );
+
+  // Wetter-Vorhersage für alle akzeptierten Einladungen nachladen.
+  // Wir brauchen dafür die Spot-Koordinaten – die kommen aus allSpots.
+  // Das passiert asynchron nach dem Rendern, damit der Drawer
+  // sofort erscheint und das Wetter dann still nachlädt.
+  
+active
+    .filter(inv => inv.status === 'accepted')
+    .forEach(inv => {
+      const spot = allSpots.find(s => s.id == inv.spot_id);
+      if (spot) {
+        renderMeetingWeather(inv.id, spot.lat, spot.lng, inv.time_start);
+      } else if (inv.spot_lat && inv.spot_lng) {
+        renderMeetingWeather(inv.id, inv.spot_lat, inv.spot_lng, inv.time_start);
+      } else {
+        loadAllSpots().then(() => {
+          const s = allSpots.find(x => x.id == inv.spot_id);
+          if (s) renderMeetingWeather(inv.id, s.lat, s.lng, inv.time_start);
+          else {
+            const el = document.getElementById(`mtgWeather_${inv.id}`);
+            if (el) el.style.display = 'none';
+          }
+        });
+      }
+    });
+}
+
+
+// ── CHAT-LISTE ────────────────────────────────────────────────────────────────
+// Zeigt alle Gespräche aus dem localStorage – wie eine WhatsApp-Übersicht.
+// Kein Server-Aufruf nötig: alle Daten liegen bereits lokal vor.
+function loadChatListIntoDrawer(body) {
+
+  // ── Alle Chat-Räume aus dem localStorage sammeln ──────────────────────────
+  // Wir gehen alle localStorage-Schlüssel durch und suchen die die mit
+  // CHAT_PREFIX beginnen. Jeder solcher Schlüssel ist ein Gespräch.
+  const chats = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(CHAT_PREFIX)) continue;
+
+    let msgs = [];
+    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    if (!msgs.length) continue;
+
+    // Partner-Code aus dem Schlüssel ableiten.
+    // Beispiel: "sm_local_msg_ABC123-XYZ789" → Partner ist wer nicht CODE ist.
+    const room        = key.replace(CHAT_PREFIX, '');
+    const codes       = room.split('-');
+    const partnerCode = codes.find(c => c !== CODE);
+    if (!partnerCode) continue;
+
+    // Letzte Nachricht für die Vorschau
+    const lastMsg = msgs[msgs.length - 1];
+
+    // Ungelesen-Zähler für diesen Partner
+    let unread = {};
+    try { unread = JSON.parse(localStorage.getItem('sm_unread_caching') || '{}'); } catch {}
+
+    chats.push({
+      partnerCode,
+      lastText: lastMsg.text     || '',
+      lastTs:   lastMsg.ts       || 0,
+      lastFrom: lastMsg.from     || '',
+      fromName: lastMsg.fromName || partnerCode,
+      unread:   unread[partnerCode] || 0
+    });
+  }
+
+  // Neueste Unterhaltung zuerst – wie bei WhatsApp
+  chats.sort((a, b) => b.lastTs - a.lastTs);
+
+  // ── Leerzustand ───────────────────────────────────────────────────────────
+  if (!chats.length) {
+    body.innerHTML = `
+      <div class="empty-state">
+        <div class="es-icon">💬</div>
+        Noch keine Chats.
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;text-align:center;line-height:1.5;">
+          Tippe auf einen Spot auf der Karte<br>und starte ein Gespräch.
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ── Chat-Liste rendern ────────────────────────────────────────────────────
+  body.innerHTML = chats.map(c => {
+    const time    = new Date(c.lastTs).toLocaleTimeString('de-DE',
+                    { hour: '2-digit', minute: '2-digit' });
+    const isMine  = c.lastFrom === CODE;
+    // Vorschautext auf 40 Zeichen kürzen damit die Zeile nicht überläuft
+    const preview = c.lastText.length > 40
+      ? c.lastText.slice(0, 40) + '…'
+      : c.lastText;
+
+    return `
+      <div class="spot-card"
+           data-partner="${c.partnerCode}"
+           data-name="${esc(c.fromName)}"
+           style="cursor:pointer;align-items:center;">
+
+        <!-- Avatar: Initiale des Partners in Cyan -->
+        <div class="sc-icon"
+             style="background:rgba(34,211,238,0.15);
+                    border-color:rgba(34,211,238,0.4);
+                    color:var(--cyan);
+                    font-weight:700;
+                    font-size:1rem;
+                    flex-shrink:0;">
+          ${(c.fromName[0] || '?').toUpperCase()}
+        </div>
+
+        <!-- Name + Vorschau -->
+        <div class="sc-info" style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+            <div class="sc-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${esc(c.fromName)}
+            </div>
+            <div style="font-size:0.62rem;color:var(--muted);
+                        font-family:'Space Mono',monospace;flex-shrink:0;">
+              ${time}
+            </div>
+          </div>
+          <div style="font-size:0.76rem;color:var(--muted2);margin-top:2px;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${isMine
+              ? `<span style="color:var(--muted);">Du: </span>`
+              : ''}${esc(preview)}
+          </div>
+        </div>
+
+        <!-- Ungelesen-Badge pro Gespräch (nur wenn > 0) -->
+        ${c.unread > 0
+          ? `<div style="min-width:20px;height:20px;border-radius:10px;
+                         background:var(--cyan);color:#0a0d12;
+                         font-size:0.62rem;font-weight:700;
+                         display:flex;align-items:center;justify-content:center;
+                         padding:0 4px;flex-shrink:0;margin-left:0.25rem;">
+               ${c.unread > 9 ? '9+' : c.unread}
+             </div>`
+          : ''}
+      </div>`;
+  }).join('');
+
+  // ── Klick-Handler: Chat mit dem gewählten Partner öffnen ──────────────────
+  body.querySelectorAll('[data-partner]').forEach(card => {
+    card.addEventListener('click', () => {
+      const partnerCode = card.dataset.partner;
+      const partnerName = card.dataset.name || partnerCode;
+      closeDrawer();
+      // Kurze Verzögerung damit der Drawer-Close-Übergang sichtbar ist
+      setTimeout(() => openChatDrawer(partnerCode, partnerName), 300);
+    });
+  });
+}
+
+function openInviteFromSpot(spotId, name, wish) {
+  selectedInviteSpot={id:spotId,name,wish};
+  document.getElementById('inviteSpotInfo').textContent=`Spot: ${name} · ${wish}`;
+  document.getElementById('inviteStart').value='';
+  document.getElementById('inviteEnd').value='';
+  document.getElementById('inviteModal').classList.add('show');
+}
+
+async function sendInvite() {
+  if (!selectedInviteSpot) return;
+
+  const start = new Date(document.getElementById('inviteStart').value).getTime();
+  const end   = new Date(document.getElementById('inviteEnd').value).getTime();
+
+  if (!start || !end || isNaN(start) || isNaN(end)) {
+    toast('⚠️ Zeitraum wählen'); return;
+  }
+
+  const spot = allSpots.find(s => s.id === selectedInviteSpot.id);
+  if (!spot) return;
+
+  closeModals();
+
+  try {
+    const res = await fetch(`${API}/spotcache/invite`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        from:       CODE,
+        to:         spot.code,
+        spot_id:    spot.id,
+        time_start: start,
+        time_end:   end
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast('✅ Einladung gesendet');
+    } else {
+      toast('⚠️ Fehler: ' + (data.error || res.status));
+    }
+  } catch (e) {
+    toast('⚠️ Server nicht erreichbar');
+  }
+}
+
+async function acceptInvite(id) {
+  try {
+    const res = await fetch(`${API}/spotcache/invite/respond`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id, code: CODE, action: 'accept' })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast('✅ Akzeptiert');
+    } else {
+      toast('⚠️ Fehler: ' + (data.error || res.status));
+    }
+  } catch (e) {
+    toast('⚠️ Server nicht erreichbar');
+  }
+
+  loadInvitesIntoDrawer(document.getElementById('drawerBody'));
+}
+
+async function checkIn(inviteId) {
+  if (!navigator.geolocation) { toast('❌ Kein GPS'); return; }
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try {
+      const r=await fetch(`${API}/spotcache/checkin`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:inviteId,code:CODE,lat:pos.coords.latitude,lng:pos.coords.longitude})});
+      const data=await r.json();
+      if (data.error) { toast('⚠️ '+data.error); return; }
+      if (data.bothCheckedIn) showMatch('Match!','Du hast jemanden getroffen 🎉');
+      else toast('✅ Eingecheckt – warte auf Partner…');
+    } catch { toast('✅ Eingecheckt'); }
+    loadInvitesIntoDrawer(document.getElementById('drawerBody'));
+  },null,{enableHighAccuracy:true});
+}
+
+function startInvitePolling() {
+  if (invitePollInterval) clearInterval(invitePollInterval);
+  invitePollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/spotcache/invites/${CODE}`);
+      if (!r.ok) return;
+      const invites = await r.json();
+      const count   = invites.length;
+
+      document.getElementById('statInvites').textContent = count;
+
+      if (count > knownInviteCount && knownInviteCount >= 0) {
+        updateInviteBadge(count - knownInviteCount);
+        document.getElementById('inviteHeaderBtn').classList.add('active');
+        if (Notification.permission === 'granted') {
+          new Notification('🧭 Neue Einladung!', {
+            body: 'Jemand möchte sich an deinem Spot treffen.'
+          });
+        }
+      }
+      knownInviteCount = count;
+
+      // Prüfen ob ein Treffen in weniger als 2 Stunden bevorsteht →
+      // urgentToast anzeigen wenn ja
+      checkUpcomingMeetings(invites);
+
+    } catch {}
+  }, 8000);
+}
+
+
+let globalChatPollTimer = null;
+
+function startGlobalChatPolling() {
+  if (globalChatPollTimer) clearInterval(globalChatPollTimer);
+
+  globalChatPollTimer = setInterval(async () => {
+
+    // Nicht pollen wenn kein gültiger Code vorhanden ist
+    if (!CODE || CODE === '000000') return;
+
+    try {
+      const r = await fetch(`${API}/messages/${CODE}?spot_type=caching_chat`);
+      if (!r.ok) return;
+      const newMsgs = await r.json();
+      if (!newMsgs.length) return;
+
+      // Ungelesen-Zähler aus dem localStorage laden
+      // Wir laden ihn einmal vor der Schleife, nicht für jede Nachricht einzeln –
+      // das ist effizienter und verhindert Race Conditions.
+      let unread = {};
+      try { unread = JSON.parse(localStorage.getItem('sm_unread_caching') || '{}'); } catch {}
+      let hadNewMessages = false;
+
+      newMsgs.forEach(m => {
+        const room = buildChatRoom(CODE, m.sender_code);
+        const key  = CHAT_PREFIX + room;
+
+        let existing = [];
+        try { existing = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+
+        // Duplikat-Schutz: dieselbe Nachricht nicht zweimal speichern
+        const isDuplicate = existing.some(e =>
+          e.from === m.sender_code &&
+          e.text === m.message &&
+          Math.abs(e.ts - new Date(m.created_at).getTime()) < 5000
+        );
+
+        if (!isDuplicate) {
+          // Nachricht in den localStorage-Chat-Raum einsortieren
+          existing.push({
+            from:     m.sender_code,
+            fromName: m.sender_name,
+            text:     m.message,
+            ts:       new Date(m.created_at).getTime()
+          });
+          localStorage.setItem(key, JSON.stringify(existing));
+
+          // ── NEU: Ungelesen-Zähler erhöhen ──────────────────────────────
+          // Aber nur wenn der Nutzer gerade NICHT mit diesem Absender chattet.
+          // Wenn der Chat-Drawer offen ist und der richtige Partner aktiv ist,
+          // soll keine Benachrichtigung erscheinen – der Nutzer sieht die
+          // Nachricht ja direkt im Chat.
+          const isCurrentChat = (currentDrawer === 'chat' && chatPartnerCode === m.sender_code);
+          if (!isCurrentChat) {
+            unread[m.sender_code] = (unread[m.sender_code] || 0) + 1;
+            hadNewMessages = true;
+          }
+        }
+      });
+
+      // Zähler einmal am Ende speichern (nicht für jede Nachricht einzeln)
+      if (hadNewMessages) {
+        localStorage.setItem('sm_unread_caching', JSON.stringify(unread));
+        updateChatBadgeFromStorage(); // Badge sofort aktualisieren
+      }
+
+      // Wenn Chat-Drawer offen ist: sofort neu rendern
+      if (currentDrawer === 'chat' && chatPartnerCode) {
+        renderChatMessages();
+      }
+
+      // Favoriten-Benachrichtigungen parallel prüfen
+      checkFavoriteNotifications();
+
+    } catch {}
+
+  }, 10000);
+}
+
+
+
+// ── BADGE ANZEIGEN / VERSTECKEN ───────────────────────────────────────────
+// Zeigt die Anzahl der Absender mit neuen Nachrichten am Chat-Icon an.
+// Bei count=0 wird der Badge ausgeblendet und die Puls-Animation gestoppt.
+
+function updateChatBadgeFromStorage() {
+  try {
+    // sm_unread_caching ist ein Objekt: { "ABCDEF": 2, "XYZ123": 1 }
+    // Der Schlüssel ist der Absender-Code, der Wert ist die Anzahl
+    // ungelesener Nachrichten von diesem Absender.
+    const unread = JSON.parse(localStorage.getItem('sm_unread_caching') || '{}');
+
+    // Wir zählen die Absender mit mindestens einer ungelesenen Nachricht.
+    // 3 Nachrichten von 1 Person = Badge "1", nicht "3".
+    // Das fühlt sich natürlicher an – wie bei WhatsApp.
+    const count = Object.values(unread).filter(n => n > 0).length;
+    showChatBadge(count);
+  } catch {
+    // Im Fehlerfall Badge einfach ausblenden
+    showChatBadge(0);
+  }
+}
+
+
+function showChatBadge(count) {
+  const badge  = document.getElementById('chatBadge');
+  const btn    = document.getElementById('chatHeaderBtn');
+  if (!badge || !btn) return;
+
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count; // max. "9+" anzeigen
+    badge.style.display = 'inline-block';
+    btn.classList.add('has-new');    // Puls-Animation starten
+  } else {
+    badge.style.display = 'none';
+    btn.classList.remove('has-new'); // Puls-Animation stoppen
+  }
+}
+
+function updateInviteBadge(n) {
+  const b=document.getElementById('inviteBadge');
+  if(n>0){b.style.display='flex';b.textContent=n;}else{b.style.display='none';}
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CHAT DRAWER
+// Logik übernommen aus messenger.html – angepasst für Drawer-Integration
+// ══════════════════════════════════════════════════════════════════════
+
+// Der Storage-Prefix bleibt identisch mit messenger.html,
+// damit Nachrichten zwischen beiden Versionen kompatibel bleiben.
+const CHAT_PREFIX = 'sm_local_msg_';
+
+// Diese drei Variablen beschreiben den aktuellen Chat-Zustand.
+// Sie sind null wenn kein Chat offen ist.
+let chatMyCode      = null;
+let chatPartnerCode = null;
+let chatPartnerName = null;  // Name des Chatpartners für die Anzeige im Drawer
+let chatRoom        = null;
+let chatPollTimer   = null;
+
+// ── Schlüssel-Berechnung ──────────────────────────────────────────────
+// Beide Codes werden sortiert zusammengefügt, damit egal wer den Chat
+// öffnet, immer derselbe localStorage-Schlüssel herauskommt.
+// Beispiel: Code "ABC" chattet mit "XYZ" → Schlüssel: "sm_local_msg_ABC-XYZ"
+function buildChatRoom(a, b) {
+  return [a, b].sort().join('-');
+}
+
+// ── Nachrichten aus localStorage lesen und schreiben ─────────────────
+function getChatMessages() {
+  if (!chatRoom) return [];
+  try {
+    return JSON.parse(localStorage.getItem(CHAT_PREFIX + chatRoom) || '[]');
+  } catch { return []; }
+}
+
+function saveChatMessages(msgs) {
+  if (!chatRoom) return;
+  localStorage.setItem(CHAT_PREFIX + chatRoom, JSON.stringify(msgs));
+}
+
+// ── Nachrichten rendern ───────────────────────────────────────────────
+// Wird nach jedem Senden und nach jedem Poll aufgerufen.
+function renderChatMessages() {
+  const container = document.getElementById('chatMsgs');
+  if (!container) return;
+
+  const msgs = getChatMessages();
+  if (!msgs.length) {
+    container.innerHTML = `<div class="empty-state" style="padding:1rem 0;">
+      <div class="es-icon">💬</div>Noch keine Nachrichten.</div>`;
+    return;
+  }
+
+  container.innerHTML = msgs.map(m => {
+    const isMine = m.from === chatMyCode;
+    const time   = new Date(m.ts).toLocaleTimeString('de-DE',
+                   { hour: '2-digit', minute: '2-digit' });
+    return `<div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">
+      ${!isMine
+        ? `<span class="chat-bubble-author">${esc(m.fromName || chatPartnerCode)}</span>`
+        : ''}
+      ${esc(m.text)}
+      <div class="chat-bubble-time">${time}</div>
+    </div>`;
+  }).join('');
+
+  // Automatisch nach unten scrollen – neueste Nachricht immer sichtbar
+  container.scrollTop = container.scrollHeight;
+}
+
+// ── Nachricht senden ──────────────────────────────────────────────────
+// Erst lokal speichern (sofortige Anzeige), dann an den Server schicken.
+// Falls der Server nicht erreichbar ist, bleibt die Nachricht lokal erhalten.
+async function sendChatMsg() {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text || !chatPartnerCode) return;
+
+  // Profilname aus localStorage holen – so sieht der Partner einen echten Namen
+  const myName = JSON.parse(localStorage.getItem('sm_profile_caching') || '{}').name || chatMyCode;
+
+  // Sofort lokal speichern und anzeigen
+  const msgs = getChatMessages();
+  msgs.push({ from: chatMyCode, fromName: myName, text, ts: Date.now() });
+  saveChatMessages(msgs);
+  input.value = '';
+  renderChatMessages();
+
+  // An den Server schicken (offline_messages Tabelle)
+  try {
+    await fetch(`${API}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient:   chatPartnerCode,
+        sender_code: chatMyCode,
+        sender_name: myName,
+        message:     text,
+        spot_type:   'caching_chat'  // Eigener Typ – trennt Chat von Einladungen
+      })
+    });
+  } catch { /* Server offline – kein Problem, lokal ist gespeichert */ }
+}
+
+// ── Server-Polling ────────────────────────────────────────────────────
+// Fragt alle 4 Sekunden ob der Partner neue Nachrichten geschickt hat.
+// Läuft nur solange der Chat-Drawer offen ist.
+function startChatPolling() {
+  stopChatPolling(); // Zuerst alten Timer stoppen um Doppel-Polls zu vermeiden
+  chatPollTimer = setInterval(async () => {
+    if (!chatPartnerCode || !chatMyCode) return;
+    try {
+      const r = await fetch(`${API}/messages/${chatMyCode}?spot_type=caching_chat`);
+      if (!r.ok) return;
+      const newMsgs = await r.json();
+
+      // Nur Nachrichten vom aktuellen Partner verarbeiten
+      const fromPartner = newMsgs.filter(m => m.sender_code === chatPartnerCode);
+      if (!fromPartner.length) return;
+
+      const existing = getChatMessages();
+      let hasNew = false;
+
+      fromPartner.forEach(m => {
+        // Duplikat-Schutz: Text + Zeitstempel vergleichen (±5 Sek. Toleranz)
+        // Das verhindert dass dieselbe Nachricht doppelt erscheint
+        const isDuplicate = existing.some(e =>
+          e.from === m.sender_code &&
+          e.text === m.message &&
+          Math.abs(e.ts - new Date(m.created_at).getTime()) < 5000
+        );
+        if (!isDuplicate) {
+          existing.push({
+            from:     m.sender_code,
+            fromName: m.sender_name,
+            text:     m.message,
+            ts:       new Date(m.created_at).getTime()
+          });
+          hasNew = true;
+        }
+      });
+
+      // Nur neu rendern wenn wirklich etwas Neues angekommen ist
+      if (hasNew) {
+        saveChatMessages(existing);
+        renderChatMessages();
+      }
+    } catch {}
+  }, 4000);
+}
+
+function stopChatPolling() {
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+}
+
+// ── Chat-Drawer öffnen ────────────────────────────────────────────────
+// Das ist der Einstiegspunkt der von openSpotDetail() und
+// loadInvitesIntoDrawer() aufgerufen wird.
+
+function openChatDrawer(partnerCode, partnerName) {
+  chatMyCode      = CODE;
+  chatPartnerCode = partnerCode;
+  chatPartnerName = partnerName || partnerCode;
+  chatRoom        = buildChatRoom(CODE, partnerCode);
+  currentDrawer   = 'chat';
+
+  // ── NEU: Ungelesen-Zähler für diesen Partner löschen ───────────────────
+  // Der Nutzer öffnet jetzt den Chat mit diesem Partner – alle Nachrichten
+  // von ihm gelten ab jetzt als "gesehen". Wir löschen seinen Eintrag aus
+  // dem Ungelesen-Objekt und aktualisieren den Badge sofort.
+  // Falls danach noch andere Partner ungelesene Nachrichten haben,
+  // bleibt der Badge für diese weiterhin aktiv.
+  try {
+    const unread = JSON.parse(localStorage.getItem('sm_unread_caching') || '{}');
+    delete unread[partnerCode]; // Nur diesen Partner als "gelesen" markieren
+    localStorage.setItem('sm_unread_caching', JSON.stringify(unread));
+    updateChatBadgeFromStorage(); // Badge sofort neu berechnen
+  } catch {}
+
+  document.getElementById('drawerTitle').textContent = '💬 CHAT';
+  document.getElementById('drawerOverlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+
+  document.getElementById('drawerBody').innerHTML = `
+    <div class="chat-wrap">
+      <div class="chat-partner-bar">
+        💬 ${esc(chatPartnerName)}
+        <span style="color:var(--muted);font-weight:400;"> · ${partnerCode}</span>
+      </div>
+      <div class="chat-messages" id="chatMsgs"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chatInput"
+               placeholder="Nachricht…" maxlength="280"
+               onkeydown="if(event.key==='Enter') sendChatMsg()">
+        <button class="chat-send-btn" onclick="sendChatMsg()">➤</button>
+      </div>
+    </div>
+  `;
+
+  renderChatMessages();
+  startChatPolling();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FAVORITEN – Öffentliche Spots ohne Einladungspflicht
+// ══════════════════════════════════════════════════════════════════════
+
+// Lokaler Cache: Set mit Spot-IDs die der Nutzer als Favorit gespeichert hat.
+// Wird beim Öffnen der App geladen und bei jedem Toggle aktualisiert.
+// So müssen wir nicht bei jedem Spot-Detail-Modal einen Server-Aufruf machen.
+const favoritesCache = new Set();
+let favoritesLoaded  = false;
+
+// Alle Favoriten einmalig vom Server laden und in favoritesCache speichern.
+async function loadFavoritesCache() {
+  try {
+    const r = await fetch(`${API}/favorites/${CODE}`);
+    if (!r.ok) return;
+    const favs = await r.json();
+    favoritesCache.clear();
+    favs.forEach(f => favoritesCache.add(String(f.spot_id)));
+    favoritesLoaded = true;
+  } catch {}
+}
+
+// Favoriten-Drawer befüllen – zeigt alle gespeicherten Spots
+// mit letztem Check-in und einem Entfernen-Button.
+async function loadFavoritesIntoDrawer(body) {
+  body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+
+  let favs = [];
+  try {
+    const r = await fetch(`${API}/favorites/${CODE}`);
+    if (r.ok) favs = await r.json();
+  } catch {}
+
+  if (!favs.length) {
+    body.innerHTML = `<div class="empty-state">
+      <div class="es-icon">⭐</div>
+      Noch keine Favoriten.
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;text-align:center;line-height:1.5;">
+        Öffne einen Spot auf der Karte<br>und tippe auf ⭐ um ihn zu speichern.
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Für jeden Favoriten die öffentlichen Check-ins parallel laden.
+  // Promise.all startet alle Anfragen gleichzeitig – viel schneller als
+  // sie nacheinander abzuarbeiten.
+  const checkinsBySpot = {};
+  await Promise.all(favs.map(async f => {
+    try {
+      const r = await fetch(`${API}/checkins/public/${f.spot_id}`);
+      if (r.ok) checkinsBySpot[f.spot_id] = await r.json();
+    } catch {}
+  }));
+
+  body.innerHTML = favs.map(f => {
+    const lastCheckin = f.last_checkin
+      ? `Letzter Check-in: ${f.last_checkin_name || f.last_checkin_code || '?'} · ${formatDateTime(+f.last_checkin)}`
+      : 'Noch kein Check-in';
+
+    // Geplante öffentliche Check-ins für diesen Spot
+    const upcoming = checkinsBySpot[f.spot_id] || [];
+
+    // Jede geplante Check-in-Karte darstellen
+    const upcomingHtml = upcoming.length
+      ? `<div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.3rem;">
+           ${upcoming.map(c => `
+             <div style="display:flex;align-items:center;gap:0.5rem;
+                         padding:0.35rem 0.5rem;background:rgba(16,185,129,0.08);
+                         border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
+               <span style="font-size:0.8rem;">📍</span>
+               <div style="flex:1;min-width:0;">
+                 <div style="font-size:0.72rem;font-weight:600;color:#10b981;">
+                   ${esc(c.profile_name || c.code)}
+                 </div>
+                 <div style="font-size:0.65rem;color:var(--muted);
+                             font-family:'Space Mono',monospace;">
+                   ${formatDateTime(c.checkin_at)}
+                   ${c.note ? `· ${esc(c.note)}` : ''}
+                 </div>
+               </div>
+               <!-- Chat-Button direkt aus dem Favoriten-Drawer -->
+               <button class="sc-btn success" style="padding:0.3rem 0.5rem;font-size:0.75rem;"
+                       data-chat-fav="${c.code}"
+                       data-chatname-fav="${esc(c.profile_name || c.code)}">💬</button>
+             </div>`).join('')}
+         </div>`
+      : '';
+
+    return `<div class="fav-card" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="fav-icon">📍</div>
+        <div class="fav-info" style="flex:1;min-width:0;">
+          <div class="fav-name">${esc(f.spot_name || 'Spot')}</div>
+          <div class="fav-meta">${esc(f.wishTag || '')}</div>
+          <div class="fav-checkin">${lastCheckin}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem;">
+          <button class="sc-btn navigate" style="padding:0.5rem 0.6rem;"
+                  data-fav-lat="${f.lat}" data-fav-lng="${f.lng}">🧭</button>
+          <button class="sc-btn" style="padding:0.5rem 0.6rem;font-size:0.7rem;
+                  background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red);"
+                  data-unfav="${f.spot_id}">✕</button>
+        </div>
+      </div>
+
+      <!-- Geplante öffentliche Check-ins anderer Nutzer -->
+      ${upcomingHtml}
+
+      <!-- Wetter für diesen Spot (asynchron nachgeladen) -->
+      <div id="favWeather_${f.spot_id}"
+           style="font-size:0.68rem;color:var(--muted);margin-top:0.4rem;
+                  font-family:'Space Mono',monospace;">
+        ⏳ Wetter…
+      </div>
+
+      <!-- Eigenen öffentlichen Check-in ankündigen -->
+      <button class="sc-btn success"
+              style="margin-top:0.5rem;width:100%;padding:0.6rem;font-size:0.78rem;"
+              data-announce="${f.spot_id}" data-spotname="${esc(f.spot_name || 'Spot')}">
+        📍 Check-in ankündigen
+      </button>
+    </div>`;
+  }).join('');
+
+  // ── Event-Listener ──────────────────────────────────────────────────────────
+  body.querySelectorAll('[data-fav-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.favLat, +b.dataset.favLng))
+  );
+  body.querySelectorAll('[data-unfav]').forEach(b =>
+    b.addEventListener('click', async () => {
+      await toggleFavorite(+b.dataset.unfav, false);
+      loadFavoritesIntoDrawer(body);
+    })
+  );
+  // Chat-Button direkt aus dem Favoriten-Drawer öffnen
+  body.querySelectorAll('[data-chat-fav]').forEach(b =>
+    b.addEventListener('click', () => {
+      closeDrawer();
+      setTimeout(() => openChatDrawer(b.dataset.chatFav, b.dataset.chatnameFav), 300);
+    })
+  );
+  // Check-in ankündigen – öffnet ein kleines Inline-Formular
+  body.querySelectorAll('[data-announce]').forEach(b =>
+    b.addEventListener('click', () => openCheckinAnnouncement(+b.dataset.announce, b.dataset.spotname, body))
+  );
+
+  // Wetter für alle Favoriten-Spots asynchron nachladen
+  favs.forEach(f => renderFavWeather(f.spot_id, f.lat, f.lng));
+}
+
+// Rendert das Wetter für eine Favoriten-Karte – wiederverwendet fetchWeather()
+async function renderFavWeather(spotId, lat, lng) {
+  const el = document.getElementById(`favWeather_${spotId}`);
+  if (!el) return;
+  const w = await fetchWeather(lat, lng);
+  if (!w || !w.current) { el.style.display = 'none'; return; }
+  const temp = Math.round(w.current.temperature_2m);
+  const code = w.current.weather_code;
+  const wind = Math.round(w.current.wind_speed_10m);
+  el.innerHTML = `${weatherEmoji(code)} ${temp}°C · ${weatherDesc(code)} · 💨 ${wind} km/h`;
+}
+
+// Öffnet ein Inline-Formular zum Ankündigen eines öffentlichen Check-ins.
+// Das Formular erscheint direkt unter dem "Check-in ankündigen"-Button
+// ohne ein neues Modal zu öffnen – das fühlt sich natürlicher an.
+function openCheckinAnnouncement(spotId, spotName, drawerBody) {
+  // Minimale Startzeit: jetzt + 4 Stunden (wie auf dem Server geprüft)
+  const minTime = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  // ISO-String für datetime-local input: "2026-05-20T18:00"
+  const minTimeStr = new Date(minTime.getTime() - minTime.getTimezoneOffset() * 60000)
+    .toISOString().slice(0, 16);
+
+  // Bestehenden Formular-Container entfernen falls vorhanden
+  const existing = document.getElementById('checkinAnnounceForm');
+  if (existing) existing.remove();
+
+  const formHtml = `
+    <div id="checkinAnnounceForm"
+         style="position:fixed;bottom:0;left:0;right:0;z-index:900;
+                background:var(--card2);border-top:1px solid var(--bord);
+                padding:1rem;border-radius:16px 16px 0 0;
+                box-shadow:0 -4px 20px rgba(0,0,0,0.3);">
+      <div style="font-weight:700;margin-bottom:0.75rem;">
+        📍 Check-in bei: ${esc(spotName)}
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted2);margin-bottom:0.75rem;">
+        Wähle einen Zeitpunkt mindestens 4 Stunden in der Zukunft.<br>
+        Alle Favoriten dieses Spots werden benachrichtigt.
+      </div>
+      <input type="datetime-local" id="checkinTime"
+             min="${minTimeStr}"
+             style="width:100%;padding:0.65rem;background:var(--card);
+                    border:1px solid var(--bord2);border-radius:10px;
+                    color:var(--text);font-size:0.88rem;margin-bottom:0.5rem;">
+      <input type="text" id="checkinNote" placeholder="Kurze Notiz (optional)"
+             maxlength="80"
+             style="width:100%;padding:0.65rem;background:var(--card);
+                    border:1px solid var(--bord2);border-radius:10px;
+                    color:var(--text);font-size:0.88rem;margin-bottom:0.75rem;">
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn-ghost" style="flex:1;"
+                onclick="document.getElementById('checkinAnnounceForm').remove()">
+          Abbrechen
+        </button>
+        <button class="btn-primary" style="flex:2;"
+                onclick="submitCheckinAnnouncement(${spotId})">
+          📍 Ankündigen
+        </button>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', formHtml);
+  // Direkt zum Zeitfeld springen
+  setTimeout(() => document.getElementById('checkinTime')?.focus(), 100);
+}
+
+// Schickt die Check-in-Ankündigung an den Server.
+async function submitCheckinAnnouncement(spotId) {
+  const timeVal = document.getElementById('checkinTime')?.value;
+  const note    = document.getElementById('checkinNote')?.value?.trim();
+
+  if (!timeVal) { toast('⚠️ Bitte einen Zeitpunkt wählen'); return; }
+
+  const checkinAt = new Date(timeVal).getTime();
+  const minTime   = Date.now() + 4 * 60 * 60 * 1000;
+  if (checkinAt < minTime) {
+    toast('⚠️ Mindestens 4 Stunden in der Zukunft'); return;
+  }
+
+  try {
+    const res = await fetch(`${API}/checkins/public`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ code: CODE, spot_id: spotId, checkin_at: checkinAt, note })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('checkinAnnounceForm')?.remove();
+      toast('✅ Check-in angekündigt – alle Favoriten wurden benachrichtigt!');
+      // Favoriten-Drawer neu laden damit der neue Check-in sofort erscheint
+      loadFavoritesIntoDrawer(document.getElementById('drawerBody'));
+    } else {
+      toast('⚠️ ' + (data.error || 'Fehler'));
+    }
+  } catch {
+    toast('⚠️ Server nicht erreichbar');
+  }
+}
+
+// Favorit hinzufügen oder entfernen.
+// isFav = true → hinzufügen, isFav = false → entfernen
+async function toggleFavorite(spotId, isFav) {
+  const id = String(spotId);
+  try {
+    if (isFav) {
+      await fetch(`${API}/favorites`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code: CODE, spot_id: spotId })
+      });
+      favoritesCache.add(id);
+      toast('⭐ Favorit gespeichert');
+    } else {
+      await fetch(`${API}/favorites/${spotId}`, {
+        method:  'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code: CODE })
+      });
+      favoritesCache.delete(id);
+      toast('✕ Favorit entfernt');
+    }
+  } catch {
+    toast('⚠️ Fehler beim Speichern');
+  }
+}
+
+// Prüft im Hintergrund ob neue Favoriten-Check-in-Benachrichtigungen vorhanden sind.
+// Wird vom globalChatPolling mitgenutzt – wir prüfen offline_messages mit
+// spot_type = 'favorite_checkin' und zeigen den Badge wenn neue da sind.
+async function checkFavoriteNotifications() {
+  try {
+    const r = await fetch(`${API}/messages/${CODE}?spot_type=favorite_checkin`);
+    if (!r.ok) return;
+    const msgs = await r.json();
+    if (msgs.length > 0) {
+      const badge = document.getElementById('favBadge');
+      badge.textContent = msgs.length > 9 ? '9+' : msgs.length;
+      badge.style.display = 'inline-block';
+    }
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// WETTER – Open-Meteo API
+// Kostenlos, kein API-Key nötig, direkt vom Frontend aufrufbar.
+// Wir cachen das Ergebnis 10 Minuten pro Koordinate, damit wir
+// beim schnellen Öffnen/Schließen desselben Spots nicht mehrfach
+// die API belasten.
+// ══════════════════════════════════════════════════════════════════════
+
+const weatherCache = new Map(); // key: "lat,lng" → { data, ts }
+
+// Übersetzt den WMO weather_code in ein passendes Emoji.
+// Die Codes sind international standardisiert und von Open-Meteo dokumentiert.
+function weatherEmoji(code) {
+  if (code === 0)          return '☀️';   // Klarer Himmel
+  if (code <= 2)           return '🌤️';   // Überwiegend klar / wenig bewölkt
+  if (code === 3)          return '☁️';   // Bedeckt
+  if (code <= 48)          return '🌫️';   // Nebel / Reifnebel
+  if (code <= 55)          return '🌦️';   // Nieselregen
+  if (code <= 65)          return '🌧️';   // Regen
+  if (code <= 77)          return '❄️';   // Schnee / Schneekörnchen
+  if (code <= 82)          return '🌦️';   // Regenschauer
+  if (code <= 86)          return '🌨️';   // Schneeschauer
+  if (code <= 99)          return '⛈️';   // Gewitter
+  return '🌡️';
+}
+
+// Beschreibung des WMO-Codes auf Deutsch – für die zweite Zeile der Wetter-Leiste
+function weatherDesc(code) {
+  if (code === 0)          return 'Klarer Himmel';
+  if (code <= 2)           return 'Überwiegend klar';
+  if (code === 3)          return 'Bedeckt';
+  if (code <= 48)          return 'Neblig';
+  if (code <= 55)          return 'Nieselregen';
+  if (code <= 65)          return 'Regen';
+  if (code <= 77)          return 'Schneefall';
+  if (code <= 82)          return 'Regenschauer';
+  if (code <= 86)          return 'Schneeschauer';
+  if (code <= 99)          return 'Gewitter';
+  return 'Unbekannt';
+}
+
+// Holt aktuelles Wetter UND stündliche Vorhersage für eine Koordinate.
+// Wir fragen beides in einem einzigen API-Aufruf ab – das spart eine
+// HTTP-Verbindung und ist effizienter als zwei getrennte Anfragen.
+// Gibt null zurück wenn die API nicht erreichbar ist.
+async function fetchWeather(lat, lng) {
+  const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+  const now  = Date.now();
+
+  // Cache prüfen: Daten die weniger als 10 Minuten alt sind direkt zurückgeben.
+  if (weatherCache.has(key)) {
+    const cached = weatherCache.get(key);
+    if (now - cached.ts < 10 * 60 * 1000) return cached.data;
+  }
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${lat}&longitude=${lng}` +
+      // Aktuelles Wetter – für die obere Leiste
+      `&current=temperature_2m,weather_code,wind_speed_10m,precipitation` +
+      // Stündliche Vorhersage – für die Scroll-Leiste darunter
+      // precipitation_probability ist die Regenwahrscheinlichkeit in % pro Stunde
+      `&hourly=temperature_2m,weather_code,precipitation_probability` +
+      `&wind_speed_unit=kmh` +
+      `&timezone=auto` +
+      // Nur 1 Tag anfordern – wir brauchen maximal die nächsten 8 Stunden,
+      // und weniger Daten = schnellere Antwort
+      `&forecast_days=2`;
+
+    const res  = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+
+    // Beide Teile der Antwort zusammenpacken
+    const data = { current: json.current, hourly: json.hourly };
+    weatherCache.set(key, { data, ts: now });
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// Rendert aktuelles Wetter + 8-Stunden-Vorhersage in den spotWeatherBar-Container.
+// Die Funktion wird aufgerufen NACHDEM das innerHTML des Modals gesetzt wurde,
+// weil spotWeatherBar erst dann im DOM existiert.
+async function renderWeatherBar(lat, lng) {
+  const el = document.getElementById('spotWeatherBar');
+  if (!el) return;
+
+  el.innerHTML = `<div class="weather-loading">⏳ Wetter wird geladen…</div>`;
+
+  const w = await fetchWeather(lat, lng);
+  if (!w) { el.style.display = 'none'; return; }
+
+  const cur  = w.current;
+  const temp = Math.round(cur.temperature_2m);
+  const wind = Math.round(cur.wind_speed_10m);
+  const code = cur.weather_code;
+  const rain = cur.precipitation > 0
+    ? `· 🌧 ${cur.precipitation.toFixed(1)} mm`
+    : '';
+
+  // ── Vorhersage: die nächsten 8 Stunden ab jetzt ──────────────────────────
+  // Open-Meteo liefert Zeiten als "2026-05-20T14:00" (ohne Sekunden).
+  // Wir bauen denselben String für die aktuelle Stunde und suchen den
+  // passenden Index im Array. Das ist robuster als mit Timestamps zu rechnen,
+  // weil es keine Zeitzonenkonflikte geben kann.
+  let forecastHtml = '';
+  if (w.hourly) {
+    const nowISO   = new Date().toISOString().slice(0, 13); // z.B. "2026-05-20T14"
+    const startIdx = w.hourly.time.findIndex(t => t.startsWith(nowISO));
+
+    if (startIdx >= 0) {
+      // 8 Stunden ab der aktuellen Stunde – oder weniger wenn das Array endet
+      const hours = w.hourly.time.slice(startIdx, startIdx + 8);
+
+      forecastHtml = `<div class="weather-forecast">` +
+        hours.map((timeStr, i) => {
+          const idx      = startIdx + i;
+          const hourTemp = Math.round(w.hourly.temperature_2m[idx]);
+          const hourCode = w.hourly.weather_code[idx];
+          const rainProb = w.hourly.precipitation_probability[idx] || 0;
+
+          // Stunde aus dem ISO-String extrahieren: "2026-05-20T14:00" → "14:00"
+          const hourLabel = i === 0 ? 'Jetzt' : timeStr.slice(11, 16);
+
+          // Aktuelle Stunde wird hervorgehoben (erste Karte)
+          const isNow = i === 0 ? 'now' : '';
+
+          return `<div class="wf-card ${isNow}">
+            <div class="wf-hour">${hourLabel}</div>
+            <div class="wf-emoji">${weatherEmoji(hourCode)}</div>
+            <div class="wf-temp">${hourTemp}°</div>
+            ${rainProb > 0
+              ? `<div class="wf-rain">${rainProb}%</div>`
+              : '<div class="wf-rain" style="visibility:hidden">0%</div>'}
+          </div>`;
+        }).join('') +
+      `</div>`;
+      // Das unsichtbare 0%-Element hält alle Karten gleich hoch,
+      // damit die Zeile nicht springt wenn manche Regen haben und andere nicht.
+    }
+  }
+
+  // ── Alles zusammenbauen ───────────────────────────────────────────────────
+  // Wenn eine Vorhersage vorhanden ist, bekommt .weather-bar abgerundete
+  // Ecken nur oben (geht optisch in die Vorhersage-Leiste über).
+  // Wenn keine Vorhersage vorhanden ist, wird die standalone-Klasse verwendet.
+  const barClass = forecastHtml
+    ? 'weather-bar'
+    : 'weather-bar weather-bar-standalone';
+
+  el.innerHTML = `
+    <div class="${barClass}">
+      <div class="weather-icon">${weatherEmoji(code)}</div>
+      <div class="weather-temp">${temp}°C</div>
+      <div class="weather-details">
+        <div class="weather-desc">${weatherDesc(code)}</div>
+        <div class="weather-wind">💨 ${wind} km/h ${rain}</div>
+      </div>
+    </div>
+    ${forecastHtml}`;
+}
+
+// ── WETTER FÜR BESTÄTIGTE EINLADUNGEN ────────────────────────────────────────
+// Zeigt die Wettervorhersage für den Zeitraum einer akzeptierten Einladung.
+// Der Unterschied zu renderWeatherBar() ist der Ausgangspunkt:
+//   - renderWeatherBar()    → zeigt ab JETZT (für "soll ich hinfahren?")
+//   - renderInviteWeather() → zeigt ab TIME_START (für "wie wird es beim Treffen?")
+//
+// Wir zeigen 2 Stunden vor und 6 Stunden ab dem Treffpunkt – so sieht
+// der Nutzer wie das Wetter ankommt, während des Treffens, und danach.
+async function renderInviteWeather(invId, lat, lng, timeStart) {
+  const el = document.getElementById(`invWeather_${invId}`);
+  if (!el) return;
+
+  const w = await fetchWeather(lat, lng);
+  if (!w || !w.hourly) { el.style.display = 'none'; return; }
+
+  // Den Index der Treffpunkt-Stunde im stündlichen Array finden.
+  // Wir bauen einen ISO-String aus time_start: z.B. "2026-05-20T16"
+  // und suchen den passenden Eintrag in w.hourly.time.
+  const meetingDate = new Date(timeStart);
+  const meetingISO  = meetingDate.toISOString().slice(0, 13); // "2026-05-20T16"
+  const centerIdx   = w.hourly.time.findIndex(t => t.startsWith(meetingISO));
+
+  if (centerIdx < 0) {
+    // Treffpunkt liegt außerhalb des Vorhersagezeitraums (>2 Tage)
+    el.innerHTML = `<span style="color:var(--muted);font-size:0.65rem;">
+      ⚠️ Vorhersage nur bis 48h verfügbar</span>`;
+    return;
+  }
+
+  // 2 Stunden vor bis 6 Stunden nach dem Treffpunkt – insgesamt 8 Stunden.
+  // Der Treffpunkt selbst wird hervorgehoben damit der Nutzer ihn sofort findet.
+  const startIdx = Math.max(0, centerIdx - 2);
+  const endIdx   = Math.min(w.hourly.time.length, centerIdx + 7);
+  const hours    = w.hourly.time.slice(startIdx, endIdx);
+
+  const cards = hours.map((timeStr, i) => {
+    const idx      = startIdx + i;
+    const hourTemp = Math.round(w.hourly.temperature_2m[idx]);
+    const hourCode = w.hourly.weather_code[idx];
+    const rainProb = w.hourly.precipitation_probability[idx] || 0;
+    const hourLabel = timeStr.slice(11, 16); // "16:00"
+
+    // Die Treffpunkt-Stunde (centerIdx) wird hervorgehoben
+    const isMeeting = idx === centerIdx;
+
+    return `<div class="wf-card ${isMeeting ? 'now' : ''}">
+      <div class="wf-hour">${isMeeting ? '📍' : hourLabel}</div>
+      <div class="wf-emoji">${weatherEmoji(hourCode)}</div>
+      <div class="wf-temp">${hourTemp}°</div>
+      ${rainProb > 0
+        ? `<div class="wf-rain">${rainProb}%</div>`
+        : '<div class="wf-rain" style="visibility:hidden">0%</div>'}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="weather-forecast" style="border-radius:8px;border:1px solid var(--bord);">
+    ${cards}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BEVORSTEHENDE TREFFEN – Modal + Benachrichtigungen + Stornieren
+// ══════════════════════════════════════════════════════════════════════
+
+// Merkt sich welche Einladungs-IDs bereits einen urgentToast ausgelöst haben.
+// Ohne diesen Schutz würde der Toast bei jedem Polling-Tick neu erscheinen.
+const shownUrgentToasts = new Set();
+
+// Öffnet das "Bevorstehende Treffen"-Modal und lädt die Daten frisch vom Server.
+// Wir laden immer frisch statt aus dem Cache weil sich der Status zwischen
+// zwei Polling-Zyklen geändert haben könnte.
+async function openMeetingsModal() {
+  document.getElementById('meetingsModal').classList.add('show');
+  const content = document.getElementById('meetingsContent');
+  content.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+
+  let invites = [];
+  try {
+    const r = await fetch(`${API}/spotcache/invites/${CODE}`);
+    if (r.ok) invites = await r.json();
+  } catch {}
+
+  const now = Date.now();
+
+  // Nur akzeptierte, noch nicht abgelaufene Einladungen anzeigen –
+  // das sind die echten "bevorstehenden Treffen"
+  const upcoming = invites
+    .filter(inv => inv.status === 'accepted' && (inv.time_end || 0) > now)
+    .sort((a, b) => (a.time_start || 0) - (b.time_start || 0)); // Nächstes zuerst
+
+  if (!upcoming.length) {
+    content.innerHTML = `<div class="empty-state">
+      <div class="es-icon">📅</div>
+      Keine bevorstehenden Treffen.
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;text-align:center;">
+        Akzeptierte Einladungen erscheinen hier.
+      </div>
+    </div>`;
+    return;
+  }
+
+  content.innerHTML = upcoming.map(inv => {
+    const timeStart  = inv.time_start || 0;
+    const timeEnd    = inv.time_end   || 0;
+    const diffMs     = timeStart - now;
+    const diffHours  = diffMs / 3600000;
+
+    // Dringlichkeitsklasse bestimmt die Farbe des linken Rands und des Countdowns
+    const urgency = diffHours < 2      ? 'urgent'
+                  : diffHours < 24     ? 'today'
+                  : 'upcoming';
+
+    const countdown = formatCountdown(timeStart);
+    const isSender  = inv.from_code === CODE;
+
+    return `<div class="meeting-card ${urgency}">
+      <div class="meeting-spot">${esc(inv.spot_name || 'Spot')}</div>
+      <div class="meeting-time">
+        ${formatDateTime(timeStart)} – ${formatDateTime(timeEnd)}
+      </div>
+      <div class="meeting-countdown">${countdown}</div>
+
+      <!-- Wetter für diesen Treffpunkt – wird asynchron nachgeladen -->
+      <div id="mtgWeather_${inv.id}"
+           style="font-size:0.68rem;color:var(--muted);font-family:'Space Mono',monospace;
+                  margin-bottom:0.4rem;">
+        ⏳ Wetter…
+      </div>
+
+      <div class="meeting-actions">
+        <button class="sc-btn navigate" style="flex:1;"
+                data-nav-inv="${inv.spot_id}">🧭 Route</button>
+        <button class="sc-btn primary" style="flex:1;"
+                data-ci="${inv.id}">📍 Check-in</button>
+        <button class="sc-btn success" style="padding:0.65rem 0.8rem;"
+                data-chat="${isSender ? inv.to_code : inv.from_code}"
+                data-chatname="${esc(inv.spot_name || '')}">💬</button>
+        <button class="sc-btn danger" style="padding:0.65rem 0.8rem;"
+                data-cancel="${inv.id}"
+                title="Treffen stornieren">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Event-Listener für alle Buttons
+  content.querySelectorAll('[data-nav-inv]').forEach(b =>
+    b.addEventListener('click', () => {
+      const spot = allSpots.find(s => s.id == b.dataset.navInv);
+      if (spot) { closeModals(); navigateToSpot(spot.lat, spot.lng); }
+    })
+  );
+  content.querySelectorAll('[data-ci]').forEach(b =>
+    b.addEventListener('click', () => checkIn(+b.dataset.ci))
+  );
+  content.querySelectorAll('[data-chat]').forEach(b =>
+    b.addEventListener('click', () => {
+      closeModals();
+      setTimeout(() => openChatDrawer(b.dataset.chat, b.dataset.chatname || b.dataset.chat), 300);
+    })
+  );
+  content.querySelectorAll('[data-cancel]').forEach(b =>
+    b.addEventListener('click', () => cancelInvite(+b.dataset.cancel))
+  );
+
+  // Wetter für jede Karte asynchron nachladen – kein Blocking des Modals
+  upcoming.forEach(inv => {
+    const spot = allSpots.find(s => s.id == inv.spot_id);
+    if (spot) renderMeetingWeather(inv.id, spot.lat, spot.lng, inv.time_start);
+  });
+}
+
+// Rendert die Wetter-Vorhersage für eine Meeting-Karte.
+// Identisch zu renderInviteWeather() – wiederverwendet dieselbe fetchWeather()-Logik.
+async function renderMeetingWeather(invId, lat, lng, timeStart) {
+  const el = document.getElementById(`mtgWeather_${invId}`);
+  if (!el) return;
+  const w = await fetchWeather(lat, lng);
+  if (!w || !w.hourly) { el.style.display = 'none'; return; }
+
+  const meetingISO = new Date(timeStart).toISOString().slice(0, 13);
+  const centerIdx  = w.hourly.time.findIndex(t => t.startsWith(meetingISO));
+  if (centerIdx < 0) { el.innerHTML = '<span style="opacity:0.5;">Vorhersage nicht verfügbar</span>'; return; }
+
+  const startIdx = Math.max(0, centerIdx - 1);
+  const hours    = w.hourly.time.slice(startIdx, centerIdx + 5);
+
+  el.innerHTML = `<div class="weather-forecast"
+       style="border-radius:8px;border:1px solid var(--bord);margin-top:0.25rem;">
+    ${hours.map((t, i) => {
+      const idx      = startIdx + i;
+      const temp     = Math.round(w.hourly.temperature_2m[idx]);
+      const code     = w.hourly.weather_code[idx];
+      const rain     = w.hourly.precipitation_probability[idx] || 0;
+      const label    = idx === centerIdx ? '📍' : t.slice(11, 16);
+      const isCenter = idx === centerIdx ? 'now' : '';
+      return `<div class="wf-card ${isCenter}">
+        <div class="wf-hour">${label}</div>
+        <div class="wf-emoji">${weatherEmoji(code)}</div>
+        <div class="wf-temp">${temp}°</div>
+        ${rain > 0
+          ? `<div class="wf-rain">${rain}%</div>`
+          : '<div class="wf-rain" style="visibility:hidden">0%</div>'}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Storniert eine Einladung nach Bestätigung durch den Nutzer.
+// Nach dem Stornieren wird das Modal neu geladen damit die Karte verschwindet.
+async function cancelInvite(id) {
+  const ok = confirm('Treffen wirklich stornieren?\nDer andere wird automatisch benachrichtigt.');
+  if (!ok) return;
+
+  const token = localStorage.getItem('sm_token');
+  try {
+    const res = await fetch(`${API}/spotcache/invite/${id}/cancel`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ code: CODE, token })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast('✅ Treffen storniert – Partner wurde informiert');
+      // Modal-Inhalt neu laden damit die stornierte Karte sofort verschwindet
+      openMeetingsModal();
+    } else {
+      toast('⚠️ ' + (data.error || 'Fehler beim Stornieren'));
+    }
+  } catch {
+    toast('⚠️ Server nicht erreichbar');
+  }
+}
+
+// Blendet den urgentToast aus und merkt sich dass er für heute weggeklickt wurde.
+function dismissUrgentToast() {
+  document.getElementById('urgentToast').classList.remove('show');
+}
+
+// Prüft ob ein Treffen in weniger als 2 Stunden bevorsteht und zeigt
+// einen persistenten roten Toast. Wird vom startInvitePolling() aufgerufen.
+// Der Toast erscheint nur einmal pro Einladung – shownUrgentToasts verhindert
+// dass er bei jedem Polling-Tick erneut aufpoppt.
+function checkUpcomingMeetings(invites) {
+  const now = Date.now();
+  const twoHours = 2 * 60 * 60 * 1000;
+
+  const urgent = invites.find(inv =>
+    inv.status === 'accepted' &&
+    (inv.time_start || 0) > now &&
+    (inv.time_start || 0) - now < twoHours &&
+    !shownUrgentToasts.has(inv.id)
+  );
+
+  if (urgent) {
+    shownUrgentToasts.add(urgent.id);
+    const countdown = formatCountdown(urgent.time_start);
+    document.getElementById('urgentToastText').textContent =
+      `Treffen bei "${urgent.spot_name || 'Spot'}" ${countdown}`;
+    document.getElementById('urgentToast').classList.add('show');
+  }
+}
+
+// ── SPOT DETAIL ──────────────────────────────────────────────────────────────
+
+async function openSpotDetail(spotId) {
+  // Spot aus dem lokalen Array suchen – wenn nicht gefunden, abbrechen
+  const spot = allSpots.find(s => s.id === spotId);
+  if (!spot) { toast('⚠️ Nicht gefunden'); return; }
+
+  detailSpot = spot;
+
+  // Sofort einen Lade-Platzhalter zeigen, damit der Nutzer Feedback bekommt
+  document.getElementById('spotDetailContent').innerHTML =
+    `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  document.getElementById('spotDetailModal').classList.add('show');
+
+  // ── Mini-Karte ────────────────────────────────────────────────────────────
+  const mapEl = document.getElementById('spotDetailMap');
+  mapEl.innerHTML = ''; mapEl.style.display = 'block';
+  if (detailMiniMap) { detailMiniMap.remove(); detailMiniMap = null; }
+  setTimeout(() => {
+    detailMiniMap = new maplibregl.Map({
+      container: 'spotDetailMap',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [spot.lng, spot.lat],
+      zoom: 14,
+      interactive: false,
+      attributionControl: false
+    });
+    detailMiniMap.on('load', () => {
+      const el = document.createElement('div');
+      el.className = 'my-spot-marker';
+      new maplibregl.Marker({ element: el }).setLngLat([spot.lng, spot.lat]).addTo(detailMiniMap);
+      if (userPos) {
+        const uel = document.createElement('div');
+        uel.className = 'user-marker';
+        new maplibregl.Marker({ element: uel }).setLngLat([userPos.lng, userPos.lat]).addTo(detailMiniMap);
+        const bounds = new maplibregl.LngLatBounds([spot.lng, spot.lat], [userPos.lng, userPos.lat]);
+        detailMiniMap.fitBounds(bounds, { padding: 40, duration: 0 });
+      }
+    });
+  }, 100);
+
+  // ── Profil, Avatar und Bild parallel laden ────────────────────────────────
+  const isOnline = onlineSet.has(spot.code);
+  let profile = null, avatarData = null, spotImage = spot.image || null;
+
+  const fetches = [
+    fetch(`${API}/profile/${spot.code}?spot=caching`),
+    fetch(`${API}/avatar/${spot.code}?spot=caching`)
+  ];
+  if (!spotImage) {
+    fetches.push(fetch(`${API}/userspots/${spot.code}`).then(r => r.ok ? r.json() : null));
+  }
+  try {
+    const results = await Promise.all(fetches);
+    if (results[0]?.ok) profile    = await results[0].json();
+    if (results[1]?.ok) avatarData = await results[1].json();
+    if (fetches.length === 3 && results[2]) {
+      const spotData = await results[2];
+      const match = Array.isArray(spotData) ? spotData.find(s => s.id === spotId) : null;
+      if (match?.image) spotImage = match.image;
+    }
+  } catch {}
+
+  // ── Spot-Detail HTML rendern ──────────────────────────────────────────────
+  const dist = userPos ? (() => {
+    const d = Math.round(haversineKm(userPos.lat, userPos.lng, spot.lat, spot.lng) * 1000);
+    return d < 1000 ? `${d}m` : `${(d / 1000).toFixed(1)}km`;
+  })() : null;
+
+  const avHtml = avatarData?.avatar
+    ? `<img src="${avatarData.avatar}" alt="">`
+    : ((profile?.name?.[0] || '?').toUpperCase());
+
+  const wishes = (profile?.wishTags || profile?.wishes || []).filter(Boolean);
+  const offers = (profile?.offerTags || profile?.offers || []).filter(Boolean);
+
+  document.getElementById('spotDetailContent').innerHTML = `
+    ${spotImage
+      ? `<img src="${spotImage}" alt="" onclick="openImg('${spotImage}')"
+             style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;
+                    margin-bottom:0.75rem;border:1px solid var(--bord2);cursor:zoom-in;">`
+      : ''}
+    <div style="display:flex;gap:0.75rem;align-items:flex-start;margin-bottom:0.75rem;">
+      <div class="spot-detail-avatar">${avHtml}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:1rem;">${esc(spot.name)}</div>
+        ${profile?.name
+          ? `<div style="font-size:0.78rem;color:var(--muted2);margin-top:2px;">
+               👤 ${esc(profile.name)}${profile.age ? ` · ${profile.age} J.` : ''}
+             </div>`
+          : ''}
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">
+          <span class="sc-tag">${spot.wishTag || ''}</span>
+          ${isOnline
+            ? '<span style="font-size:0.68rem;color:var(--green);font-weight:600;font-family:\'Space Mono\',monospace;">● Online</span>'
+            : '<span style="font-size:0.68rem;color:var(--muted);font-family:\'Space Mono\',monospace;">○ Offline</span>'}
+          ${spotAgeHtml(spot.createdAt || spot.created_at)}
+          ${dist ? `<span style="font-size:0.65rem;color:var(--muted);">📍 ${dist}</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Wetter-Leiste: wird nach dem Rendern asynchron befüllt -->
+    <!-- Das div ist zunächst leer und bekommt seinen Inhalt von renderWeatherBar() -->
+    <div id="spotWeatherBar"></div>
+
+    ${profile?.bio
+      ? `<div style="font-size:0.82rem;color:var(--muted2);line-height:1.55;padding:0.65rem;
+                     background:var(--card);border-radius:10px;border:1px solid var(--bord);
+                     margin-bottom:0.6rem;">${esc(profile.bio)}</div>`
+      : ''}
+    ${wishes.length
+      ? `<div style="margin-bottom:0.5rem;">
+           ${wishes.map(w => `<span class="profile-chip">💭 ${esc(w)}</span>`).join('')}
+         </div>`
+      : ''}
+    ${offers.length
+      ? `<div>${offers.map(o => `<span class="profile-chip offer">🎁 ${esc(o)}</span>`).join('')}</div>`
+      : ''}
+  `;
+
+  // Wetter asynchron nachladen – das passiert parallel zum Button-Setup,
+  // weil fetchWeather() einen eigenen await-Pfad hat und das Modal
+  // nicht blockiert. Der Nutzer sieht zuerst "⏳ Wetter wird geladen…"
+  // und nach ca. 300-500ms erscheint die echte Wetter-Leiste.
+  renderWeatherBar(spot.lat, spot.lng);
+
+  // ── Button umschalten – NACH dem Rendern ──────────────────────────────────
+  const isOwnSpot = spot.code === CODE;
+  const chatBtn = document.getElementById('spotDetailChatBtn');
+  const invBtn  = document.getElementById('spotDetailInviteBtn');
+  const favBtn  = document.getElementById('spotFavoriteBtn');
+
+  if (isOwnSpot) {
+    chatBtn.style.display = 'none';
+    invBtn.style.display  = 'none';
+    favBtn.style.display  = 'none';
+    return;
+  }
+
+  // ── Favoriten-Button ──────────────────────────────────────────────────────
+  // Status sofort aus dem Cache lesen – kein Server-Aufruf nötig
+  const isFav = favoritesCache.has(String(spot.id));
+  favBtn.textContent = isFav ? '⭐' : '☆';
+  favBtn.classList.toggle('active', isFav);
+  favBtn.style.display = '';
+  favBtn.onclick = async () => {
+    const newFav = !favoritesCache.has(String(spot.id));
+    await toggleFavorite(spot.id, newFav);
+    favBtn.textContent = newFav ? '⭐' : '☆';
+    favBtn.classList.toggle('active', newFav);
+  };
+
+  // Fremder Spot → Chat-Button immer aktiv
+  chatBtn.onclick = () => {
+    closeModals();
+    openChatDrawer(spot.code, profile?.name || spot.code);
+  };
+
+// Prüfen ob bereits eine AKTIVE akzeptierte Einladung existiert
+let existingInvite = null;
+const now = Date.now();
+try {
+  const ir = await fetch(`${API}/spotcache/invites/${CODE}`);
+  if (ir.ok) {
+    const allInvites = await ir.json();
+    existingInvite = allInvites.find(inv =>
+  (inv.from_code === spot.code || inv.to_code === spot.code) &&
+  inv.status === 'accepted' &&
+  (inv.time_end || 0) > now &&
+  inv.spot_id == spot.id   // ← NEU: nur für diesen spezifischen Spot
+);
+  }
+} catch {}
+
+  if (existingInvite) {
+    invBtn.textContent = '✅ Verbunden';
+    invBtn.style.opacity = '0.6';
+    invBtn.style.cursor  = 'default';
+    // kein onclick – Chat läuft über chatBtn
+  } else {
+    invBtn.textContent = '📨 Einladung';
+    invBtn.onclick = () => {
+      closeModals();
+      setTimeout(() => openInviteFromSpot(spot.id, spot.name, spot.wishTag), 300);
+    };
+  }
+
+} // ← schließende } von openSpotDetail()
+
+// ── PROFILE ──────────────────────────────────────────────────────────────────
+async function showSpotOwnerProfile(ownerCode) {
+  document.getElementById('profileModalContent').innerHTML=`<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  document.getElementById('profileModal').classList.add('show');
+  try {
+    const [pRes,aRes,vRes]=await Promise.all([fetch(`${API}/profile/${ownerCode}?spot=caching`),fetch(`${API}/avatar/${ownerCode}?spot=caching`),fetch(`${API}/verifications/${ownerCode}?spot=caching`)]);
+    const p=pRes.ok?await pRes.json():null, a=aRes.ok?await aRes.json():null, v=vRes.ok?await vRes.json():[];
+    if (!p?.name) { document.getElementById('profileModalContent').innerHTML=`<div class="empty-state"><div class="es-icon">👤</div>Nicht gefunden.</div>`; return; }
+    const personal=v.filter(x=>x.type==='personal').length;
+    const avHtml=a?.avatar?`<img src="${a.avatar}" alt="">`:(p.name[0]?.toUpperCase()||'?');
+    const wishes=(p.wishTags||p.wishes||[]).filter(Boolean), offers=(p.offerTags||p.offers||[]).filter(Boolean);
+    document.getElementById('profileModalContent').innerHTML=`
+      <div style="text-align:center;margin-bottom:1rem;">
+        <div class="profile-avatar-lg">${avHtml}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;color:var(--acc);">${esc(p.name)}</div>
+        ${p.age||p.city||p.region?`<div style="font-size:0.78rem;color:var(--muted2);margin-top:3px;">${[p.age?p.age+' J.':'',p.city,p.region].filter(Boolean).join(' · ')}</div>`:''}
+        ${personal>0?`<div style="color:var(--green);font-size:0.78rem;font-weight:600;margin-top:4px;">✓ Persönlich getroffen · ${personal}×</div>`:''}
+      </div>
+      ${p.bio?`<div style="font-size:0.85rem;color:var(--muted2);line-height:1.5;padding:0.75rem;background:var(--card);border-radius:10px;border:1px solid var(--bord);margin-bottom:0.6rem;">${esc(p.bio)}</div>`:''}
+      ${wishes.length?`<div style="margin-bottom:0.5rem;">${wishes.map(w=>`<span class="profile-chip">💭 ${esc(w)}</span>`).join('')}</div>`:''}
+      ${offers.length?`<div>${offers.map(o=>`<span class="profile-chip offer">🎁 ${esc(o)}</span>`).join('')}</div>`:''}
+    `;
+  } catch { document.getElementById('profileModalContent').innerHTML=`<div class="empty-state"><div class="es-icon">⚠️</div>Fehler.</div>`; }
+}
+
+// ── NEUE SPOTS ───────────────────────────────────────────────────────────────
+let newSpotMarkers = [];
+
+function openNewSpots() {
+  if (!userPos) { toast('❌ Kein Standort verfügbar'); return; }
+
+  const RADIUS_KM = 2;
+  const since = Date.now() - 24 * 60 * 60 * 1000; // letzte 24h
+
+  const nearby = allSpots.filter(s =>
+    s.code !== CODE &&
+    haversineKm(userPos.lat, userPos.lng, s.lat, s.lng) <= RADIUS_KM &&
+    Number(s.created_at || s.createdAt || 0) >= since
+  );
+
+  // Alte neue-Spot-Marker entfernen
+  newSpotMarkers.forEach(m => m.remove());
+  newSpotMarkers = [];
+
+  // Neue Marker auf Karte
+  nearby.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'new-spot-marker';
+    const marker = new maplibregl.Marker({ element: el })
+      .setLngLat([s.lng, s.lat])
+      .addTo(map);
+    newSpotMarkers.push(marker);
+    el.addEventListener('click', e => { e.stopPropagation(); openMarkerDrawer(s, false, onlineSet.has(s.code)); });
+  });
+
+  // Drawer öffnen
+  document.getElementById('drawerOverlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerTitle').textContent = `✨ NEUE SPOTS (2 KM)`;
+  currentDrawer = 'newspots';
+  document.getElementById('newSpotsBtn').classList.add('active');
+
+  const body = document.getElementById('drawerBody');
+
+  if (!nearby.length) {
+    body.innerHTML = `<div class="empty-state"><div class="es-icon">✨</div>Keine neuen Spots<br>in den letzten 24h in 2 km.</div>`;
+    return;
+  }
+
+  body.innerHTML = nearby
+    .sort((a,b) => Number(b.created_at||b.createdAt||0) - Number(a.created_at||a.createdAt||0))
+    .map(s => {
+      const dist = haversineKm(userPos.lat, userPos.lng, s.lat, s.lng);
+      const dl   = dist < 1 ? `${Math.round(dist*1000)}m` : `${dist.toFixed(1)}km`;
+      return `<div class="spot-card">
+        <div class="sc-icon" style="background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.4);">✨</div>
+        <div class="sc-info">
+          <div class="sc-name">${esc(s.name)}</div>
+          <div class="sc-detail">
+            <span class="sc-tag" style="background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.4);color:#10b981;">${s.wishTag||''}</span>
+            <span style="font-size:0.65rem;color:var(--muted);">~${dl}</span>
+            ${spotAgeHtml(s.createdAt||s.created_at)}
+          </div>
+        </div>
+        <div class="sc-actions">
+          <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>
+          <button class="sc-btn primary" data-det="${s.id}">📋</button>
+        </div>
+      </div>`;
+    }).join('');
+
+  body.querySelectorAll('[data-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng))
+  );
+  body.querySelectorAll('[data-det]').forEach(b =>
+    b.addEventListener('click', () => {
+      const s = allSpots.find(x => x.id == b.dataset.det);
+      if (s) { closeDrawer(); setTimeout(() => openSpotDetail(s.id), 300); }
+    })
+  );
+
+  // Karte auf Bereich zoomen
+  if (nearby.length) {
+    const bounds = new maplibregl.LngLatBounds();
+    nearby.forEach(s => bounds.extend([s.lng, s.lat]));
+    bounds.extend([userPos.lng, userPos.lat]);
+    map.fitBounds(bounds, { padding: 60 });
+  }
+}
+
+// ── RADIUS ───────────────────────────────────────────────────────────────────
+function openRadiusSearch() {
+  document.querySelectorAll('.radius-choice').forEach(b=>b.classList.remove('selected'));
+  if (activeRadius) document.getElementById(`rc${activeRadius}`)?.classList.add('selected');
+
+  // Kategorie-Pills aufbauen (spiegelt aktuellen Stand von allSpots)
+  buildRadiusCatPills();
+
+  // Ergebnis-Text: falls Radius schon aktiv, sofort anzeigen
+  if (activeRadius) {
+    const nearby = allSpots.filter(s =>
+      s.code !== CODE &&
+      haversineKm(userPos?.lat, userPos?.lng, s.lat, s.lng) <= activeRadius &&
+      (radiusCatFilter === null || s.area_type === radiusCatFilter)
+    );
+    const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+    document.getElementById('radiusResult').textContent =
+      `${nearby.length} Spot${nearby.length!==1?'s':''} innerhalb ${activeRadius} km${catSuffix}`;
+  } else {
+    document.getElementById('radiusResult').textContent = '';
+  }
+
+  document.getElementById('radiusModal').classList.add('show');
+}
+
+function selectRadius(km) {
+  if (!userPos) { toast('❌ Kein Standort'); return; }
+  document.querySelectorAll('.radius-choice').forEach(b=>b.classList.remove('selected'));
+  document.getElementById(`rc${km}`)?.classList.add('selected');
+  activeRadius=km;
+
+  if (map.getLayer('radius-fill')) map.removeLayer('radius-fill');
+  if (map.getLayer('radius-line')) map.removeLayer('radius-line');
+  if (map.getSource('radius')) map.removeSource('radius');
+
+  const steps=64; const coords=[];
+  for (let i=0;i<=steps;i++) {
+    const angle=(i/steps)*2*Math.PI;
+    const dx=km/111*Math.cos(angle);
+    const dy=km/(111*Math.cos(userPos.lat*Math.PI/180))*Math.sin(angle);
+    coords.push([userPos.lng+dy,userPos.lat+dx]);
+  }
+  map.addSource('radius',{type:'geojson',data:{type:'Feature',geometry:{type:'Polygon',coordinates:[coords]}}});
+  map.addLayer({id:'radius-fill',type:'fill',source:'radius',paint:{'fill-color':'#f59e0b','fill-opacity':0.06}});
+  map.addLayer({id:'radius-line',type:'line',source:'radius',paint:{'line-color':'#f59e0b','line-width':2,'line-dasharray':[4,3]}});
+
+  const bounds=new maplibregl.LngLatBounds(); coords.forEach(c=>bounds.extend(c));
+  map.fitBounds(bounds,{padding:20});
+
+  // Kombinierter Filter: Umkreis + radiusCatFilter – nach Distanz sortiert
+  const nearby = allSpots
+    .filter(s =>
+      s.code !== CODE &&
+      haversineKm(userPos.lat, userPos.lng, s.lat, s.lng) <= km &&
+      (radiusCatFilter === null || s.area_type === radiusCatFilter)
+    )
+    .sort((a, b) =>
+      haversineKm(userPos.lat, userPos.lng, a.lat, a.lng) -
+      haversineKm(userPos.lat, userPos.lng, b.lat, b.lng)
+    );
+
+  const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+  document.getElementById('radiusResult').textContent =
+    `${nearby.length} Spot${nearby.length!==1?'s':''} innerhalb ${km} km${catSuffix}`;
+  document.getElementById('radiusBtn').classList.add('active');
+  // Drawer immer öffnen – auch bei 0 Ergebnissen zeigt openDrawerFiltered einen leeren Zustand
+  setTimeout(()=>{closeModals();openDrawerFiltered(nearby,km);},600);
+}
+
+function clearRadius() {
+  if (map.getLayer('radius-fill')) map.removeLayer('radius-fill');
+  if (map.getLayer('radius-line')) map.removeLayer('radius-line');
+  if (map.getSource('radius')) map.removeSource('radius');
+  activeRadius=null;
+  document.getElementById('radiusBtn').classList.remove('active');
+}
+
+async function openDrawerFiltered(spots, km) {
+  document.getElementById('drawerOverlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+
+  // Titel zeigt Radius + aktiven Kategorie-Filter
+  const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
+  document.getElementById('drawerTitle').textContent = `RADIUS ${km} KM${catSuffix}`;
+  currentDrawer = 'radius';
+  const body = document.getElementById('drawerBody');
+
+  // Leerer Zustand mit Kategorie-Hinweis
+  if (!spots.length) {
+    const catNote = radiusCatFilter ? ` in der Kategorie „${radiusCatFilter}"` : '';
+    body.innerHTML = `<div class="empty-state"><div class="es-icon">🔍</div>Keine Spots${catNote} innerhalb ${km} km.</div>`;
+    return;
+  }
+
+  // Karten sofort rendern (Wetter kommt async nach)
+  body.innerHTML = spots.map(s => {
+    const dist = haversineKm(userPos.lat, userPos.lng, s.lat, s.lng);
+    const distLabel = dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km';
+    const catIcon = CATEGORY_EMOJI[s.area_type] || '📍';
+    return `<div class="spot-card" data-sid="${s.id}">
+      <div class="sc-icon">${catIcon}</div>
+      <div class="sc-info">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-detail">
+          <span class="sc-tag">${s.wishTag || ''}</span>
+          <span style="font-size:0.68rem;color:var(--acc);font-weight:700;font-family:'Space Mono',monospace;">~${distLabel}</span>
+          <span class="sc-weather" id="sw-${s.id}">⏳</span>
+          ${spotAgeHtml(s.createdAt || s.created_at)}
+        </div>
+      </div>
+      <div class="sc-actions">
+        <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}" title="Route">🧭</button>
+        <button class="sc-btn primary" data-det="${s.id}" title="Details">📋</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.querySelectorAll('[data-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng)));
+  body.querySelectorAll('[data-det]').forEach(b =>
+    b.addEventListener('click', () => {
+      const s = allSpots.find(x => x.id == b.dataset.det);
+      if (s) { closeDrawer(); setTimeout(() => openSpotDetail(s.id), 300); }
+    }));
+
+  // Wetter für User-Position einmal holen und auf alle Karten anwenden
+  // (Alle Spots sind nah beieinander – ein Abruf genügt)
+  try {
+    const w = await fetchWeather(userPos.lat, userPos.lng);
+    if (w) {
+      const emoji = weatherEmoji(w.current.weather_code);
+      const temp  = Math.round(w.current.temperature_2m);
+      spots.forEach(s => {
+        const badge = document.getElementById(`sw-${s.id}`);
+        if (badge) badge.textContent = `${emoji} ${temp}°`;
+      });
+    } else {
+      spots.forEach(s => {
+        const badge = document.getElementById(`sw-${s.id}`);
+        if (badge) badge.textContent = '🌡️';
+      });
+    }
+  } catch {
+    spots.forEach(s => {
+      const badge = document.getElementById(`sw-${s.id}`);
+      if (badge) badge.textContent = '🌡️';
+    });
+  }
+}
+
+// ── WOCHEN-SPOTS ─────────────────────────────────────────────────────────────
+
+// Formatiert die verbleibende Zeit bis zum Ablauf des Weekly Spots
+function weeklyTimeLeft(expiresAt) {
+  const rem = new Date(expiresAt) - Date.now();
+  if (rem <= 0) return '⚠️ Abgelaufen';
+  const d = Math.floor(rem / 86400000);
+  const h = Math.floor((rem % 86400000) / 3600000);
+  if (d > 0) return `⏳ Noch ${d} Tag${d !== 1 ? 'e' : ''} ${h}h`;
+  const m = Math.floor((rem % 3600000) / 60000);
+  return `⏳ Noch ${h}h ${m}min`;
+}
+
+// Drawer: Meine aktiven Wochen-Spots laden und anzeigen
+async function loadWeeklyDrawer(body) {
+  body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  const token = localStorage.getItem('sm_token');
+  let spots = [];
+  try {
+    const r = await fetch(`${API}/weekly-spots/mine?code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(token)}`);
+    if (r.ok) spots = await r.json();
+  } catch {}
+
+  // Badge-Zahl aktualisieren
+  const badge = document.getElementById('weeklyBadge');
+  if (badge) {
+    badge.textContent = spots.length;
+    badge.style.display = spots.length ? 'flex' : 'none';
+  }
+
+  // Erstellen-Button immer oben
+  const createBtn = `<button class="btn-primary" style="margin-bottom:0.75rem;font-size:0.88rem;padding:0.7rem;"
+    onclick="openWeeklyCreateModal()">✨ Neuen Wochen-Spot erstellen</button>`;
+
+  if (!spots.length) {
+    body.innerHTML = createBtn + `<div class="empty-state"><div class="es-icon">🗓️</div>Noch keine Wochen-Spots.<br><span style="font-size:0.75rem;">Erstelle einen und teile den Link.</span></div>`;
+    return;
+  }
+
+  body.innerHTML = createBtn + spots.map(s => {
+    const catEmoji = CATEGORY_EMOJI[s.category] || '📍';
+    const shareUrl = buildWeeklyShareUrl(s.token);
+    return `<div class="weekly-card">
+      <div class="weekly-card-head">
+        <div class="weekly-card-icon">${catEmoji}</div>
+        <div class="weekly-card-name">${esc(s.name)}</div>
+      </div>
+      <div class="weekly-card-meta">
+        ${s.category ? `<span class="weekly-tag">${s.category}</span>` : ''}
+        <span class="weekly-countdown">${weeklyTimeLeft(s.expires_at)}</span>
+        <span style="font-size:0.68rem;color:var(--muted2);">👥 ${s.checkin_count} Check-in${s.checkin_count !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="weekly-card-actions">
+        <button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}" title="Route">🧭</button>
+        <button class="sc-btn success" data-share-token="${s.token}" data-share-name="${esc(s.name)}" title="Teilen">🔗 Teilen</button>
+        <button class="sc-btn danger" data-del-weekly="${s.token}" title="Löschen">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.querySelectorAll('[data-lat]').forEach(b =>
+    b.addEventListener('click', () => navigateToSpot(+b.dataset.lat, +b.dataset.lng))
+  );
+  body.querySelectorAll('[data-share-token]').forEach(b =>
+    b.addEventListener('click', () => {
+      closeDrawer();
+      setTimeout(() => showWeeklyShare(b.dataset.shareToken, b.dataset.shareName), 300);
+    })
+  );
+  body.querySelectorAll('[data-del-weekly]').forEach(b =>
+    b.addEventListener('click', () => deleteWeeklySpot(b.dataset.delWeekly))
+  );
+}
+
+// Erstell-Modal öffnen: Create-State rendern + Mini-Map starten
+function openWeeklyCreateModal() {
+  closeDrawer();
+  weeklyCoords = null;
+
+  const CATS = Object.entries(CATEGORY_EMOJI).map(([k,v]) =>
+    `<option value="${k}">${v} ${k}</option>`).join('');
+
+  document.getElementById('weeklyModalContent').innerHTML = `
+    <div class="modal-title">✨ Wochen-Spot erstellen</div>
+    <p style="font-size:0.8rem;color:var(--muted2);margin-bottom:0.75rem;">
+      Tippe auf die Karte um den Ort festzulegen – der Spot läuft nach 7 Tagen ab.
+    </p>
+    <div id="weeklyCreateMap"></div>
+    <span class="finp-label">Name</span>
+    <input id="wkName" class="finp" placeholder="z.B. Kaffee im Park" maxlength="50">
+    <span class="finp-label">Kategorie</span>
+    <select id="wkCat" class="finp">${CATS}</select>
+    <span class="finp-label">Beschreibung (optional)</span>
+    <input id="wkDesc" class="finp" placeholder="Was erwartet die Besucher?" maxlength="120">
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeWeeklyModal()">Abbrechen</button>
+      <button class="btn-primary" id="wkSubmitBtn" onclick="submitWeeklySpot()">🗓️ Erstellen</button>
+    </div>
+  `;
+
+  document.getElementById('weeklyModal').classList.add('show');
+
+  // Mini-Map leicht verzögert initialisieren (Modal muss erst sichtbar sein)
+  setTimeout(() => {
+    if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+    const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
+    weeklyMiniMap = new maplibregl.Map({
+      container: 'weeklyCreateMap',
+      style: 'https://tiles.openfreemap.org/styles/bright',
+      center,
+      zoom: 13,
+      attributionControl: false
+    });
+    weeklyMiniMap.on('click', e => {
+      weeklyCoords = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+      if (weeklyMarker) weeklyMarker.remove();
+      const el = document.createElement('div');
+      el.style.cssText = 'width:22px;height:22px;background:#f59e0b;border-radius:50%;border:3px solid white;box-shadow:0 0 14px rgba(245,158,11,0.8);';
+      weeklyMarker = new maplibregl.Marker({ element: el })
+        .setLngLat([weeklyCoords.lng, weeklyCoords.lat])
+        .addTo(weeklyMiniMap);
+      toast('📍 Position gesetzt');
+    });
+  }, 120);
+}
+
+// Wochen-Spot über API anlegen
+async function submitWeeklySpot() {
+  const name = document.getElementById('wkName')?.value.trim();
+  const cat  = document.getElementById('wkCat')?.value;
+  const desc = document.getElementById('wkDesc')?.value.trim();
+  if (!name)        { toast('⚠️ Bitte einen Namen eingeben'); return; }
+  if (!weeklyCoords){ toast('⚠️ Bitte einen Ort auf der Karte tippen'); return; }
+
+  const btn = document.getElementById('wkSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+
+  const authToken = localStorage.getItem('sm_token');
+  try {
+    const r = await fetch(`${API}/weekly-spots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: CODE, token: authToken,
+        name, category: cat, description: desc,
+        lat: weeklyCoords.lat, lng: weeklyCoords.lng
+      })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.spot) throw new Error(data.error || 'Fehler');
+
+    // Mini-Map aufräumen und auf Share-State wechseln
+    if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+    if (weeklyMarker)  { weeklyMarker = null; }
+    showWeeklyShare(data.spot.token, data.spot.name);
+  } catch(e) {
+    toast('❌ ' + (e.message || 'Erstellen fehlgeschlagen'));
+    if (btn) { btn.disabled = false; btn.textContent = '🗓️ Erstellen'; }
+  }
+}
+
+// Share-State: Link anzeigen + Teilen-Button
+function showWeeklyShare(token, name) {
+  const shareUrl = buildWeeklyShareUrl(token);
+
+  document.getElementById('weeklyModalContent').innerHTML = `
+    <div class="modal-title">🔗 Bereit zum Teilen!</div>
+    <p style="font-size:0.85rem;font-weight:600;margin-bottom:0.25rem;">${esc(name)}</p>
+    <p style="font-size:0.78rem;color:var(--muted2);margin-bottom:0.1rem;">
+      Teile diesen Link – Besucher können 7 Tage einchecken.
+    </p>
+    <div class="weekly-share-url" id="wkShareUrlBox" onclick="copyWeeklyLink()"
+         title="Tippen zum Kopieren">${shareUrl}</div>
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;margin-bottom:0.75rem;">
+      Tippe auf den Link zum Kopieren
+    </p>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="copyWeeklyLink()">📋 Kopieren</button>
+      <button class="btn-primary" id="wkNativeShareBtn">↗️ Teilen</button>
+    </div>
+    <button class="btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.82rem;"
+            onclick="closeWeeklyModal();setTimeout(()=>openDrawer('weekly'),300);">
+      ← Zurück zu meinen Spots
+    </button>
+  `;
+
+  // Native Share API falls verfügbar (iOS/Android)
+  const nativeBtn = document.getElementById('wkNativeShareBtn');
+  if (navigator.share) {
+    nativeBtn.addEventListener('click', () => {
+      navigator.share({ title: `SpotMe · ${name}`, url: shareUrl })
+        .catch(() => {});
+    });
+  } else {
+    // Fallback: einfach Link kopieren
+    nativeBtn.textContent = '📋 Kopieren';
+    nativeBtn.addEventListener('click', copyWeeklyLink);
+  }
+
+  document.getElementById('weeklyModal').classList.add('show');
+  // Badge aktualisieren
+  loadWeeklyBadge();
+}
+
+// Link in Zwischenablage kopieren
+function copyWeeklyLink() {
+  const box = document.getElementById('wkShareUrlBox');
+  if (!box) return;
+  navigator.clipboard?.writeText(box.textContent.trim())
+    .then(() => toast('🔗 Link kopiert!'))
+    .catch(() => toast('⚠️ Kopieren fehlgeschlagen'));
+}
+
+// Wochen-Spot löschen
+async function deleteWeeklySpot(token) {
+  const authToken = localStorage.getItem('sm_token');
+  try {
+    const r = await fetch(`${API}/weekly-spots/${token}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: CODE, token: authToken })
+    });
+    if (r.ok) {
+      toast('🗑️ Wochen-Spot gelöscht');
+      openDrawer('weekly'); // Drawer neu laden
+    }
+  } catch { toast('❌ Fehler beim Löschen'); }
+}
+
+// Share-URL relativ zur aktuellen Seite aufbauen –
+// funktioniert korrekt bei GitHub Pages in Unterordnern
+function buildWeeklyShareUrl(token) {
+  return new URL('spot-woche.html?token=' + token, window.location.href).href;
+}
+function closeWeeklyModal() {
+  document.getElementById('weeklyModal').classList.remove('show');
+  if (weeklyMiniMap) { weeklyMiniMap.remove(); weeklyMiniMap = null; }
+  if (weeklyMarker)  { weeklyMarker = null; }
+  weeklyCoords = null;
+}
+
+// Badge-Zahl ohne den Drawer öffnen
+async function loadWeeklyBadge() {
+  const authToken = localStorage.getItem('sm_token');
+  try {
+    const r = await fetch(`${API}/weekly-spots/mine?code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(authToken)}`);
+    if (!r.ok) return;
+    const spots = await r.json();
+    const badge = document.getElementById('weeklyBadge');
+    if (badge) {
+      badge.textContent = spots.length;
+      badge.style.display = spots.length ? 'flex' : 'none';
+    }
+  } catch {}
+}
+
+// ── WEB PUSH NOTIFICATIONS ────────────────────────────────────────────────────
+
+// Konvertiert den VAPID Public Key von Base64 zu Uint8Array (Browser-Anforderung)
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Button-Zustand synchronisieren (aktiv / inaktiv / blockiert / nicht unterstützt)
+async function updatePushBtnState() {
+  const btn = document.getElementById('pushBtn');
+  if (!btn) return;
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    btn.style.opacity = '0.3'; btn.title = 'Push nicht unterstützt'; return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'denied') {
+    btn.textContent = '🔕'; btn.title = 'Benachrichtigungen blockiert (Browser-Einstellungen)';
+    btn.style.background = 'rgba(239,68,68,0.1)'; btn.style.borderColor = 'rgba(239,68,68,0.3)';
+    return;
+  }
+  // Prüfen ob eine aktive Subscription existiert
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      btn.textContent = '🔔'; btn.title = 'Benachrichtigungen aktiv – tippe zum Deaktivieren';
+      btn.style.background = 'var(--acc-dim)'; btn.style.borderColor = 'var(--acc-glow)';
+      btn.style.color = 'var(--acc)';
+    } else {
+      btn.textContent = '🔔'; btn.title = 'Benachrichtigungen aktivieren';
+      btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = '';
+    }
+  } catch {}
+}
+
+// 🔔 Button tippen → aktivieren oder deaktivieren
+async function togglePushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    toast('⚠️ Push-Benachrichtigungen werden nicht unterstützt'); return;
+  }
+  if (Notification.permission === 'denied') {
+    toast('🔕 Benachrichtigungen sind blockiert – bitte in den Browser-Einstellungen erlauben'); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Bereits aktiv → deaktivieren
+      await existing.unsubscribe();
+      const token = localStorage.getItem('sm_token');
+      await fetch(`${API}/push/unsubscribe`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: CODE, token, endpoint: existing.endpoint })
+      }).catch(() => {});
+      toast('🔕 Benachrichtigungen deaktiviert');
+    } else {
+      // Noch nicht aktiv → Berechtigung anfragen und subscriben
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { toast('❌ Berechtigung verweigert'); await updatePushBtnState(); return; }
+      await subscribeToPush(reg);
+      toast('🔔 Benachrichtigungen aktiviert!');
+    }
+  } catch (e) {
+    toast('⚠️ Fehler: ' + e.message);
+  }
+  await updatePushBtnState();
+}
+
+async function subscribeToPush(reg) {
+  // VAPID Public Key vom Server holen
+  const keyRes  = await fetch(`${API}/push/vapid-public-key`);
+  const keyData = await keyRes.json();
+  if (!keyData.publicKey) throw new Error('Kein VAPID-Key – Push nicht konfiguriert');
+
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly:      true,
+    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+  });
+
+  const token = localStorage.getItem('sm_token');
+  const r = await fetch(`${API}/push/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: CODE, token, subscription })
+  });
+  if (!r.ok) throw new Error('Subscription konnte nicht gespeichert werden');
+}
+
+// Wenn der Nutzer auf eine Push-Notification tippt → in der App navigieren
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'PUSH_NAVIGATE' && event.data.url) {
+      const url = event.data.url;
+      if (url.startsWith('/spot-woche')) {
+        window.location.href = url;
+      } else {
+        // Intern: Drawer oder Modal öffnen könnten hier ergänzt werden
+        toast('🔔 ' + url);
+      }
+    }
+  });
+}
+
+// ── MATCH ────────────────────────────────────────────────────────────────────
+function showMatch(name,spot) {
+  document.getElementById('matchName').textContent=name;
+  document.getElementById('matchSpot').textContent=spot;
+  document.getElementById('matchScreen').classList.add('show');
+}
+
+// ── EVENT LISTENERS ──────────────────────────────────────────────────────────
+document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+document.getElementById('matchCloseBtn').addEventListener('click', ()=>document.getElementById('matchScreen').classList.remove('show'));
+document.getElementById('spotModalCancel').addEventListener('click', closeModals);
+document.getElementById('spotModalSave').addEventListener('click', saveSpot);
+
+// Foto-Upload Handler
+document.getElementById('spotPhotoBtn').addEventListener('click', () => {
+  document.getElementById('spotPhotoInput').click();
+});
+document.getElementById('spotPhotoInput').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('⚠️ Max. 5 MB'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 900; let w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      spotPhotoData = canvas.toDataURL('image/jpeg', 0.72);
+      document.getElementById('spotPhotoImg').src = spotPhotoData;
+      document.getElementById('spotPhotoPreview').style.display = 'block';
+      document.getElementById('spotPhotoBtn').style.display = 'none';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('spotPhotoClear').addEventListener('click', () => {
+  spotPhotoData = null;
+  document.getElementById('spotPhotoPreview').style.display = 'none';
+  document.getElementById('spotPhotoBtn').style.display = 'block';
+  document.getElementById('spotPhotoInput').value = '';
+});
+document.getElementById('inviteModalCancel').addEventListener('click', closeModals);
+document.getElementById('inviteModalSend').addEventListener('click', sendInvite);
+document.getElementById('spotDetailClose').addEventListener('click', closeModals);
+
+document.getElementById('profileModalClose').addEventListener('click', closeModals);
+document.getElementById('radiusClear').addEventListener('click', ()=>{clearRadius();closeModals();});
+document.getElementById('radiusClose').addEventListener('click', closeModals);
+document.getElementById('rc2').addEventListener('click', ()=>selectRadius(2));
+document.getElementById('rc5').addEventListener('click', ()=>selectRadius(5));
+document.getElementById('rc10').addEventListener('click', ()=>selectRadius(10));
+
+initMap();
+startGlobalChatPolling(); // Hintergrund-Wächter: prüft alle 10 Sek. auf neue Chat-Nachrichten
+loadFavoritesCache();     // Favoriten einmalig laden damit der ⭐-Button sofort den Status kennt
+loadWeeklyBadge();        // Wochen-Spot Badge beim Start laden
+updatePushBtnState();     // 🔔 Button-Zustand beim Start synchronisieren
+
+document.getElementById('weeklyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeWeeklyModal();
+});
+
+// ESC schließt das Navigations-Overlay
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('naviOverlay').classList.contains('active')) {
+    closeNavOverlay();
+  }
+});
+</script>
+</body>
+</html>
