@@ -3,929 +3,536 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpotMe · Caching — Premium UI Preview</title>
-    
-    <!-- Premium Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-
+    <title>SPOTME • CACHING - Cyber-Noir UI</title>
     <style>
-        /* --- DESIGN TOKENS (Tactile Cyber-Noir) --- */
         :root {
-            --bg: #05070a;
-            --sur: #0b0f14;
-            --card: #11161d;
-            --card2: #171f2a;
-            
-            /* Polarisierter Glassmorphismus */
-            --glass: rgba(11, 15, 20, 0.70);
-            --glass-bright: rgba(23, 31, 42, 0.80);
-            --blur: blur(24px) saturate(180%);
-            
-            /* Micro Borders */
-            --bord: rgba(255, 255, 255, 0.04);
-            --bord-active: rgba(255, 159, 0, 0.4);
-            --bord-cyan: rgba(0, 229, 255, 0.4);
-            
-            /* Taktische Signal-Farben */
-            --acc: #ff9f00;       /* Laser Amber */
-            --acc-glow: rgba(255, 159, 0, 0.35);
-            --cyan: #00e5ff;      /* Tactical Cyan */
-            --cyan-glow: rgba(0, 229, 255, 0.35);
-            --red: #ff1744;       /* Alarm Rot */
-            --green: #00e676;     /* Status Aktiv */
-            
-            /* Typografie */
-            --text: #f1f5f9;
-            --muted: #64748b;
-            --muted-dark: #334155;
-            
-            --font-main: 'Plus Jakarta Sans', sans-serif;
-            --font-mono: 'Space Mono', monospace;
+            --bg-obsidian: #0d0e11;
+            --bg-card: rgba(22, 24, 30, 0.75);
+            --bg-card-hover: rgba(32, 35, 45, 0.85);
+            --laser-amber: #ff9f00;
+            --laser-amber-dim: rgba(255, 159, 0, 0.15);
+            --tactical-cyan: #00f3ff;
+            --tactical-cyan-dim: rgba(0, 243, 255, 0.15);
+            --text-main: #ccd6e0;
+            --text-muted: #7a889b;
+            --micro-border: 1px solid rgba(255, 255, 255, 0.08);
+            --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            background-color: #020305;
-            font-family: var(--font-main);
-            color: var(--text);
+            background-color: #050608;
+            background-image: 
+                radial-gradient(circle at 50% 50%, #1a1c23 0%, #050608 100%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 100%, 100% 4px, 6px 100%;
+            font-family: var(--font-family);
+            color: var(--text-main);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
             padding: 20px;
         }
 
-        /* --- DEVICE PREVIEW CONTAINER --- */
-        /* Ermöglicht die realistische Darstellung des Mobile-First Interfaces auf Desktops */
+        /* Phone Frame Wrapper */
         .phone-wrapper {
-            position: relative;
-            width: 412px;
-            height: 892px;
-            background-color: var(--bg);
-            border-radius: 48px;
-            box-shadow: 0 25px 70px rgba(0,0,0,0.8), 
-                        0 0 0 12px #1c232e,
-                        0 0 0 13px #2d3746;
+            width: 100%;
+            max-width: 420px;
+            height: 880px;
+            background: var(--bg-obsidian);
+            border-radius: 40px;
+            border: 4px solid #1c1e24;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(0,0,0,0.8);
             overflow: hidden;
+            position: relative;
             display: flex;
-            flex-direction: column;
         }
 
-        /* Notch Simulation */
-        .phone-notch {
+        /* Top Notch Simulation */
+        .phone-wrapper::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 120px;
-            height: 30px;
-            background-color: #1c232e;
-            border-bottom-left-radius: 18px;
-            border-bottom-right-radius: 18px;
-            z-index: 1000;
+            width: 150px;
+            height: 25px;
+            background: #1c1e24;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            z-index: 100;
         }
 
-        /* --- TACTILE MAP SIMULATION --- */
-        .map-viewport {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #06090e;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
-            background-size: 24px 24px;
-            background-position: center center;
-            z-index: 1;
-        }
-
-        .map-vignette {
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at center, transparent 20%, rgba(5,7,10,0.6) 70%, #05070a 100%);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Vector Map Elements Mockup */
-        .map-grid-line {
-            position: absolute;
-            border: 1px dashed rgba(0, 229, 255, 0.06);
-            width: 150%;
-            top: 40%; left: -25%;
-            transform: rotate(-12deg);
-        }
-
-        .map-node {
-            position: absolute;
-            width: 14px; height: 14px;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        .map-node::after {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border-radius: 50%;
-            border: 1px solid transparent;
-            transition: all 0.3s ease;
-        }
-
-        .map-node.amber {
-            background-color: var(--acc);
-            box-shadow: 0 0 14px var(--acc);
-            top: 35%; left: 65%;
-        }
-        .map-node.amber::after { border-color: rgba(255, 159, 0, 0.3); }
-
-        .map-node.cyan {
-            background-color: var(--cyan);
-            box-shadow: 0 0 14px var(--cyan);
-            top: 55%; left: 30%;
-        }
-        .map-node.cyan::after { border-color: rgba(0, 229, 255, 0.3); }
-
-        .map-user-pos {
-            position: absolute;
-            width: 18px; height: 18px;
-            background-color: #fff;
-            border-radius: 50%;
-            top: 48%; left: 45%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 20px #fff;
-        }
-        .map-user-pos::before {
-            content: '';
-            position: absolute;
-            inset: -12px;
-            border: 2px solid rgba(255,255,255,0.4);
-            border-radius: 50%;
-            animation: pulseRadar 2.5s infinite linear;
-        }
-
-        @keyframes pulseRadar {
-            0% { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(2.2); opacity: 0; }
-        }
-
-        /* --- FLOATING INTERFACE LAYERS --- */
-        .app-layer {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
+        /* Left Navigation Bar */
+        .sidebar {
+            width: 60px;
+            background: #111216;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            padding: 44px 16px 24px 16px; /* 44px Top-Spacing für Statusbar/Notch */
-            pointer-events: none;
-        }
-
-        .app-layer * {
-            pointer-events: auto;
-        }
-
-        /* --- TOPBAR / FLOATING CLUSTER --- */
-        .topbar {
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            -webkit-backdrop-filter: var(--blur);
-            border: 1px solid var(--bord);
-            border-radius: 20px;
-            height: 64px;
-            display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            padding-top: 40px;
+            gap: 22px;
+            z-index: 10;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand-logo {
-            font-weight: 700;
-            font-size: 15pt;
-            letter-spacing: 0.5px;
-            background: linear-gradient(90deg, #ffffff, #cbd5e1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .logo-radar-ring {
-            position: relative;
-            width: 8px;
-            height: 8px;
-            background-color: var(--acc);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--acc);
-        }
-        .logo-radar-ring::after {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border: 1px solid var(--acc);
-            border-radius: 50%;
-            animation: pulseRadar 2s infinite ease-out;
-        }
-
-        .action-cluster {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* --- TACTILE BUTTONS --- */
-        .icon-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: var(--card);
-            border: 1px solid var(--bord);
-            color: var(--text);
+        .sidebar-icon {
+            width: 36px;
+            height: 36px;
             display: flex;
             justify-content: center;
             align-items: center;
+            color: var(--text-muted);
             cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 8px;
+        }
+
+        .sidebar-icon:hover {
+            color: var(--laser-amber);
+            background: rgba(255, 159, 0, 0.05);
+        }
+
+        .sidebar-icon.active {
+            color: var(--laser-amber);
+        }
+
+        .sidebar-icon.brand {
+            color: var(--laser-amber);
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        /* Main Content Container */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             position: relative;
-            transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s, border-color 0.2s;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-        }
-        .icon-btn:hover, .icon-btn.active {
-            border-color: var(--bord-active);
-            background-color: var(--card2);
-            color: var(--acc);
-            box-shadow: 0 0 12px rgba(255, 159, 0, 0.15);
-        }
-        .icon-btn:active {
-            transform: scale(0.94) translateY(1px);
         }
 
-        /* --- SIDE CONTROLS --- */
-        .side-controls {
-            position: absolute;
-            right: 16px;
-            top: 130px;
+        /* Header Area */
+        .header {
+            padding: 30px 15px 15px 15px;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 20;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, #16181d, transparent);
+            border-bottom: var(--micro-border);
         }
 
-        /* --- MAIN DASHBOARD FLOW --- */
-        .dashboard-flow {
-            margin-top: auto;
-            margin-bottom: 16px;
+        .header-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .header-title span {
+            color: var(--laser-amber);
+        }
+
+        .header-icons {
             display: flex;
-            flex-direction: column;
             gap: 12px;
-            width: 100%;
+            color: var(--text-muted);
         }
 
-        /* --- PREMIUM CARDS ENGINE --- */
-        .tactical-card {
-            background: var(--glass-bright);
-            backdrop-filter: var(--blur);
-            -webkit-backdrop-filter: var(--blur);
-            border: 1px solid var(--bord);
-            border-radius: 20px;
-            padding: 16px;
-            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        .header-icons svg {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .header-icons svg:hover {
+            color: var(--text-main);
+        }
+
+        /* Map Section */
+        .map-section {
+            height: 220px;
+            background: #14161d;
             position: relative;
             overflow: hidden;
-            transition: border-color 0.3s, transform 0.3s;
+            border-bottom: var(--micro-border);
+            /* Grid Background Pattern */
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
-        
-        /* Tactical Deco Corner Lines */
-        .tactical-card::after {
+
+        /* Fake Topo Lines */
+        .map-section::after {
             content: '';
             position: absolute;
-            top: 0; right: 0;
-            width: 12px; height: 12px;
-            border-top: 2px solid rgba(255,255,255,0.08);
-            border-right: 2px solid rgba(255,255,255,0.08);
-        }
-
-        .card-meta {
-            font-family: var(--font-mono);
-            font-size: 8.5pt;
-            color: var(--cyan);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .card-title {
-            font-size: 13pt;
-            font-weight: 600;
-            letter-spacing: -0.2px;
-            margin-bottom: 8px;
-        }
-
-        .card-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
-        }
-
-        .metric-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .metric-label {
-            font-size: 8pt;
-            color: var(--muted);
-            text-transform: uppercase;
-        }
-        .metric-value {
-            font-family: var(--font-mono);
-            font-size: 10.5pt;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        /* --- URGENT MEETING STYLE (Asymmetric High-Contrast) --- */
-        .tactical-card.urgent {
-            border-color: rgba(255, 23, 68, 0.25);
-            background: linear-gradient(145deg, rgba(23, 31, 42, 0.85) 0%, rgba(30, 12, 16, 0.7) 100%);
-            box-shadow: 0 16px 32px rgba(255, 23, 68, 0.1);
-        }
-        .tactical-card.urgent::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 4px; height: 100%;
-            background: var(--red);
-            box-shadow: 0 0 10px var(--red);
-        }
-        .tactical-card.urgent .card-meta {
-            color: var(--red);
-        }
-        
-        /* Animated Warning Strip Texture */
-        .urgent-texture {
-            position: absolute;
-            top: 0; right: 40px; width: 60px; height: 100%;
-            background: repeating-linear-gradient(-45deg, rgba(255,23,68,0.03), rgba(255,23,68,0.03) 8px, transparent 8px, transparent 16px);
+            inset: 0;
+            background: radial-gradient(circle at 70% 30%, transparent 40%, rgba(0,0,0,0.2) 70%);
+            opacity: 0.5;
             pointer-events: none;
         }
 
-        /* --- WEATHER WIDGET (Line Curve Concept) --- */
-        .weather-timeline {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 12px;
-            gap: 6px;
-            position: relative;
-        }
-
-        /* Simulated Temperature Curve Graph Line */
-        .weather-timeline::before {
-            content: '';
+        /* Map Nodes & Sonar */
+        .sonar-node {
             position: absolute;
-            left: 15px; right: 15px; top: 42px;
-            height: 2px;
-            background: linear-gradient(90deg, var(--cyan) 0%, var(--acc) 60%, var(--cyan) 100%);
-            opacity: 0.3;
-            z-index: 1;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #fff;
         }
 
-        .weather-hour {
-            flex: 1;
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.02);
-            border-radius: 10px;
-            padding: 8px 4px;
+        .sonar-ring {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: pulse 3s infinite linear;
+            pointer-events: none;
+        }
+        .ring2 { animation-delay: 1s; }
+        .ring3 { animation-delay: 2s; }
+
+        @keyframes pulse {
+            0% { width: 20px; height: 20px; opacity: 0.8; }
+            100% { width: 180px; height: 180px; opacity: 0; }
+        }
+
+        .map-point {
+            position: absolute;
+            cursor: pointer;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
-            z-index: 2;
-        }
-        .weather-hour .time {
-            font-size: 7.5pt;
-            color: var(--muted);
-        }
-        .weather-hour .temp {
-            font-family: var(--font-mono);
-            font-size: 9pt;
-            font-weight: 700;
-        }
-        .weather-hour svg {
-            width: 16px; height: 16px;
-            stroke: var(--text);
-            fill: none;
-            stroke-width: 2;
-        }
-        .weather-hour.active {
-            background: rgba(255,159,0,0.06);
-            border-color: rgba(255,159,0,0.15);
-        }
-        .weather-hour.active svg { stroke: var(--acc); }
-
-        /* --- PREMIUM BUTTONS SYSTEM --- */
-        .sc-btn {
-            background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 100%), var(--card2);
-            border: 1px solid var(--bord2);
-            color: var(--text);
-            padding: 12px 20px;
-            border-radius: 14px;
-            font-weight: 600;
-            font-size: 10pt;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-            transition: all 0.2s;
-        }
-        .sc-btn:hover {
-            border-color: rgba(255,255,255,0.2);
-            background: var(--card);
-        }
-        .sc-btn.primary {
-            background: linear-gradient(180deg, #ffb333 0%, var(--acc) 100%);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #05070a;
-            box-shadow: 0 8px 24px var(--acc-glow), inset 0 1px 1px rgba(255,255,255,0.3);
-            text-shadow: 0 1px 1px rgba(255,255,255,0.2);
-        }
-        .sc-btn.primary:hover {
-            box-shadow: 0 12px 32px var(--acc-glow);
-            transform: translateY(-1px);
-        }
-        .sc-btn.primary:active {
-            transform: scale(0.97) translateY(1px);
-        }
-
-        /* --- INTERACTIVE BOTTOM DRAWER --- */
-        .drawer-chat {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(11, 15, 20, 0.9);
-            backdrop-filter: blur(30px) saturate(200%);
-            -webkit-backdrop-filter: blur(30px) saturate(200%);
-            border-top: 1px solid rgba(255,255,255,0.07);
-            border-top-left-radius: 28px;
-            border-top-right-radius: 28px;
-            z-index: 100;
-            padding: 8px 16px 28px 16px;
-            box-shadow: 0 -15px 40px rgba(0,0,0,0.6);
-            transform: translateY(220px); /* Gekapselter Ruhezustand */
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .drawer-chat.open {
-            transform: translateY(0);
-        }
-
-        .drawer-handle-zone {
-            width: 100%;
-            height: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
-        .drawer-handle {
-            width: 36px; height: 4px;
-            background-color: var(--muted-dark);
-            border-radius: 2px;
-            transition: background-color 0.2s;
-        }
-        .drawer-handle-zone:hover .drawer-handle {
-            background-color: var(--muted);
-        }
-
-        .drawer-title {
-            font-size: 11pt;
-            font-weight: 700;
-            text-transform: uppercase;
+            font-size: 0.65rem;
+            font-weight: bold;
             letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .drawer-title .badge {
-            background: var(--acc-glow);
-            color: var(--acc);
-            font-size: 7.5pt;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-family: var(--font-mono);
-            border: 1px solid rgba(255, 159, 0, 0.2);
+            transition: transform 0.2s;
         }
 
-        /* Chat Logs Engine */
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            height: 150px;
-            overflow-y: auto;
-            margin-bottom: 16px;
-            padding-right: 4px;
-        }
-        
-        /* Custom Scrollbar */
-        .chat-container::-webkit-scrollbar { width: 3px; }
-        .chat-container::-webkit-scrollbar-thumb { background: var(--muted-dark); border-radius: 2px; }
-
-        .chat-bubble {
-            max-width: 85%;
-            padding: 10px 14px;
-            font-size: 9.5pt;
-            line-height: 1.4;
-            position: relative;
-        }
-        .chat-bubble .meta {
-            font-family: var(--font-mono);
-            font-size: 7pt;
-            display: block;
-            margin-bottom: 3px;
-            opacity: 0.5;
+        .map-point:hover {
+            transform: scale(1.05);
         }
 
-        .chat-bubble.theirs {
-            background-color: var(--card);
-            border: 1px solid var(--bord);
-            border-radius: 4px 14px 14px 14px;
-            align-self: flex-start;
+        .map-point::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-bottom: 4px;
+            box-shadow: 0 0 10px currentColor;
         }
 
-        .chat-bubble.mine {
-            background: linear-gradient(135deg, #ffab1a 0%, var(--acc) 100%);
-            color: #05070a;
-            border-radius: 14px 4px 14px 14px;
-            align-self: flex-end;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(255, 159, 0, 0.15);
+        .point-amber {
+            top: 25%;
+            left: 20%;
+            color: var(--laser-amber);
         }
-        .chat-bubble.mine .meta { color: #05070a; font-weight: 700; }
+        .point-amber::before { 
+            background: var(--laser-amber); 
+            transform: rotate(45deg);
+        }
 
-        /* Industrial Row Input Input */
-        .chat-input-row {
-            display: flex;
-            gap: 8px;
-            background: #070a0e;
-            border: 1px solid var(--bord);
-            border-radius: 14px;
-            padding: 4px 4px 4px 12px;
-            align-items: center;
+        .point-cyan {
+            top: 55%;
+            right: 15%;
+            color: var(--tactical-cyan);
         }
-        .chat-input-row input {
+        .point-cyan::before { 
+            background: var(--tactical-cyan); 
+            border-radius: 50%;
+        }
+
+        /* Content Scroll Area */
+        .content-area {
             flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--text);
-            font-family: var(--font-main);
-            font-size: 9.5pt;
-        }
-        .chat-input-row input::placeholder { color: var(--muted); }
-
-        .chat-send-btn {
-            width: 36px; height: 36px;
-            border-radius: 10px;
-            background: var(--card2);
-            border: 1px solid var(--bord);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .chat-input-row input:focus + .chat-send-btn, .chat-send-btn:hover {
-            background: var(--acc);
-            color: #05070a;
-            border-color: var(--acc);
-        }
-        
-        /* Tactical Crosshair Icon rotation animation */
-        .chat-send-btn svg {
-            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        .chat-input-row input:focus + .chat-send-btn svg {
-            transform: rotate(90deg);
-        }
-
-        /* --- DESKTOP INFORMATION OVERLAY --- */
-        .desktop-info {
-            margin-left: 40px;
-            max-width: 400px;
-        }
-        .desktop-info h1 {
-            font-size: 24pt;
-            font-weight: 700;
-            margin-bottom: 12px;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .desktop-info p {
-            color: var(--muted);
-            font-size: 11pt;
-            line-height: 1.6;
-            margin-bottom: 24px;
-        }
-        .tech-spec {
-            border-left: 3px solid var(--acc);
-            padding-left: 16px;
+            overflow-y: auto;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 12px;
-        }
-        .spec-item {
-            display: flex;
-            flex-direction: column;
-        }
-        .spec-label {
-            font-family: var(--font-mono);
-            font-size: 8pt;
-            text-transform: uppercase;
-            color: var(--cyan);
-        }
-        .spec-val {
-            font-size: 10.5pt;
-            color: var(--text);
-            font-weight: 500;
+            background: linear-gradient(to bottom, #121418, #0f1013);
         }
 
-        /* Responsive Hiding */
-        @catch (max-width: 900px) {
-            .desktop-info { display: none; }
+        /* Scrollbar Tuning */
+        .content-area::-webkit-scrollbar {
+            width: 4px;
+        }
+        .content-area::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        /* Tactile Blueprint Cards */
+        .blueprint-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: var(--micro-border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            transition: all 0.2s ease;
+            position: relative;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05), 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        /* Asymmetric Tech Corner Cut (Oben Rechts & Unten Links subtil angedeutet) */
+        .blueprint-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            border-right: 1px solid rgba(255,255,255,0.15);
+            border-top-right-radius: 12px;
+            pointer-events: none;
+        }
+
+        .blueprint-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card-accent-cyan { border-left: 3px solid var(--tactical-cyan); }
+        .card-accent-amber { border-left: 3px solid var(--laser-amber); }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        
+        .blueprint-card.main-card .card-title {
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .card-desc {
+            font-size: 0.78rem;
+            line-height: 1.4;
+            color: var(--text-muted);
+        }
+
+        .highlight-amber { color: var(--laser-amber); font-weight: 500; }
+        .highlight-cyan { color: var(--tactical-cyan); font-weight: 500; }
+
+        /* Bottom Drawer / Comms Section */
+        .comms-drawer {
+            background: #13151a;
+            border-top: var(--micro-border);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .comms-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .comms-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--laser-amber);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comms-title svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .comms-actions {
+            display: flex;
+            gap: 10px;
+            color: var(--text-muted);
+        }
+
+        .comms-actions svg {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .comms-actions svg:hover {
+            color: var(--laser-amber);
+        }
+
+        /* Chat Messages */
+        .chat-input-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .msg {
+            background: rgba(255, 255, 255, 0.03);
+            border: var(--micro-border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            letter-spacing: 0.3px;
+        }
+
+        .msg span {
+            font-weight: bold;
+            margin-right: 6px;
+        }
+
+        .msg-alpha span {
+            color: var(--text-muted);
+        }
+
+        .msg-me {
+            background: var(--laser-amber-dim);
+            border-color: rgba(255, 159, 0, 0.3);
+        }
+        
+        .msg-me span {
+            color: var(--laser-amber);
+        }
+
+        /* Drawer Handle Indicator at the bottom center */
+        .drawer-handle {
+            width: 40px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin: 4px auto 0 auto;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <!-- INTERACTIVE DEVICE PREVIEW FRAME -->
     <div class="phone-wrapper">
-        <div class="phone-notch"></div>
-        
-        <!-- MAP SUBSURFACE -->
-        <div class="map-viewport" id="mapLayer">
-            <div class="map-vignette"></div>
-            <div class="map-grid-line"></div>
-            <div class="map-user-pos"></div>
-            <div class="map-node amber" title="Spot: Altes Industrieareal" onclick="highlightSpot('amber')"></div>
-            <div class="map-node cyan" title="Meeting: Sektor 7" onclick="highlightSpot('cyan')"></div>
+        <div class="sidebar">
+            <div class="sidebar-icon brand">S</div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></div>
+            <div class="sidebar-icon active"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg></div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg></div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg></div>
+            <div class="sidebar-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2l6 3 5.447-2.724A1 1 0 0121 3.182v10.764a1 1 0 01-.553.894L15 20l-6-3z"></path></svg></div>
+            <div class="sidebar-icon" style="margin-top: auto; padding-bottom: 20px;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"></path></svg></div>
         </div>
 
-        <!-- FLOATING INTERFACE LAYER -->
-        <div class="app-layer">
-            
-            <!-- TOPBAR CLUSTER -->
-            <header class="topbar">
-                <div class="brand">
-                    <div class="logo-radar-ring"></div>
-                    <span class="brand-logo">SpotMe</span>
+        <div class="main-container">
+            <div class="header">
+                <div class="header-title">SPOTME <span>• CACHING</span></div>
+                <div class="header-icons">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </div>
-                <div class="action-cluster">
-                    <button class="icon-btn" id="radarBtn" onclick="toggleBtn('radarBtn')" title="Radar-Scan">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                    </button>
-                    <button class="icon-btn" id="favBtn" onclick="toggleBtn('favBtn')" title="Favoriten">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    </button>
-                </div>
-            </header>
-
-            <!-- CONTEXTUAL SIDE CONTROLS -->
-            <div class="side-controls">
-                <button class="icon-btn" id="layerBtn" onclick="toggleBtn('layerBtn')" title="Karten-Filter">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                </button>
-                <button class="icon-btn" id="profileBtn" onclick="toggleBtn('profileBtn')" title="Missions-Profil">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </button>
             </div>
 
-            <!-- DASHBOARD GRAPH FLOW -->
-            <main class="dashboard-flow">
+            <div class="map-section" id="mapSection">
+                <div class="sonar-ring"></div>
+                <div class="sonar-ring ring2"></div>
+                <div class="sonar-ring ring3"></div>
+                <div class="sonar-node"></div>
                 
-                <!-- MEETING CARD (URGENT STATE) -->
-                <article class="tactical-card urgent" id="meetingCard">
-                    <div class="urgent-texture"></div>
-                    <div class="card-meta">
-                        <span>⚡ Kritischer Einsatz</span>
-                        <span style="font-weight:bold;">Sektor 7</span>
-                    </div>
-                    <h2 class="card-title">Community Meetup · Bergung</h2>
-                    <p style="font-size: 9.5pt; color: #fecdd3; opacity: 0.9;">Treffpunkt verfällt in Kürze. Abfangroute berechnet.</p>
-                    
-                    <div class="card-row">
-                        <div class="metric-group">
-                            <span class="metric-label">Countdown</span>
-                            <span class="metric-value" style="color: var(--red);">08:42 Min</span>
-                        </div>
-                        <div class="metric-group" style="text-align: right;">
-                            <span class="metric-label">Operator</span>
-                            <span class="metric-value">4 Aktiv</span>
-                        </div>
-                    </div>
-                </article>
+                <div class="map-point point-amber" onclick="triggerNode('Industrieareal')">INDUSTRIEAREAL</div>
+                <div class="map-point point-cyan" onclick="triggerNode('Treffpunkt')">TREFFPUNKT</div>
+            </div>
 
-                <!-- TACTICAL WEATHER MODULE -->
-                <section class="tactical-card">
-                    <div class="card-meta">
-                        <span>🌤️ Open-Meteo Radar</span>
-                        <span>Meteo-Grid-Alpha</span>
+            <div class="content-area">
+                
+                <div class="blueprint-card main-card">
+                    <div class="card-title">Tactile Cyber-Noir UI Blueprint</div>
+                    <div class="card-desc">
+                        Dies ist eine funktionale, interaktive Design-Vorschau der optimierten "SpotMe • Caching" PWA-Schnittstelle. Erstellt nach den Prinzipien taktiler, industrieller Tiefenwirkung und absoluter Mobile-First Effizienz.
                     </div>
-                    <div class="weather-timeline">
-                        <div class="weather-hour">
-                            <span class="time">15:00</span>
-                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                            <span class="temp">24°</span>
-                        </div>
-                        <div class="weather-hour active">
-                            <span class="time">16:00</span>
-                            <svg viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58"/></svg>
-                            <span class="temp">22°</span>
-                        </div>
-                        <div class="weather-hour">
-                            <span class="time">17:00</span>
-                            <svg viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58"/><path d="M8 19v2M12 19v2M16 19v2"/></svg>
-                            <span class="temp">19°</span>
-                        </div>
-                        <div class="weather-hour">
-                            <span class="time">18:00</span>
-                            <svg viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58"/><path d="M8 19v2M12 19v2M16 19v2"/></svg>
-                            <span class="temp">18°</span>
-                        </div>
-                    </div>
-                    
-                    <div class="card-row" style="margin-top: 10px; padding-top: 10px;">
-                        <button class="sc-btn primary" style="width: 100%; height: 38px; padding: 0;" onclick="simulateCheckIn()">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                            Missions-Check-In ausführen
-                        </button>
-                    </div>
-                </section>
-
-            </main>
-
-            <!-- INTERACTIVE DRAWER CHAT -->
-            <section class="drawer-chat" id="chatDrawer">
-                <div class="drawer-handle-zone" onclick="toggleDrawer()">
-                    <div class="drawer-handle"></div>
-                </div>
-                <div class="drawer-title">
-                    <span>Sektor-Comms</span>
-                    <span class="badge" id="msgBadge">2 Neu</span>
                 </div>
 
-                <div class="chat-container" id="chatLogs">
-                    <div class="chat-bubble theirs">
-                        <span class="meta">Operator Alpha • 14:46</span>
-                        Stehe am primären Container-Versteck. Warte auf Signal-Entschlüsselung.
+                <div class="blueprint-card card-accent-amber">
+                    <div class="card-title" style="color: var(--laser-amber);">FARBSCHEMA</div>
+                    <div class="card-desc">
+                        Obsidian, Carbon, <span class="highlight-amber">Laser-Amber (#ff9f00)</span> & <span class="highlight-cyan">Tactical Cyan</span>
                     </div>
-                    <div class="chat-bubble mine">
-                        <span class="meta">Du • 14:47</span>
-                        Verstanden, bin auf Abfangroute. Bereite Check-In vor.
+                </div>
+
+                <div class="blueprint-card card-accent-cyan">
+                    <div class="card-title" style="color: var(--tactical-cyan);">TAKTILE ENGINE</div>
+                    <div class="card-desc">
+                        Micro-Borders (1px), Glassmorphism, concave Schattenstrukturen
+                    </div>
+                </div>
+
+                <div class="blueprint-card">
+                    <div class="card-title">INTERAKTIVE ELEMENTE</div>
+                    <div class="card-desc">
+                        Klicke Kartennodes, sende Chatnachrichten oder ziehe den Drawer-Handle nach oben.
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="comms-drawer">
+                <div class="comms-header">
+                    <div class="comms-title">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        SEKTOR-COMMS
+                    </div>
+                    <div class="comms-actions">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1v22M1 12h22M12 17a5 5 0 100-10 5 5 0 000 10z"></path></svg>
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                     </div>
                 </div>
 
                 <div class="chat-input-row">
-                    <input type="text" id="chatInput" placeholder="Sicheren Funkspruch senden..." onkeypress="handleChatKey(event)">
-                    <button class="chat-send-btn" onclick="sendMockMessage()" title="Senden">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                    </button>
+                    <div class="msg msg-alpha">
+                        <span>ALPHA •</span> Am Versteck. Signal?
+                    </div>
+                    <div class="msg msg-me" id="myChatBubble" style="cursor: pointer;">
+                        <span>ICH •</span> Auf Route. Bereit.
+                    </div>
                 </div>
-            </section>
 
-        </div>
-    </div>
-
-    <!-- DESKTOP ACCOMPANYING INFO META BOARD -->
-    <div class="desktop-info">
-        <h1>Tactile Cyber-Noir<br>UI Blueprint</h1>
-        <p>Dies ist eine funktionale, interaktive Design-Vorschau der optimierten "SpotMe · Caching" PWA-Schnittstelle. Erstellt nach den Prinzipien taktiler, industrieller Tiefenwirkung und absoluter Mobile-First Effizienz.</p>
-        
-        <div class="tech-spec">
-            <div class="spec-item">
-                <span class="spec-label">Farbschema</span>
-                <span class="spec-val">Obsidian, Carbon, Laser-Amber (#ff9f00) &amp; Tactical Cyan</span>
-            </div>
-            <div class="spec-item">
-                <span class="spec-label">Taktile Engine</span>
-                <span class="spec-val">Micro-Borders (1px), Glassmorphism, konkave Schattenstrukturen</span>
-            </div>
-            <div class="spec-item">
-                <span class="spec-label">Interaktive Elemente</span>
-                <span class="spec-val">Klicke Kartennodes, sende Chatnachrichten oder ziehe den Drawer per Klick auf den Handle nach oben.</span>
+                <div class="drawer-handle" onclick="alert('Drawer Action triggered')"></div>
             </div>
         </div>
     </div>
 
-    <!-- UI INTERACTION LOGIC -->
     <script>
-        // Drawer Zustand steuern
-        function toggleDrawer() {
-            const drawer = document.getElementById('chatDrawer');
-            drawer.classList.toggle('open');
-            if(drawer.classList.contains('open')) {
-                document.getElementById('msgBadge').style.display = 'none';
-            }
+        function triggerNode(nodeName) {
+            alert("Tactical Node ausgewählt: " + nodeName);
         }
 
-        // Tasten-Aktivierung toggeln
-        function toggleBtn(id) {
-            const btn = document.getElementById(id);
-            btn.classList.toggle('active');
-            
-            // Haptische Simulation via Console
-            console.log(`[Haptic Feedback] Button ${id} getippt.`);
-            if (navigator.vibrate) {
-                navigator.vibrate(15);
-            }
-        }
-
-        // Kartenelemente Interaktion
-        function highlightSpot(type) {
-            console.log(`[Map Engine] Node ausgewählt: ${type}`);
-            if (navigator.vibrate) {
-                navigator.vibrate([20, 40]);
-            }
-            
-            const mCard = document.getElementById('meetingCard');
-            if(type === 'cyan') {
-                mCard.style.borderColor = 'var(--cyan)';
-                mCard.style.boxShadow = '0 16px 32px var(--cyan-glow)';
-            } else {
-                mCard.style.borderColor = 'rgba(255, 23, 68, 0.25)';
-                mCard.style.boxShadow = '0 16px 32px rgba(255, 23, 68, 0.1)';
-            }
-        }
-
-        // Simulierte Chatnachricht absenden
-        function sendMockMessage() {
-            const input = document.getElementById('chatInput');
-            const text = input.value.trim();
-            if(!text) return;
-
-            const container = document.getElementById('chatLogs');
-            
-            // Eigene Nachricht generieren
-            const mineBubble = document.createElement('div');
-            mineBubble.className = 'chat-bubble mine';
-            mineBubble.innerHTML = `<span class="meta">Du • Gerade eben</span>${text}`;
-            container.appendChild(mineBubble);
-            
-            input.value = '';
-            container.scrollTop = container.scrollHeight;
-
-            if (navigator.vibrate) navigator.vibrate(10);
-
-            // Automatisierte, taktische Antwort nach 1.2 Sekunden simulieren
-            setTimeout(() => {
-                const responseBubble = document.createElement('div');
-                responseBubble.className = 'chat-bubble theirs';
-                responseBubble.innerHTML = `<span class="meta">HQ-Automaton • Gerade eben</span>Signal bestätigt. Datenpaket verschlüsselt übertragen.`;
-                container.appendChild(responseBubble);
-                container.scrollTop = container.scrollHeight;
-                if (navigator.vibrate) navigator.vibrate([15, 15]);
-            }, 1200);
-        }
-
-        function handleChatKey(e) {
-            if(e.key === 'Enter') sendMockMessage();
-        }
-
-        // Check-In Simulation
-        function simulateCheckIn() {
-            alert('🔒 Taktischer Check-In registriert.
-Standortdaten via Polling-Vektor an HQ übermittelt.');
-            if (navigator.vibrate) {
-                navigator.vibrate([30, 50, 30]);
-            }
-        }
-
-        // Automatisches Öffnen des Drawers zur Demonstration nach 1.5s
-        setTimeout(() => {
-            document.getElementById('chatDrawer').classList.add('open');
-            document.getElementById('msgBadge').style.display = 'none';
-        }, 1500);
+        // Just adding a clean micro-interaction to simulate chat toggle
+        const myChat = document.getElementById('myChatBubble');
+        myChat.addEventListener('click', () => {
+            myChat.style.background = 'rgba(0, 243, 255, 0.15)';
+            myChat.style.borderColor = 'rgba(0, 243, 255, 0.4)';
+            myChat.innerHTML = "<span>ICH •</span> Status aktualisiert. Warte auf Signal.";
+            myChat.style.color = "var(--tactical-cyan)";
+            myChat.querySelector('span').style.color = "var(--tactical-cyan)";
+        });
     </script>
 </body>
 </html>
