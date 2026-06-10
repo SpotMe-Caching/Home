@@ -764,6 +764,8 @@ async function createRoute() {
     if (!r.ok||!data.route) throw new Error(data.error||'Fehler');
     draftRouteId = data.route.id;
     draftWpCount = 0;
+    sessionStorage.setItem('wp_draft_id', draftRouteId);
+    sessionStorage.setItem('wp_draft_count', '0');
     document.getElementById('createStep1').style.display='none';
     document.getElementById('createStep2').style.display='';
     initCreateMap();
@@ -826,6 +828,8 @@ async function addWaypoint() {
     const data=await r.json();
     if (!r.ok) throw new Error(data.error||'Fehler');
     draftWpCount++;
+    sessionStorage.setItem('wp_draft_count', String(draftWpCount));
+    const savedCorrect = draftCorrect; // vor dem Reset sichern
 
     // Formular zurücksetzen
     ['wpQuestion','wpOptA','wpOptB','wpOptC'].forEach(id=>document.getElementById(id).value='');
@@ -837,7 +841,7 @@ async function addWaypoint() {
     // Liste aktualisieren
     const item=document.createElement('div');
     item.className='wp-draft-item';
-    item.innerHTML=`<div class="wp-draft-num">${draftWpCount}</div><div class="wp-draft-q">${esc(q)}<br><span style="font-size:0.7rem;color:var(--muted2);">A:${esc(a)} · B:${esc(b)} · C:${esc(c)} → <b style="color:var(--cyan);">${draftCorrect.toUpperCase()}</b></span></div>`;
+    item.innerHTML=`<div class="wp-draft-num">${draftWpCount}</div><div class="wp-draft-q">${esc(q)}<br><span style="font-size:0.7rem;color:var(--muted2);">A:${esc(a)} · B:${esc(b)} · C:${esc(c)} → <b style="color:var(--cyan);">${savedCorrect.toUpperCase()}</b></span></div>`;
     document.getElementById('wpDraftList').appendChild(item);
 
     if (draftWpCount>=2) document.getElementById('publishSection').style.display='';
@@ -868,6 +872,8 @@ async function publishRoute() {
 
 function resetCreate() {
   draftRouteId=null; draftWpCount=0; draftCorrect=null; createCoords=null;
+  sessionStorage.removeItem('wp_draft_id');
+  sessionStorage.removeItem('wp_draft_count');
   if (createMap){ createMap.remove(); createMap=null; }
   createMarker=null;
   document.getElementById('crName').value='';
@@ -917,6 +923,23 @@ async function deleteRoute(id) {
 navigator.geolocation?.getCurrentPosition(p=>{
   userPos={lat:p.coords.latitude,lng:p.coords.longitude};
 }, null, {enableHighAccuracy:true,timeout:8000});
+
+// Entwurf aus sessionStorage wiederherstellen (nach Seiten-Reload)
+const savedDraftId = sessionStorage.getItem('wp_draft_id');
+if (savedDraftId) {
+  draftRouteId = +savedDraftId;
+  draftWpCount = +(sessionStorage.getItem('wp_draft_count') || '0');
+  document.getElementById('createStep1').style.display = 'none';
+  document.getElementById('createStep2').style.display = '';
+  if (draftWpCount >= 2) document.getElementById('publishSection').style.display = '';
+  // Hinweis in der Entwurfsliste
+  if (draftWpCount > 0) {
+    document.getElementById('wpDraftList').innerHTML =
+      `<div class="wp-draft-item"><div class="wp-draft-num">ℹ️</div><div class="wp-draft-q" style="color:var(--muted2);">${draftWpCount} WayPoint${draftWpCount!==1?'s':''} bereits gespeichert (Seite wurde neu geladen).</div></div>`;
+  }
+  // Karte initialisieren sobald Erstellen-Tab aktiv
+  setTimeout(() => { if (document.getElementById('sec-create').classList.contains('active')) initCreateMap(); }, 80);
+}
 
 loadRoutes();
 </script>
