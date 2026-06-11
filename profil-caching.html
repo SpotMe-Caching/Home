@@ -211,7 +211,13 @@
     <div class="char-count" id="offer-count">0 / 300</div>
     <div class="chip-preview" id="chips-offers"></div>
   </div>
-
+    
+   <!-- ── TRAFFIC & AKTIVITÄT ── -->
+  <div class="sec-label">📊 Datenverbrauch (30 Tage)</div>
+  <div id="trafficStats" class="field" style="background:var(--card); border-radius:14px; padding:0.75rem 1rem;">
+  <div class="note">Lädt…</div>
+  </div>
+    
 </div>
 
 <!-- ══ TAB: MEINE SPOTS ══ -->
@@ -904,48 +910,93 @@ function confirmDeleteProfile() {
   setTimeout(() => goBack(), 1500);
 }
 
-// Rufe die Funktion beim Laden des Profils auf
+// ── TRAFFIC STATISTIK ───────────────────────────────────────────────────────
 async function loadTrafficStats() {
-    const code = localStorage.getItem('sm_code');
-    const token = localStorage.getItem('sm_token');
-    if (!code || !token) return;
-    try {
-        const res = await fetch(`${API}/traffic/${code}?token=${token}`);
-        const data = await res.json();
-        document.getElementById('trafficStats').innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                <span>📤 Hochgeladen:</span> <strong>${(data.upload_bytes / 1024).toFixed(1)} KB</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                <span>📥 Heruntergeladen:</span> <strong>${(data.download_bytes / 1024).toFixed(1)} KB</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                <span>💾 Gesamt:</span> <strong>${data.total_mb} MB</strong>
-            </div>
-            <hr style="margin:0.5rem 0; border-color:rgba(255,255,255,0.1);">
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-                <span>✅ Check-ins:</span> <strong>${data.checkins}</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-                <span>📍 Spots erstellt:</span> <strong>${data.spots}</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-                <span>💬 Nachrichten:</span> <strong>${data.messages}</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between;">
-                <span>📨 Einladungen:</span> <strong>${data.invites}</strong>
-            </div>
-            <div class="note" style="margin-top:0.5rem;">⚡ Aktivitätspunkte: ${data.activity_points}</div>
-        `;
-    } catch(e) {
-        document.getElementById('trafficStats').innerHTML = '<div class="note">Keine Daten verfügbar</div>';
-    }
+  const code = localStorage.getItem('sm_code');
+  const token = localStorage.getItem('sm_token');
+  const container = document.getElementById('trafficStats');
+  if (!code || !token || !container) return;
+  try {
+    const res = await fetch(`${API_BASE}/traffic/${code}?token=${token}`);
+    if (!res.ok) throw new Error('Fehler beim Abrufen');
+    const data = await res.json();
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>📤 Hochgeladen:</span> <strong>${(data.upload_bytes / 1024).toFixed(1)} KB</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>📥 Heruntergeladen:</span> <strong>${(data.download_bytes / 1024).toFixed(1)} KB</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>💾 Gesamt:</span> <strong>${data.total_mb} MB</strong>
+      </div>
+      <hr style="margin:0.5rem 0; border-color:rgba(255,255,255,0.1);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>✅ Check-ins:</span> <strong>${data.checkins}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>📍 Spots erstellt:</span> <strong>${data.spots}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>💬 Nachrichten:</span> <strong>${data.messages}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>📨 Einladungen:</span> <strong>${data.invites}</strong>
+      </div>
+      <div class="note" style="margin-top:0.5rem;">⚡ Aktivitätspunkte: ${data.activity_points}</div>
+    `;
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = '<div class="note">⚠️ Keine Daten verfügbar</div>';
+  }
+}
+
+// ── TRAFFIC STATISTIK ───────────────────────────────────────────────────────
+async function loadTrafficStats() {
+  const code = localStorage.getItem('sm_code');
+  const token = localStorage.getItem('sm_token');
+  const container = document.getElementById('trafficStats');
+  if (!code || !token || !container) return;
+  try {
+    const res = await fetch(`${API_BASE}/traffic/${code}?token=${token}`);
+    if (!res.ok) throw new Error('Fehler beim Abrufen');
+    const data = await res.json();
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>📤 Hochgeladen:</span> <strong>${(data.upload_bytes / 1024).toFixed(1)} KB</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>📥 Heruntergeladen:</span> <strong>${(data.download_bytes / 1024).toFixed(1)} KB</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+        <span>💾 Gesamt:</span> <strong>${data.total_mb} MB</strong>
+      </div>
+      <hr style="margin:0.5rem 0; border-color:rgba(255,255,255,0.1);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>✅ Check-ins:</span> <strong>${data.checkins}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>📍 Spots erstellt:</span> <strong>${data.spots}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+        <span>💬 Nachrichten:</span> <strong>${data.messages}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>📨 Einladungen:</span> <strong>${data.invites}</strong>
+      </div>
+      <div class="note" style="margin-top:0.5rem;">⚡ Aktivitätspunkte: ${data.activity_points}</div>
+    `;
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = '<div class="note">⚠️ Keine Daten verfügbar</div>';
+  }
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   fillRegions();
   loadProfile();
+  loadTrafficStats(); 
   updateCharCount('f-wishes','wish-count',300);
   updateCharCount('f-offers','offer-count',300);
   updateCharCount('f-bio','bio-count',400);
