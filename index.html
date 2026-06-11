@@ -35,43 +35,49 @@
   <div class="pm-sub">Tippe auf die Karte</div>
 </div>
   
+  <!-- Header-Bar (rechts neben Rail) -->
   <div class="topbar">
     <div class="logo">
       <div class="logo-dot"></div>
       SPOT<span style="color:var(--text);font-weight:300;">ME</span>
-      <span class="logo-sub">Caching V1</span>
+      <span class="logo-sub">· CACHING</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;margin-left:auto;">
+      <button class="topbar-btn" id="filterTopBtn" onclick="toggleFilterStrip()" title="Kategorien">⊞</button>
+      <button class="topbar-btn" id="radiusTopBtn" onclick="openRadiusSearch()" title="Radius-Suche">◎</button>
     </div>
   </div>
 
-  <!-- Vertikale Icon-Spalte rechts -->
-  <div id="sideIcons">
-    <button class="icon-btn" onclick="location.href='profil-caching.html'" title="Profil">👤</button>
+  <!-- Nav-Rail (links, scrollbar) -->
+  <div id="navRail">
+    <div class="rail-logo">S</div>
+    <div class="rail-sep"></div>
 
-    <button class="icon-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
+    <button class="nav-btn" onclick="location.href='profil-caching.html'" title="Profil">👤</button>
+    <button class="nav-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
       📨<span class="badge" id="inviteBadge" style="display:none">0</span>
     </button>
-
-    <button class="icon-btn" id="meetingsBtn" onclick="openMeetingsModal()" title="Bevorstehende Treffen">
-      📅<span class="badge" id="meetingsBadge" style="display:none;background:#10b981;">0</span>
+    <button class="nav-btn" id="meetingsBtn" onclick="openMeetingsModal()" title="Treffen">
+      📅<span class="badge" id="meetingsBadge" style="display:none;background:var(--green);color:#080b10;">0</span>
     </button>
-
-    <button class="icon-btn" id="chatHeaderBtn" onclick="openDrawer('chats')" title="Chat">
+    <button class="nav-btn" id="chatHeaderBtn" onclick="openDrawer('chats')" title="Chat">
       💬<span class="badge" id="chatBadge" style="display:none">0</span>
     </button>
-
-    <button class="icon-btn" onclick="openDrawer('favorites')" title="Favoriten">
+    <button class="nav-btn" onclick="openDrawer('favorites')" title="Favoriten">
       ⭐<span class="badge" id="favBadge" style="display:none">0</span>
     </button>
-
-    <button class="icon-btn" id="weeklyBtn" onclick="openDrawer('weekly')" title="Wochen-Spots">
-      🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#0a0d12;">0</span>
+    <button class="nav-btn" id="weeklyBtn" onclick="openDrawer('weekly')" title="Wochen-Spots">
+      🗓️<span class="badge" id="weeklyBadge" style="display:none;background:var(--cyan);color:#080b10;">0</span>
     </button>
 
-    <button class="icon-btn" id="pushBtn" onclick="togglePushNotifications()" title="Benachrichtigungen">🔔</button>
+    <div class="rail-sep"></div>
 
-    <button class="icon-btn" onclick="location.href='waypoints.html'" title="WayPoint Caching">🗺️</button>
+    <button class="nav-btn" id="pushBtn" onclick="togglePushNotifications()" title="Benachrichtigungen">🔔</button>
+    <button class="nav-btn" onclick="location.href='waypoints.html'" title="WayPoint Caching">🗺️</button>
 
-    <button class="icon-btn" onclick="location.reload()" title="Neu laden">↺</button>
+    <div class="rail-sep"></div>
+
+    <button class="nav-btn" onclick="location.reload()" title="Neu laden">↺</button>
   </div>
 
 <div class="stats-strip">
@@ -608,6 +614,15 @@ const CATEGORY_EMOJI = {
 // Baut die Filter-Leiste aus den aktuell vorhandenen Kategorien in allSpots.
 // Nur Kategorien die wirklich vorkommen werden als Pill angezeigt –
 // keine leeren Filter für Kategorien ohne Spots.
+function toggleFilterStrip() {
+  const strip = document.getElementById('filterStrip');
+  const btn   = document.getElementById('filterTopBtn');
+  if (!strip) return;
+  const visible = strip.style.display !== 'none';
+  strip.style.display = visible ? 'none' : 'flex';
+  btn?.classList.toggle('active', !visible);
+}
+
 function buildFilterStrip() {
   const strip = document.getElementById('filterStrip');
   if (!strip) return;
