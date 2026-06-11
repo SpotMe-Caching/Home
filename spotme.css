@@ -29,6 +29,14 @@
     #map { position:absolute; inset:0; filter:brightness(0.70) saturate(0.75); }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
 
+/* Lucide SVG-Icon Größe in Rail + Topbar */
+.nav-icon {
+  width: 17px; height: 17px;
+  stroke-width: 1.6;
+  display: block;
+  pointer-events: none;
+}
+
 /* ── NAV-RAIL (links, scrollbar, taktisch) ─────────────────────────── */
 #navRail {
   position: fixed;
@@ -40,7 +48,7 @@
   align-items: center;
   padding-top: max(0.5rem, env(safe-area-inset-top));
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  background: rgba(8,11,16,0.94);
+  background: rgba(8,11,16,0.96);
   backdrop-filter: blur(24px);
   border-right: 1px solid var(--bord2);
   box-shadow: 2px 0 20px rgba(0,0,0,0.4);
@@ -48,7 +56,12 @@
   overflow-x: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  gap: 0;
+  /* Subtiles Grid in der Rail */
+  background-image:
+    linear-gradient(rgba(255,159,0,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,159,0,0.025) 1px, transparent 1px);
+  background-size: 27px 27px;
+  background-color: rgba(8,11,16,0.96);
 }
 #navRail::-webkit-scrollbar { display: none; }
 
@@ -118,7 +131,11 @@
   display: flex;
   align-items: center;
   padding: max(0.65rem, env(safe-area-inset-top)) 0.85rem 0.65rem;
-  background: rgba(8,11,16,0.90);
+  background-color: rgba(8,11,16,0.92);
+  background-image:
+    linear-gradient(rgba(255,159,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,159,0,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
   backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--bord2);
   box-shadow: var(--inset);
