@@ -356,61 +356,115 @@
     .toast { position:absolute; bottom:90px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--glass2); backdrop-filter:blur(20px); border:1px solid var(--bord2); border-radius:100px; padding:0.5rem 1.2rem; font-size:0.82rem; font-weight:500; z-index:900; opacity:0; pointer-events:none; transition:all 0.3s; white-space:nowrap; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    /* ── Spot-Marker: Tactical Amber Glow ──────────────────────────────── */
-    .my-spot-marker {
-      width: 22px; height: 22px;
-      background: var(--acc);
-      border-radius: 50%;
-      border: 2.5px solid rgba(255,255,255,0.85);
-      box-shadow: 0 0 0 4px rgba(255,159,0,0.18), 0 0 18px rgba(255,159,0,0.7);
-      cursor: pointer;
-      animation: amber-pulse 2.4s ease infinite;
-    }
-    @keyframes amber-pulse {
-      0%,100% { box-shadow: 0 0 0 4px rgba(255,159,0,0.18), 0 0 18px rgba(255,159,0,0.7); }
-      50%      { box-shadow: 0 0 0 8px rgba(255,159,0,0.06), 0 0 28px rgba(255,159,0,0.9); }
+    /* ── MAP GRID OVERLAY ────────────────────────────────────────────── */
+    #mapGrid {
+      position: absolute; inset: 0;
+      z-index: 1; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,159,0,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,159,0,0.035) 1px, transparent 1px);
+      background-size: 50px 50px;
     }
 
-    .other-spot-marker {
-      width: 14px; height: 14px;
-      background: var(--muted2);
+    /* ── TACTICAL MARKER: Amber Diamond + Radar Ping ────────────────── */
+    .my-spot-marker {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; position: relative;
+    }
+    /* Amber Diamant */
+    .my-spot-marker::before {
+      content: '';
+      position: absolute;
+      width: 13px; height: 13px;
+      background: var(--acc);
+      transform: rotate(45deg);
+      box-shadow: 0 0 14px rgba(255,159,0,0.95),
+                  0 0 28px rgba(255,159,0,0.4);
+      z-index: 2;
+    }
+    /* Radar-Ping Ring */
+    .my-spot-marker::after {
+      content: '';
+      position: absolute;
+      width: 30px; height: 30px;
       border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.45);
-      box-shadow: 0 0 8px rgba(120,150,170,0.4);
-      cursor: pointer;
-      position: relative;
+      border: 1.5px solid rgba(255,159,0,0.7);
+      animation: radar-ping 2.6s ease-out infinite;
+    }
+    @keyframes radar-ping {
+      0%   { transform: scale(0.3); opacity: 1; }
+      100% { transform: scale(1.9); opacity: 0; }
+    }
+
+    /* ── FREMDE SPOTS ────────────────────────────────────────────────── */
+    .other-spot-marker {
+      width: 13px; height: 13px;
+      background: var(--muted);
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.35);
+      box-shadow: 0 0 6px rgba(100,140,160,0.35);
+      cursor: pointer; position: relative;
     }
     .other-spot-marker.is-online {
       background: var(--cyan);
-      border-color: rgba(255,255,255,0.7);
-      box-shadow: 0 0 0 3px rgba(0,229,255,0.15), 0 0 14px rgba(0,229,255,0.6);
+      border-color: rgba(255,255,255,0.65);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.12), 0 0 12px rgba(0,229,255,0.6);
     }
     .other-spot-marker.is-online::after {
       content: '';
       position: absolute; top: -4px; right: -4px;
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--green);
       border: 1.5px solid var(--bg);
-      box-shadow: 0 0 6px rgba(0,230,118,0.9);
+      box-shadow: 0 0 5px rgba(0,230,118,0.9);
       animation: online-pulse 2s ease infinite;
     }
     @keyframes online-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.6} }
-    .user-marker { width:14px; height:14px; background:var(--cyan); border-radius:50%; border:2.5px solid #fff; box-shadow:0 0 10px rgba(34,211,238,0.6); }
 
-    /* Neue Spots — pulsierender grüner Ring */
+    /* ── EIGENE GPS POSITION: White Pulse Rings ──────────────────────── */
+    .user-marker {
+      width: 14px; height: 14px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
+      position: relative;
+    }
+    .user-marker::before {
+      content: '';
+      position: absolute; inset: -7px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.28);
+      animation: user-ring 2.2s ease-out infinite;
+    }
+    .user-marker::after {
+      content: '';
+      position: absolute; inset: -14px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.12);
+      animation: user-ring 2.2s ease-out 0.9s infinite;
+    }
+    @keyframes user-ring {
+      0%   { transform: scale(0.4); opacity: 1; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    /* ── NEUE SPOTS: grüner Ping ─────────────────────────────────────── */
     .new-spot-marker {
-      width:18px; height:18px; background:var(--green); border-radius:50%;
-      border:2.5px solid rgba(255,255,255,0.9);
-      box-shadow:0 0 12px rgba(16,185,129,0.7);
-      cursor:pointer; position:relative;
+      width: 16px; height: 16px;
+      background: var(--green);
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.85);
+      box-shadow: 0 0 12px rgba(0,230,118,0.7);
+      cursor: pointer; position: relative;
     }
     .new-spot-marker::after {
-      content:''; position:absolute; inset:-5px; border-radius:50%;
-      border:2px solid var(--green); opacity:0.6;
-      animation:new-spot-ring 1.5s ease-out infinite;
+      content: ''; position: absolute; inset: -5px; border-radius: 50%;
+      border: 1.5px solid var(--green);
+      animation: new-spot-ring 1.6s ease-out infinite;
     }
-    @keyframes new-spot-ring { 0%{transform:scale(0.8);opacity:0.8} 100%{transform:scale(1.8);opacity:0} }
+    @keyframes new-spot-ring { 0%{transform:scale(0.7);opacity:0.9} 100%{transform:scale(1.9);opacity:0} }
 
     .empty-state { text-align:center; padding:2.5rem 1rem; color:var(--muted); font-size:0.85rem; }
     .empty-state .es-icon { font-size:2.5rem; margin-bottom:0.6rem; opacity:0.5; }
