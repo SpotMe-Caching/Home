@@ -135,6 +135,10 @@
   <div class="tab active" id="tab-profil"  onclick="showTab('profil')">👤 Profil</div>
   <div class="tab"        id="tab-spots"   onclick="showTab('spots')">📍 Meine Spots</div>
   <div class="tab"        id="tab-account" onclick="showTab('account')">⚙️ Account</div>
+   <div class="form-section">
+     <div class="section-title">📊 DATENVERBRAUCH (30 Tage)</div>
+     <div id="trafficStats">Lädt...</div>
+   </div>
 </div>
 
 <!-- ══ TAB: PROFIL ══ -->
@@ -902,6 +906,44 @@ function confirmDeleteProfile() {
   localStorage.removeItem('sm_token');
   toast('✅ Profil gelöscht');
   setTimeout(() => goBack(), 1500);
+}
+
+// Rufe die Funktion beim Laden des Profils auf
+async function loadTrafficStats() {
+    const code = localStorage.getItem('sm_code');
+    const token = localStorage.getItem('sm_token');
+    if (!code || !token) return;
+    try {
+        const res = await fetch(`${API}/traffic/${code}?token=${token}`);
+        const data = await res.json();
+        document.getElementById('trafficStats').innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                <span>📤 Hochgeladen:</span> <strong>${(data.upload_bytes / 1024).toFixed(1)} KB</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                <span>📥 Heruntergeladen:</span> <strong>${(data.download_bytes / 1024).toFixed(1)} KB</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                <span>💾 Gesamt:</span> <strong>${data.total_mb} MB</strong>
+            </div>
+            <hr style="margin:0.5rem 0; border-color:rgba(255,255,255,0.1);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                <span>✅ Check-ins:</span> <strong>${data.checkins}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                <span>📍 Spots erstellt:</span> <strong>${data.spots}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                <span>💬 Nachrichten:</span> <strong>${data.messages}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <span>📨 Einladungen:</span> <strong>${data.invites}</strong>
+            </div>
+            <div class="note" style="margin-top:0.5rem;">⚡ Aktivitätspunkte: ${data.activity_points}</div>
+        `;
+    } catch(e) {
+        document.getElementById('trafficStats').innerHTML = '<div class="note">Keine Daten verfügbar</div>';
+    }
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
