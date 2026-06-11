@@ -21,6 +21,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SpotMe · Caching</title>
   <meta name="theme-color" content="#0a0d12">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
   
 </head>
@@ -53,7 +54,7 @@
     <div class="rail-sep"></div>
 
     <button class="nav-btn" onclick="location.href='profil-caching.html'" title="Profil">👤</button>
-        <button class="nav-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
+    <button class="nav-btn" id="inviteHeaderBtn" onclick="openDrawer('invites')" title="Einladungen">
       📨<span class="badge" id="inviteBadge" style="display:none">0</span>
     </button>
     <button class="nav-btn" id="meetingsBtn" onclick="openMeetingsModal()" title="Treffen">
@@ -493,7 +494,7 @@ function openImg(src) {
 function initMap() {
   map = new maplibregl.Map({
     container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
+    style: 'https://tiles.openfreemap.org/styles/dark',
     center: [-0.38, 39.47],
     zoom: 14,
     attributionControl: false
@@ -517,7 +518,7 @@ function initMap() {
     if (placeMode) {
       tempLatLng = { lat: e.lngLat.lat, lng: e.lngLat.lng };
       const el = document.createElement('div');
-      el.style.cssText='width:12px;height:12px;border-radius:50%;background:rgba(245,158,11,0.5);border:2px solid #f59e0b;';
+      el.style.cssText='width:14px;height:14px;border-radius:50%;background:var(--acc);border:2.5px solid rgba(255,255,255,0.85);box-shadow:0 0 0 4px rgba(255,159,0,0.2),0 0 18px rgba(255,159,0,0.7);';
       new maplibregl.Marker({element:el}).setLngLat([e.lngLat.lng,e.lngLat.lat]).addTo(map);
       placeMode=false; hidePlaceModeUI();
       window.location.href = `spot-erstellen.html?lat=${tempLatLng.lat}&lng=${tempLatLng.lng}`;
@@ -901,7 +902,7 @@ function openNavOverlay(lat, lng, name) {
 
     naviMap = new maplibregl.Map({
       container: 'naviMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/dark',
       center, zoom: 14,
       attributionControl: false
     });
@@ -912,7 +913,7 @@ function openNavOverlay(lat, lng, name) {
     naviMap.on('load', () => {
       // Spot-Marker (amber)
       const sEl = document.createElement('div');
-      sEl.style.cssText = 'width:22px;height:22px;background:#f59e0b;border-radius:50%;border:3px solid white;box-shadow:0 0 16px rgba(245,158,11,0.8);';
+      sEl.style.cssText = 'width:22px;height:22px;background:#ff9f00;border-radius:50%;border:2.5px solid rgba(255,255,255,0.85);box-shadow:0 0 0 4px rgba(255,159,0,0.2),0 0 20px rgba(255,159,0,0.8);';
       naviSpotMarker = new maplibregl.Marker({ element: sEl })
         .setLngLat([lng, lat]).addTo(naviMap);
 
@@ -2743,7 +2744,7 @@ async function openSpotDetail(spotId) {
   setTimeout(() => {
     detailMiniMap = new maplibregl.Map({
       container: 'spotDetailMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/dark',
       center: [spot.lng, spot.lat],
       zoom: 14,
       interactive: false,
@@ -3280,7 +3281,7 @@ function openWeeklyCreateModal() {
     const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
     weeklyMiniMap = new maplibregl.Map({
       container: 'weeklyCreateMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/dark',
       center,
       zoom: 13,
       attributionControl: false
@@ -3289,7 +3290,7 @@ function openWeeklyCreateModal() {
       weeklyCoords = { lat: e.lngLat.lat, lng: e.lngLat.lng };
       if (weeklyMarker) weeklyMarker.remove();
       const el = document.createElement('div');
-      el.style.cssText = 'width:22px;height:22px;background:#f59e0b;border-radius:50%;border:3px solid white;box-shadow:0 0 14px rgba(245,158,11,0.8);';
+      el.style.cssText = 'width:22px;height:22px;background:#ff9f00;border-radius:50%;border:2.5px solid rgba(255,255,255,0.85);box-shadow:0 0 0 4px rgba(255,159,0,0.2),0 0 18px rgba(255,159,0,0.8);';
       weeklyMarker = new maplibregl.Marker({ element: el })
         .setLngLat([weeklyCoords.lng, weeklyCoords.lat])
         .addTo(weeklyMiniMap);
