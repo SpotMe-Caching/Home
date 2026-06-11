@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v5.5 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v5.6 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -111,7 +111,8 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
 function trackTraffic(req, res, next) {
-  const code = req.body?.code || req.query?.code || req.headers["x-spotme-code"];
+  const code =
+    req.body?.code || req.query?.code || req.headers["x-spotme-code"];
   if (!code) return next();
 
   const originalSend = res.send;
@@ -134,8 +135,8 @@ function trackTraffic(req, res, next) {
           pool.query(
             `INSERT INTO user_traffic (code, direction, bytes, endpoint)
              VALUES ($1, 'upload', $2, $3)`,
-            [code, requestSize, req.path]
-          )
+            [code, requestSize, req.path],
+          ),
         );
       }
       if (responseSize > 0) {
@@ -143,11 +144,13 @@ function trackTraffic(req, res, next) {
           pool.query(
             `INSERT INTO user_traffic (code, direction, bytes, endpoint)
              VALUES ($1, 'download', $2, $3)`,
-            [code, responseSize, req.path]
-          )
+            [code, responseSize, req.path],
+          ),
         );
       }
-      Promise.all(queries).catch((err) => console.error("Traffic log error:", err));
+      Promise.all(queries).catch((err) =>
+        console.error("Traffic log error:", err),
+      );
     }
     originalSend.call(this, body);
   };
@@ -387,7 +390,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v5.5 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v5.6 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
