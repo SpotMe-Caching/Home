@@ -25,8 +25,7 @@
     }
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; }
-
-    #map { position:absolute; inset:0; filter:brightness(0.70) saturate(0.75); }
+    #map { position:absolute; inset:0; filter:brightness(0.82) saturate(0.85); }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
 
 /* Lucide SVG-Icon Größe in Rail + Topbar */
