@@ -494,7 +494,7 @@ function openImg(src) {
 function initMap() {
   map = new maplibregl.Map({
     container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/fiord',
+    style: 'https://tiles.openfreemap.org/styles/bright',
     center: [-0.38, 39.47],
     zoom: 14,
     attributionControl: false
@@ -902,7 +902,7 @@ function openNavOverlay(lat, lng, name) {
 
     naviMap = new maplibregl.Map({
       container: 'naviMap',
-      style: 'https://tiles.openfreemap.org/styles/fiord',
+      style: 'https://tiles.openfreemap.org/styles/bright',
       center, zoom: 14,
       attributionControl: false
     });
@@ -3281,7 +3281,7 @@ function openWeeklyCreateModal() {
     const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
     weeklyMiniMap = new maplibregl.Map({
       container: 'weeklyCreateMap',
-      style: 'https://tiles.openfreemap.org/styles/fiord',
+      style: 'https://tiles.openfreemap.org/styles/bright',
       center,
       zoom: 13,
       attributionControl: false
