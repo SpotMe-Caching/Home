@@ -5,7 +5,7 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'v33.0';        // Erhöht für SW-Update
+const CACHE_VERSION = 'v33.1';        // Erhöht für SW-Update
 const CACHE_STATIC  = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API     = `spotme-api-${CACHE_VERSION}`;
 const CACHE_TILES   = `spotme-map-tiles-${CACHE_VERSION}`;
@@ -189,8 +189,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body:      data.body  || '',
-    icon:      '/icons/icon-192.png',
-    badge:     '/icons/icon-72.png',
+    icon:      '/icons/pwa_192.png',
+    badge:     '/icons/pwa_72.png',
     data:      { url: data.url || '/' },
     vibrate:   [200, 100, 200],
     tag:       data.tag   || 'spotme',
