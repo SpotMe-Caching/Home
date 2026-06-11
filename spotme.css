@@ -1,11 +1,4 @@
-body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-}
-.logo, .mono-text, .tag, .status-pill, .countdown-value, .navi-stat-val {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
-}
-
-:root {
+    :root {
       --bg:        #080b10;
       --sur:       #0d1117;
       --glass:     rgba(13,17,23,0.90);
@@ -363,9 +356,45 @@ body {
     .toast { position:absolute; bottom:90px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--glass2); backdrop-filter:blur(20px); border:1px solid var(--bord2); border-radius:100px; padding:0.5rem 1.2rem; font-size:0.82rem; font-weight:500; z-index:900; opacity:0; pointer-events:none; transition:all 0.3s; white-space:nowrap; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    .my-spot-marker { width:20px; height:20px; background:var(--acc); border-radius:50%; border:2.5px solid rgba(255,255,255,0.9); box-shadow:0 0 12px rgba(245,158,11,0.6); cursor:pointer; }
-    .other-spot-marker { width:16px; height:16px; background:var(--muted); border-radius:50%; border:2px solid rgba(255,255,255,0.5); cursor:pointer; position:relative; }
-    .other-spot-marker.is-online::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--green); border:1.5px solid var(--bg); box-shadow:0 0 6px rgba(16,185,129,0.8); animation:online-pulse 2s ease infinite; }
+    /* ── Spot-Marker: Tactical Amber Glow ──────────────────────────────── */
+    .my-spot-marker {
+      width: 22px; height: 22px;
+      background: var(--acc);
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.85);
+      box-shadow: 0 0 0 4px rgba(255,159,0,0.18), 0 0 18px rgba(255,159,0,0.7);
+      cursor: pointer;
+      animation: amber-pulse 2.4s ease infinite;
+    }
+    @keyframes amber-pulse {
+      0%,100% { box-shadow: 0 0 0 4px rgba(255,159,0,0.18), 0 0 18px rgba(255,159,0,0.7); }
+      50%      { box-shadow: 0 0 0 8px rgba(255,159,0,0.06), 0 0 28px rgba(255,159,0,0.9); }
+    }
+
+    .other-spot-marker {
+      width: 14px; height: 14px;
+      background: var(--muted2);
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.45);
+      box-shadow: 0 0 8px rgba(120,150,170,0.4);
+      cursor: pointer;
+      position: relative;
+    }
+    .other-spot-marker.is-online {
+      background: var(--cyan);
+      border-color: rgba(255,255,255,0.7);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.15), 0 0 14px rgba(0,229,255,0.6);
+    }
+    .other-spot-marker.is-online::after {
+      content: '';
+      position: absolute; top: -4px; right: -4px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      border: 1.5px solid var(--bg);
+      box-shadow: 0 0 6px rgba(0,230,118,0.9);
+      animation: online-pulse 2s ease infinite;
+    }
     @keyframes online-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.6} }
     .user-marker { width:14px; height:14px; background:var(--cyan); border-radius:50%; border:2.5px solid #fff; box-shadow:0 0 10px rgba(34,211,238,0.6); }
 
