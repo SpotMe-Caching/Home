@@ -1,4 +1,11 @@
-    :root {
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+.logo, .mono-text, .tag, .status-pill, .countdown-value, .navi-stat-val {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+:root {
       --bg:        #080b10;
       --sur:       #0d1117;
       --glass:     rgba(13,17,23,0.90);
