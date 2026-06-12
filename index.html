@@ -671,10 +671,10 @@ async function postToBluesky() {
   btn.textContent = '⏳ Poste…';
   
   // Direkt-Link zum Spot dynamisch konstruieren
-  const spotUrl = new URL('index.html?spot=' + spotId, window.location.origin + window.location.pathname).href;
+  const spotUrl = `${window.location.origin}${window.location.pathname}?spot=${spotId}`;
   const finalMessage = customMessage 
-    ? `${customMessage}\n\n📍 Zum Spot: ${spotUrl}` 
-    : `📍 Mein Spot auf SpotMe Caching: ${spotUrl}`;
+    ? `${customMessage}\n\n📍 Zum Spot: \n\n ${spotUrl}` 
+    : `📍 Mein Spot auf SpotMe Caching: \n\n ${spotUrl}`;
   
   try {
     const res = await window.shareSpotOnBluesky(spotId, finalMessage);
