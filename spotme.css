@@ -470,7 +470,7 @@
 
     /* ── EIGENE GPS POSITION: White Pulse Rings ──────────────────────── */
     .user-marker {
-      width: 14px; height: 14px;
+      width: 16px; height: 16px;
       background: #00bfff;
       border-radius: 50%;
       box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
@@ -478,16 +478,16 @@
     }
     .user-marker::before {
       content: '';
-      position: absolute; inset: -7px;
+      position: absolute; inset: -8px;
       border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,0.28);
+      border: 1.5px solid rgba(255,255,255,0.6);
       animation: user-ring 2.2s ease-out infinite;
     }
     .user-marker::after {
       content: '';
-      position: absolute; inset: -14px;
+      position: absolute; inset: -16px;
       border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.3);
       animation: user-ring 2.2s ease-out 0.9s infinite;
     }
     @keyframes user-ring {
