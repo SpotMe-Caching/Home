@@ -292,6 +292,22 @@
 
 </div>
 
+<!-- BlueSky Account -->
+<div class="sec-label">🦋 Bluesky</div>
+<div id="bsky-status-area" style="background:var(--card); border-radius:14px; padding:1rem; margin-bottom:1rem;">
+  <div id="bsky-status-text">Lädt…</div>
+  <div id="bsky-connect-form" style="display:none; margin-top:0.75rem;">
+    <input type="text" id="bsky-handle" class="finp" placeholder="handle.bsky.social" style="margin-bottom:0.5rem;">
+    <input type="password" id="bsky-app-password" class="finp" placeholder="App-Passwort (erstellt in Bluesky-Einstellungen)">
+    <button id="bsky-connect-btn" class="av-btn" style="margin-top:0.5rem; width:100%;">🔗 Verbinden</button>
+    <div class="tag-hint">💡 Erstelle ein App-Passwort in deinen Bluesky-Einstellungen (Einstellungen → App-Passwörter).</div>
+  </div>
+  <div id="bsky-connected-info" style="display:none;">
+    <div style="margin-bottom:0.5rem;">✅ Verbunden mit <strong id="bsky-connected-handle"></strong></div>
+    <button id="bsky-disconnect-btn" class="av-btn" style="background:rgba(239,68,68,0.1); color:var(--red);">🔌 Trennen</button>
+  </div>
+</div>
+
 <!-- SAVE BAR -->
 <div class="save-bar">
   <button class="btn-back" onclick="goBack()">‹ Zurück</button>
