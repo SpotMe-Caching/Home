@@ -164,7 +164,7 @@ self.addEventListener('fetch', event => {
           if (networkResponse.ok) {
             await cache.put(request, networkResponse.clone());
             // Begrenze die Cache-Größe im Hintergrund
-            event.waitUntil(limitTileCacheSize());
+            limitTileCacheSize().catch(console.warn);
           }
           return networkResponse;
         }).catch(() => undefined);
