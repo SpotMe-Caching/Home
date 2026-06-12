@@ -2,20 +2,17 @@
 <html lang="de">
 <head>
 
-
+<!-- Eruda – Mobile Console (nur für Debugging) -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+  
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SpotMe · Caching Profil</title>
   <meta name="theme-color" content="#0a0d12">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-
-  body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-}
-.logo, .mono-text, .tag, .status-pill, .countdown-value, .navi-stat-val {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
-}
-  :root {
+    :root {
       --bg:      #0a0d12;
       --sur:     #0f1318;
       --card:    #141a22;
@@ -53,7 +50,7 @@
 
     /* ── TABS ── */
     .tabs { display:flex; border-bottom:1px solid var(--bord2); background:var(--sur); position:sticky; top:60px; z-index:90; }
-    .tab { flex:1; padding:0.8rem 0.2rem; text-align:center; font-size:0.75rem; font-weight:600; color:var(--muted2); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; white-space:nowrap; }
+    .tab { flex:1; padding:0.8rem 0.5rem; text-align:center; font-size:0.8rem; font-weight:600; color:var(--muted2); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; }
     .tab.active { color:var(--acc); border-bottom-color:var(--acc); }
 
     /* ── CONTENT ── */
@@ -133,8 +130,7 @@
 <!-- TABS -->
 <div class="tabs">
   <div class="tab active" id="tab-profil"  onclick="showTab('profil')">👤 Profil</div>
-  <div class="tab"        id="tab-spots"   onclick="showTab('spots')">📍 Spots</div>
-  <div class="tab"        id="tab-bluesky" onclick="showTab('bluesky')">🦋 Bluesky</div>
+  <div class="tab"        id="tab-spots"   onclick="showTab('spots')">📍 Meine Spots</div>
   <div class="tab"        id="tab-account" onclick="showTab('account')">⚙️ Account</div>
 </div>
 
@@ -227,45 +223,6 @@
   </div>
 </div>
 
-<!-- ══ TAB: BLUESKY ══ -->
-<div class="tab-panel" id="panel-bluesky">
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.82rem;color:var(--muted2);line-height:1.55;padding:0.75rem;background:var(--card);border-radius:12px;border:1px solid var(--bord);">
-      🦋 Verbinde dein Profil mit Bluesky, um gefundene Caches und Spots automatisch mit deiner Community im dezentralen Netzwerk zu teilen!
-    </div>
-  </div>
-
-  <div class="sec-label">Schnittstellen-Status</div>
-  <div id="bsky-status-area" style="background:var(--card); border-radius:14px; padding:1rem; border: 1px solid var(--bord);">
-    <div id="bsky-status-text" style="font-size:0.9rem; color:var(--text);">Lädt…</div>
-    
-    <!-- Verbindungs-Formular -->
-    <div id="bsky-connect-form" style="display:none; margin-top:1rem; border-top:1px solid var(--bord); padding-top:1rem;">
-      <div class="field">
-        <label>Bluesky Handle</label>
-        <input type="text" id="bsky-handle" class="finp" placeholder="dein-name.bsky.social" style="margin-bottom:0.5rem;">
-      </div>
-      <div class="field">
-        <label>App-Passwort</label>
-        <input type="password" id="bsky-app-password" class="finp" placeholder="App-Passwort (aus den Bluesky-Einstellungen)">
-      </div>
-      <button id="bsky-connect-btn" class="av-btn" style="margin-top:0.5rem; width:100%; font-weight:700; background:var(--acc-dim); border-color:var(--acc-glow); color:var(--acc);">🔗 Verbindung herstellen</button>
-      <div class="tag-hint" style="margin-top:0.75rem; line-height:1.4;">
-        💡 <strong>Sicherheitshinweis:</strong> Verwende niemals dein normales Hauptpasswort. Erstelle stattdessen ein spezielles App-Passwort in deinem Bluesky-Account unter: <br>
-        <em>Einstellungen → App-Passwörter → App-Passwort erstellen</em>.
-      </div>
-    </div>
-
-    <!-- Verbindung aktiv Info -->
-    <div id="bsky-connected-info" style="display:none; margin-top:1rem; border-top:1px solid var(--bord); padding-top:1rem; text-align:center;">
-      <div style="margin-bottom:1rem; font-size:1rem; color:var(--green); display:flex; align-items:center; justify-content:center; gap:0.5rem;">
-        <span>✅</span> Verbunden als <strong id="bsky-connected-handle" style="color:var(--text);"></strong>
-      </div>
-      <button id="bsky-disconnect-btn" class="av-btn" style="background:rgba(239,68,68,0.1); color:var(--red); border-color:rgba(239,68,68,0.3); width:100%;">🔌 Verbindung trennen</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ TAB: ACCOUNT ══ -->
 <div class="tab-panel" id="panel-account">
 
@@ -281,45 +238,12 @@
     <input type="text" id="token-display" class="finp" readonly style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--muted);">
   </div>
 
-  <div class="sec-label">Backup</div>
-  <div style="font-size:0.78rem;color:var(--muted2);line-height:1.55;padding:0.65rem 0.75rem;background:var(--card);border-radius:10px;border:1px solid var(--bord);margin-bottom:0.75rem;">
-    💡 Sichere deinen Account als Datei. Falls du den Cache leerst oder das Gerät wechselst, kannst du mit dieser Datei alles wiederherstellen – dein Profil, deine Spots und deine Einladungen bleiben auf dem Server erhalten.
-  </div>
-  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;">
-
-    <!-- Backup exportieren -->
-    <button onclick="exportBackup()"
-            style="padding:0.8rem;border-radius:12px;border:1px solid rgba(34,211,238,0.3);
-                   background:rgba(34,211,238,0.08);color:var(--cyan);font-size:0.85rem;
-                   font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
-      💾 Backup speichern
-    </button>
-
-    <!-- Backup importieren – löst den versteckten File-Input aus -->
-    <button onclick="document.getElementById('backup-input').click()"
-            style="padding:0.8rem;border-radius:12px;border:1px solid var(--bord2);
-                   background:var(--card);color:var(--muted2);font-size:0.85rem;
-                   font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
-      📥 Backup wiederherstellen
-    </button>
-
-    <!-- Versteckter File-Input – dasselbe Muster wie beim Avatar -->
-    <input type="file" id="backup-input" accept=".json,application/json"
-           style="display:none" onchange="importBackup(this)">
-  </div>
-
   <div class="sec-label">Daten</div>
   <div style="display:flex;flex-direction:column;gap:0.5rem;">
-    <button onclick="exportProfile()"
-            style="padding:0.8rem;border-radius:12px;border:1px solid var(--bord2);
-                   background:var(--card);color:var(--muted2);font-size:0.85rem;
-                   font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
+    <button onclick="exportProfile()" style="padding:0.8rem;border-radius:12px;border:1px solid var(--bord2);background:var(--card);color:var(--muted2);font-size:0.85rem;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
       📤 Profil exportieren (JSON)
     </button>
-    <button onclick="confirmDeleteProfile()"
-            style="padding:0.8rem;border-radius:12px;border:1px solid rgba(239,68,68,0.3);
-                   background:rgba(239,68,68,0.08);color:var(--red);font-size:0.85rem;
-                   font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
+    <button onclick="confirmDeleteProfile()" style="padding:0.8rem;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:var(--red);font-size:0.85rem;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;text-align:left;">
       🗑️ Profil löschen
     </button>
   </div>
@@ -334,7 +258,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="bluesky.js"></script>
 <script>
 'use strict';
 
@@ -344,7 +267,7 @@ const API_BASE    = 'https://spotme-chat-obom.onrender.com/api';
 
 const GEO = {
   "Andalusien":{"Almería":["Mojácar","Carboneras","Las Negras","Almería","Roquetas de Mar","Adra"],"Cádiz":["San Roque","La Línea de la Concepción","Algeciras","Tarifa","Barbate","Conil de la Frontera","Chiclana de la Frontera","Cádiz","El Puerto de Santa María","Rota","Chipiona","Sanlúcar de Barrameda"],"Córdoba":["Córdoba","Lucena","Puente Genil"],"Granada":["Motril","Salobreña","Almuñécar"],"Huelva":["Matalascañas","Mazagón","Huelva","Punta Umbría","Isla Cristina","Ayamonte"],"Jaén":["Jaén","Linares","Úbeda","Baeza"],"Málaga":["Nerja","Torrox","Torre del Mar","Málaga","Torremolinos","Benalmádena","Fuengirola","Marbella","Estepona"],"Sevilla":["Sevilla","Dos Hermanas","Écija"]},
-  "Aragón":{"Huesca":["Huesca","Barbastro","Jaca"],"Teruel":["Teruel","Alcañiz"],"Zaragoza":["Zaragoza","Calatayud","Ejea von den Caballeros"]},
+  "Aragón":{"Huesca":["Huesca","Barbastro","Jaca"],"Teruel":["Teruel","Alcañiz"],"Zaragoza":["Zaragoza","Calatayud","Ejea de los Caballeros"]},
   "Asturien":{"Asturien":["Navia","Luarca","Cudillero","Avilés","Gijón","Villaviciosa","Ribadesella","Llanes"]},
   "Balearen":{"Balearen":["Palma","Alcúdia","Mahón","Ciutadella","Ibiza Stadt","Sant Antoni de Portmany"]},
   "Baskenland":{"Álava":["Vitoria-Gasteiz","Llodio"],"Biskaya":["Muskiz","Getxo","Bermeo","Lekeitio","Ondarroa"],"Gipuzkoa":["Zarautz","San Sebastián","Pasaia","Hondarribia"]},
@@ -353,7 +276,7 @@ const GEO = {
   "Kanaren":{"Las Palmas":["Las Palmas de Gran Canaria","Maspalomas","Arrecife","Puerto del Rosario"],"Santa Cruz de Tenerife":["Santa Cruz de Tenerife","Puerto de la Cruz","Los Cristianos","San Sebastián de La Gomera","Santa Cruz de La Palma","Valverde"]},
   "Kantabrien":{"Kantabrien":["San Vicente de la Barquera","Comillas","Suances","Santander","Santoña","Laredo","Castro Urdiales"]},
   "Kastilien-La Mancha":{"Albacete":["Albacete","Hellín"],"Ciudad Real":["Ciudad Real","Puertollano","Valdepeñas"],"Cuenca":["Cuenca","Tarancón"],"Guadalajara":["Guadalajara","Sigüenza"],"Toledo":["Toledo","Talavera de la Reina"]},
-  "Kastilien-León":{"Ávila":["Ávila","Arévalo"],"Burgos":["Burgos","Aranda de Duero","Miranda de Ebro"],"León":["León","Ponferrada","Astorga"],"Palencia":["Palencia","Aguilar de Campoo"],"Salamanca":["Salamanca","Béjar","Ciudad Rodrigo"],"Segovia":["Segovia","Cuéllar"],"Soria":["Soria","El Burgo de Osma"],"Valladolid":["Valladolid","Medina dem Campo","Tordesillas"],"Zamora":["Zamora","Benavente"]},
+  "Kastilien-León":{"Ávila":["Ávila","Arévalo"],"Burgos":["Burgos","Aranda de Duero","Miranda de Ebro"],"León":["León","Ponferrada","Astorga"],"Palencia":["Palencia","Aguilar de Campoo"],"Salamanca":["Salamanca","Béjar","Ciudad Rodrigo"],"Segovia":["Segovia","Cuéllar"],"Soria":["Soria","El Burgo de Osma"],"Valladolid":["Valladolid","Medina del Campo","Tordesillas"],"Zamora":["Zamora","Benavente"]},
   "Katalonien":{"Barcelona":["Mataró","Badalona","Barcelona","Castelldefels","Sitges","Vilanova i la Geltrú"],"Girona":["Roses","Palamós","Sant Feliu de Guíxols","Lloret de Mar","Blanes"],"Tarragona":["Calafell","Torredembarra","Tarragona","Salou","Cambrils","L'Ametlla de Mar","Sant Carles de la Ràpita"]},
   "La Rioja":{"La Rioja":["Logroño","Calahorra","Haro"]},
   "Madrid":{"Madrid":["Madrid","Alcalá de Henares","Getafe","Móstoles","Aranjuez"]},
@@ -372,22 +295,12 @@ function goBack() { window.location.href = 'index.html'; }
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  
-  const targetTab = document.getElementById('tab-' + name);
-  const targetPanel = document.getElementById('panel-' + name);
-  
-  if (targetTab) targetTab.classList.add('active');
-  if (targetPanel) targetPanel.classList.add('active');
-  
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
   if (name === 'spots')   loadMySpots();
   if (name === 'account') loadAccountInfo();
-  if (name === 'bluesky') loadBlueskyStatus();
-  
   // Save-Bar nur bei Profil-Tab zeigen
-  const saveBar = document.querySelector('.save-bar');
-  if (saveBar) {
-    saveBar.style.display = name === 'profil' ? 'flex' : 'none';
-  }
+  document.querySelector('.save-bar').style.display = name === 'profil' ? 'flex' : 'none';
 }
 
 // ── GEO ──────────────────────────────────────────────────────────────────────
@@ -668,71 +581,6 @@ async function saveProfile() {
   toast('✅ Profil gespeichert');
 }
 
-// ── BLUESKY ─────────────────────────────────────────────────────────────────
-// ── BLUESKY (nutzt bluesky.js globals – kein doppelter Code) ─────────────────
-
-async function loadBlueskyStatus() {
-  const statusText    = document.getElementById('bsky-status-text');
-  const connectForm   = document.getElementById('bsky-connect-form');
-  const connectedInfo = document.getElementById('bsky-connected-info');
-
-  const code = localStorage.getItem('sm_code');
-  if (!code) {
-    statusText.innerHTML = '⚠️ Bitte fülle zuerst dein Profil aus und speichere es.';
-    connectForm.style.display  = 'none';
-    connectedInfo.style.display = 'none';
-    return;
-  }
-
-  statusText.innerHTML = '⏳ Lädt…';
-  const data = await window.getBlueskyStatus(); // bluesky.js
-
-  if (data.connected) {
-    connectForm.style.display   = 'none';
-    connectedInfo.style.display = 'block';
-    document.getElementById('bsky-connected-handle').textContent = data.handle;
-    statusText.innerHTML = '✅ Bluesky-Konto ist erfolgreich mit SpotMe verknüpft.';
-  } else {
-    connectForm.style.display   = 'block';
-    connectedInfo.style.display = 'none';
-    statusText.innerHTML = data.error
-      ? '⚠️ Status konnte nicht geladen werden.'
-      : '⚡ Dein Account ist aktuell nicht mit Bluesky verbunden.';
-  }
-}
-
-async function connectBluesky() {
-  const handle      = document.getElementById('bsky-handle').value.trim();
-  const appPassword = document.getElementById('bsky-app-password').value.trim();
-  if (!handle || !appPassword) { toast('⚠️ Bitte Handle und App-Passwort eingeben'); return; }
-
-  const btn = document.getElementById('bsky-connect-btn');
-  btn.disabled = true; btn.textContent = '⏳ Verbinde…';
-
-  try {
-    await window.connectBluesky(handle, appPassword); // bluesky.js
-    toast('✅ Bluesky erfolgreich verbunden');
-    loadBlueskyStatus();
-  } catch(e) {
-    toast('❌ ' + (e.message || 'Verbindung fehlgeschlagen'));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔗 Verbindung herstellen';
-    document.getElementById('bsky-app-password').value = ''; // Passwort sofort löschen
-  }
-}
-
-async function disconnectBluesky() {
-  if (!confirm('Bluesky-Verbindung wirklich trennen?')) return;
-  try {
-    await window.disconnectBluesky(); // bluesky.js
-    toast('🔌 Verbindung getrennt');
-    loadBlueskyStatus();
-  } catch(e) {
-    toast('⚠️ ' + (e.message || 'Fehler beim Trennen'));
-  }
-}
-
 // Automatisch speichern nach 1,5 Sekunden Pause
 // Wird von den oninput-Handlern der Felder aufgerufen
 function autoSave() {
@@ -744,7 +592,7 @@ function autoSave() {
     if (!document.getElementById('f-region').value) return;
     saveProfile(); // async, fire and forget
   }, 1500);
-}
+  }
 
 // ── MEINE SPOTS ──────────────────────────────────────────────────────────────
 async function loadMySpots() {
@@ -826,149 +674,6 @@ function exportProfile() {
   a.click();
 }
 
-// ── BACKUP EXPORTIEREN ────────────────────────────────────────────────────────
-async function exportBackup() {
-  const code  = localStorage.getItem('sm_code');
-  const token = localStorage.getItem('sm_token');
-
-  if (!code || !token) {
-    toast('⚠️ Kein aktives Profil – erst speichern!');
-    return;
-  }
-
-  toast('⏳ Backup wird erstellt…');
-
-  const chatMessages = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('sm_local_msg_')) {
-      try { chatMessages[key] = JSON.parse(localStorage.getItem(key) || '[]'); }
-      catch { chatMessages[key] = []; }
-    }
-  }
-  const chatUnread = JSON.parse(localStorage.getItem('sm_unread_caching') || '{}');
-
-  const qs = `code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`;
-
-  const [spotsRes, weeklyRes] = await Promise.allSettled([
-    fetch(`${API_BASE}/userspots/${code}`).then(r => r.ok ? r.json() : []),
-    fetch(`${API_BASE}/weekly-spots/mine?${qs}`).then(r => r.ok ? r.json() : [])
-  ]);
-
-  const spots       = spotsRes.status   === 'fulfilled' ? (spotsRes.value   || []) : [];
-  const weeklySpots = weeklyRes.status  === 'fulfilled' ? (weeklyRes.value  || []) : [];
-
-  const backup = {
-    version:      2,
-    spot:         SPOT,
-    exported:     new Date().toISOString(),
-    sm_code:      code,
-    sm_token:     token,
-    sm_name:      localStorage.getItem('sm_name') || '',
-    profile:      localStorage.getItem(PROFILE_KEY) || '{}',
-    chatMessages,
-    chatUnread,
-    spots,
-    weeklySpots,
-    stats: {
-      spots:       spots.length,
-      weeklySpots: weeklySpots.length,
-      chatRooms:   Object.keys(chatMessages).length,
-      chatMessages: Object.values(chatMessages).reduce((s, m) => s + m.length, 0)
-    }
-  };
-
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `spotme-backup-${code}-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-
-  toast(`✅ Backup gespeichert · ${backup.stats.spots} Spots · ${backup.stats.chatMessages} Nachrichten`);
-}
-
-// ── BACKUP IMPORTIEREN ────────────────────────────────────────────────────────
-async function importBackup(input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = '';
-
-  try {
-    const backup = JSON.parse(await file.text());
-
-    if (!backup.sm_code || !backup.sm_token) {
-      toast('⚠️ Ungültige Backup-Datei'); return;
-    }
-    if (backup.sm_code.length !== 6) {
-      toast('⚠️ Code hat falsches Format'); return;
-    }
-    if (backup.spot && backup.spot !== SPOT) {
-      toast(`⚠️ Backup gehört zu "${backup.spot}", nicht zu "${SPOT}"`); return;
-    }
-
-    const existingCode = localStorage.getItem('sm_code');
-    if (existingCode && existingCode !== backup.sm_code) {
-      const ok = confirm(
-        `Achtung: Aktives Profil (Code: ${existingCode}) wird überschrieben.\n\n` +
-        `Backup von Code "${backup.sm_code}" importieren?\n\nFortfahren?`
-      );
-      if (!ok) return;
-    }
-
-    toast('⏳ Wiederherstelle…');
-
-    localStorage.setItem('sm_code',  backup.sm_code);
-    localStorage.setItem('sm_token', backup.sm_token);
-    if (backup.sm_name) localStorage.setItem('sm_name', backup.sm_name);
-
-    if (backup.profile) {
-      try {
-        const p = JSON.parse(backup.profile);
-        localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-      } catch {}
-    }
-
-    if (backup.version >= 2 && backup.chatMessages) {
-      let restoredRooms = 0, restoredMsgs = 0;
-      for (const [key, msgs] of Object.entries(backup.chatMessages)) {
-        if (!key.startsWith('sm_local_msg_') || !Array.isArray(msgs)) continue;
-
-        const existing = JSON.parse(localStorage.getItem(key) || '[]');
-        const existingIds = new Set(existing.map(m => m.id || m.ts || JSON.stringify(m)));
-        const merged = [...existing];
-        for (const msg of msgs) {
-          const id = msg.id || msg.ts || JSON.stringify(msg);
-          if (!existingIds.has(id)) { merged.push(msg); existingIds.add(id); }
-        }
-        merged.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        localStorage.setItem(key, JSON.stringify(merged));
-        restoredRooms++;
-        restoredMsgs += msgs.length;
-      }
-
-      if (backup.chatUnread && Object.keys(backup.chatUnread).length) {
-        localStorage.setItem('sm_unread_caching', JSON.stringify(backup.chatUnread));
-      }
-    }
-
-    await saveProfile();
-    loadProfile();
-    loadAccountInfo();
-
-    if (backup.version >= 2 && backup.stats) {
-      const s = backup.stats;
-      toast(`✅ Wiederhergestellt · ${s.spots} Spots · ${s.chatMessages} Nachrichten`);
-    } else {
-      toast('✅ Backup erfolgreich wiederhergestellt!');
-    }
-
-  } catch (e) {
-    console.error('Import-Fehler:', e);
-    toast('⚠️ Fehler beim Lesen der Datei');
-  }
-}
-
 function confirmDeleteProfile() {
   if (!confirm('Profil wirklich löschen? Alle lokalen Daten werden entfernt.')) return;
   const code  = localStorage.getItem('sm_code');
@@ -989,11 +694,6 @@ function confirmDeleteProfile() {
 window.addEventListener('DOMContentLoaded', () => {
   fillRegions();
   loadProfile();
-  
-  // Event-Listener an die neuen/verschobenen Buttons binden
-  document.getElementById('bsky-connect-btn')?.addEventListener('click', connectBluesky);
-  document.getElementById('bsky-disconnect-btn')?.addEventListener('click', disconnectBluesky);
-  
   updateCharCount('f-wishes','wish-count',300);
   updateCharCount('f-offers','offer-count',300);
   updateCharCount('f-bio','bio-count',400);
