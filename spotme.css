@@ -36,10 +36,10 @@
        invert:     0.82 weicher    ← → 0.92 harter Kontrast          */
     .maplibregl-canvas-container {
       filter:
-        invert(0.88)
+        invert(0.92)
         hue-rotate(180deg)
         brightness(0.88)
-        saturate(0.85);
+        saturate(0.95);
     }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
 
