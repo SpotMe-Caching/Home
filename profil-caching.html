@@ -633,6 +633,77 @@ async function saveProfile() {
   toast('✅ Profil gespeichert');
 }
 
+// ── BLUESKY ─────────────────────────────────────────────────────────────────
+async function loadBlueskyStatus() {
+  const code = localStorage.getItem('sm_code');
+  const token = localStorage.getItem('sm_token');
+  if (!code || !token) return;
+  try {
+    const res = await fetch(`${API_BASE}/bluesky/status/${code}?token=${token}`);
+    const data = await res.json();
+    if (data.connected) {
+      document.getElementById('bsky-connect-form').style.display = 'none';
+      document.getElementById('bsky-connected-info').style.display = 'block';
+      document.getElementById('bsky-connected-handle').textContent = data.handle;
+      document.getElementById('bsky-status-text').innerHTML = '🔗 Bluesky verbunden';
+    } else {
+      document.getElementById('bsky-connect-form').style.display = 'block';
+      document.getElementById('bsky-connected-info').style.display = 'none';
+      document.getElementById('bsky-status-text').innerHTML = '⚡ Verbinde dein Bluesky-Konto, um Spots zu teilen.';
+    }
+  } catch(e) {
+    document.getElementById('bsky-status-text').innerHTML = '⚠️ Fehler beim Laden';
+  }
+}
+
+async function connectBluesky() {
+  const handle = document.getElementById('bsky-handle').value.trim();
+  const appPassword = document.getElementById('bsky-app-password').value.trim();
+  if (!handle || !appPassword) { toast('⚠️ Bitte Handle und App-Passwort eingeben'); return; }
+  const code = localStorage.getItem('sm_code');
+  const token = localStorage.getItem('sm_token');
+  if (!code || !token) { toast('⚠️ Kein Profil gefunden'); return; }
+  const btn = document.getElementById('bsky-connect-btn');
+  btn.disabled = true; btn.textContent = '⏳ Verbinde…';
+  try {
+    const res = await fetch(`${API_BASE}/bluesky/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, token, handle, appPassword })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast('✅ Bluesky erfolgreich verbunden');
+      loadBlueskyStatus();
+    } else {
+      toast('❌ ' + (data.error || 'Verbindung fehlgeschlagen'));
+    }
+  } catch(e) {
+    toast('⚠️ Server nicht erreichbar');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔗 Verbinden';
+    document.getElementById('bsky-app-password').value = '';
+  }
+}
+
+async function disconnectBluesky() {
+  const code = localStorage.getItem('sm_code');
+  const token = localStorage.getItem('sm_token');
+  if (!code || !token) return;
+  if (!confirm('Bluesky-Verbindung wirklich trennen?')) return;
+  try {
+    await fetch(`${API_BASE}/bluesky/disconnect`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, token })
+    });
+    toast('🔌 Verbindung getrennt');
+    loadBlueskyStatus();
+  } catch(e) {
+    toast('⚠️ Fehler beim Trennen');
+  }
+}
+
 // Automatisch speichern nach 1,5 Sekunden Pause
 // Wird von den oninput-Handlern der Felder aufgerufen
 function autoSave() {
@@ -920,10 +991,14 @@ function confirmDeleteProfile() {
   setTimeout(() => goBack(), 1500);
 }
 
+document.getElementById('bsky-connect-btn')?.addEventListener('click', connectBluesky);
+document.getElementById('bsky-disconnect-btn')?.addEventListener('click', disconnectBluesky);
+
 // ── INIT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   fillRegions();
-  loadProfile(); 
+  loadProfile();
+  loadBlueskyStatus();
   updateCharCount('f-wishes','wish-count',300);
   updateCharCount('f-offers','offer-count',300);
   updateCharCount('f-bio','bio-count',400);
