@@ -367,6 +367,7 @@ let toastTimer, currentDrawer = null;
 let activeRadius = null, detailSpot = null, detailMiniMap = null;
 let radiusCatFilter = null;
 let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null;
+let urlSpotChecked = false; // Verhindert mehrfaches Fliegen zum Spot beim Laden
 
 // Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
 function buildRadiusCatPills() {
@@ -547,8 +548,14 @@ function initMap() {
 
   navigator.geolocation?.getCurrentPosition(pos => {
     userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    map.setCenter([userPos.lng, userPos.lat]);
-    map.setZoom(15);
+    
+    // Nur zentrieren, wenn wir nicht über einen geteilten Link reingekommen sind
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.get('spot')) {
+      map.setCenter([userPos.lng, userPos.lat]);
+      map.setZoom(15);
+    }
+    
     const el = document.createElement('div');
     el.className = 'user-marker';
     new maplibregl.Marker({ element: el }).setLngLat([userPos.lng, userPos.lat]).addTo(map);
@@ -578,7 +585,25 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ── BLUESKY RAIL CHECK ───────────────────────────────────────────────────────
+// ── DEEP-LINK CHECK FÜR GETEILTE SPOTS ───────────────────────────────────────
+function checkUrlForSpot() {
+  if (urlSpotChecked) return;
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSpotId = urlParams.get('spot');
+  if (urlSpotId && allSpots.length) {
+    const targetSpot = allSpots.find(s => String(s.id) === String(urlSpotId));
+    if (targetSpot) {
+      urlSpotChecked = true;
+      map.setCenter([targetSpot.lng, targetSpot.lat]);
+      map.setZoom(16);
+      setTimeout(() => {
+        openSpotDetail(targetSpot.id);
+      }, 800);
+    }
+  }
+}
+
+// ── BLUESKY RAIL CHECK & SHARING ─────────────────────────────────────────────
 async function checkBlueskyStatusForRail() {
   const btn = document.getElementById('bskyRailBtn');
   if (!btn) return;
@@ -633,7 +658,7 @@ document.getElementById('bskyCustomMessage')?.addEventListener('input', function
   }
 });
 
-// Postet den ausgewählten Spot mit Custom Message auf Bluesky
+// Postet den ausgewählten Spot mit Custom Message und Direktlink auf Bluesky
 async function postToBluesky() {
   const select = document.getElementById('bskySpotSelect');
   const spotId = select?.value;
@@ -645,8 +670,14 @@ async function postToBluesky() {
   btn.disabled = true;
   btn.textContent = '⏳ Poste…';
   
+  // Direkt-Link zum Spot dynamisch konstruieren
+  const spotUrl = new URL('index.html?spot=' + spotId, window.location.origin + window.location.pathname).href;
+  const finalMessage = customMessage 
+    ? `${customMessage}\n\n📍 Zum Spot: ${spotUrl}` 
+    : `📍 Mein Spot auf SpotMe Caching: ${spotUrl}`;
+  
   try {
-    const res = await window.shareSpotOnBluesky(spotId, customMessage || null);
+    const res = await window.shareSpotOnBluesky(spotId, finalMessage);
     if (res.success) {
       toast('🦋 Erfolgreich auf Bluesky geteilt!');
       closeModals();
@@ -669,6 +700,7 @@ async function loadAllSpots() {
     mySpots = allSpots.filter(s => s.code === CODE);
     document.getElementById('statSpots').textContent = mySpots.length;
     await renderMarkers();
+    checkUrlForSpot(); // Deep-Link prüfen (Offline-Daten)
   }
 
   try {
@@ -680,6 +712,7 @@ async function loadAllSpots() {
         allSpots.filter(s => s.code === CODE).length;
       await renderMarkers();
       await saveSpotsOffline(allSpots);
+      checkUrlForSpot(); // Deep-Link prüfen (Live-Daten)
     }
 
     const r2 = await fetch(`${API}/userspots/${CODE}`);
@@ -1037,87 +1070,6 @@ function naviFitBounds() {
     [userPos.lng, userPos.lat], [naviTarget.lng, naviTarget.lat]
   );
   naviMap.fitBounds(bounds, { padding: 80, maxZoom: 16 });
-}
-
-function naviUpdateDistDisplay() {
-  if (!userPos || !naviTarget) return;
-  const m = haversineKm(userPos.lat, userPos.lng, naviTarget.lat, naviTarget.lng) * 1000;
-  document.getElementById('naviDistVal').textContent =
-    m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
-}
-
-function naviClearRouteLayers() {
-  if (!naviMap) return;
-  ['navi-foot-casing','navi-foot','navi-car-casing','navi-car'].forEach(id => {
-    if (naviMap.getLayer(id)) naviMap.removeLayer(id);
-  });
-  ['navi-src-foot','navi-src-car'].forEach(id => {
-    if (naviMap.getSource(id)) naviMap.removeSource(id);
-  });
-}
-
-async function naviFetchRoute() {
-  if (!userPos || !naviTarget || !naviMap || naviRouting) return;
-  naviRouting = true;
-  naviLastRoutePos = { ...userPos };
-
-  const start = `${userPos.lng},${userPos.lat}`;
-  const end   = `${naviTarget.lng},${naviTarget.lat}`;
-
-  const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
-  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
-    .then(r => r.json()).catch(() => null);
-
-  const footPromise = ORS_KEY
-    ? fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`)
-        .then(r => r.json()).catch(() => null)
-    : fetch(`https://router.project-osrm.org/route/v1/foot/${osrmBase}`)
-        .then(r => r.json()).catch(() => null);
-
-  const [carData, footRaw] = await Promise.all([carPromise, footPromise]);
-
-  naviRouting = false;
-  if (!naviMap) return;
-
-  naviClearRouteLayers();
-
-  const fmtMin = s => {
-    const m = Math.round(s / 60);
-    return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
-  };
-
-  if (carData?.routes?.length) {
-    const r = carData.routes[0];
-    naviMap.addSource('navi-src-car', { type: 'geojson', data: { type: 'Feature', geometry: r.geometry } });
-    naviMap.addLayer({ id: 'navi-car-casing', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 8, 'line-opacity': 0.7 } });
-    naviMap.addLayer({ id: 'navi-car', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#f59e0b', 'line-width': 5, 'line-opacity': 0.9 } });
-    document.getElementById('naviCarVal').textContent = fmtMin(r.duration);
-  }
-
-  let footGeometry = null, footDuration = null;
-
-  if (ORS_KEY && footRaw?.features?.length) {
-    footGeometry = footRaw.features[0].geometry;
-    footDuration  = footRaw.features[0].properties?.summary?.duration;
-  } else if (!ORS_KEY && footRaw?.routes?.length) {
-    footGeometry = footRaw.routes[0].geometry;
-    footDuration  = footRaw.routes[0].duration;
-  }
-
-  if (footGeometry) {
-    naviMap.addSource('navi-src-foot', { type: 'geojson', data: { type: 'Feature', geometry: footGeometry } });
-    naviMap.addLayer({ id: 'navi-foot-casing', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 6, 'line-opacity': 0.6 } });
-    naviMap.addLayer({ id: 'navi-foot', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-color': '#22d3ee', 'line-width': 3, 'line-opacity': 1, 'line-dasharray': [2, 2] } });
-    if (footDuration) document.getElementById('naviFootVal').textContent = fmtMin(footDuration);
-  }
-}
-
-function closeNavOverlay() {
-  if (naviWatchId) { navigator.geolocation.clearWatch(naviWatchId); naviWatchId = null; }
-  if (naviMap) { naviMap.remove(); naviMap = null; }
-  naviUserMarker = null; naviSpotMarker = null;
-  naviLastRoutePos = null; naviTarget = null; naviRouting = false;
-  document.getElementById('naviOverlay').classList.remove('active');
 }
 
 // ── DRAWER ───────────────────────────────────────────────────────────────────
