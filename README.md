@@ -256,6 +256,7 @@ Das Admin-Panel (`admin.html`) ermöglicht die Moderation von Avatar-Fotos und S
 
 ### 🔜 Demnächst geplant
 - [ ] **Ankunftserkennung** — „Du bist angekommen"-Meldung wenn Nutzer <20 m vom Spot entfernt ist
+- [ ] **Server-Sent Events (SSE)** — Ersetzt das aktuelle 10s-Polling für Chat/Benachrichtigungen. Sinnvoll ab ~500 aktiven gleichzeitigen Nutzern. Stack: Express SSE + PostgreSQL `LISTEN/NOTIFY`. Bis dahin bleibt Polling aktiv.
 - [ ] **Spot-Besuchshistorie** — nach erfolgreichem Check-in wird der Spot in einer persönlichen „Bereits besucht"-Liste im Profil gespeichert
 - [ ] **Marker-Clustering** — bei vielen Spots in einem Bereich werden diese zu einer Gruppe zusammengefasst
 - [ ] **Haptic Feedback** — kurze Vibration bei wichtigen Aktionen (Check-in, neue Nachricht)

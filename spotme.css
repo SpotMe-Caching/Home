@@ -30,7 +30,10 @@
 
     /* Filter NUR auf den WebGL-Canvas – Marker (DOM) bleiben unberührt.
        invert(0.88) + hue-rotate(180deg) = Liberty-Details in Dark-Optik.
-       brightness + saturate für taktische Tiefe & gedämpfte Farben. */
+       ── Stellschrauben ──────────────────────────────────────────────
+       brightness: 0.75 sehr dunkel ← → 0.95 fast hell
+       saturate:   0.75 gedämpft   ← → 1.1  satt
+       invert:     0.82 weicher    ← → 0.92 harter Kontrast          */
     .maplibregl-canvas-container {
       filter:
         invert(0.88)
@@ -88,7 +91,8 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   margin-bottom: 0.5rem;
-  box-shadow: var(--shadow-acc);
+  box-shadow: 0 0 18px rgba(255,159,0,0.55),
+              0 0 6px rgba(255,159,0,0.8);
   letter-spacing: -0.02em;
 }
 
@@ -106,22 +110,28 @@
   border-radius: 10px;
   border: 1px solid transparent;
   background: none;
-  color: var(--muted);
+  color: var(--muted2); /* heller als vorher */
   font-size: 1.15rem;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.18s;
+  transition: all 0.2s;
   position: relative;
   flex-shrink: 0;
   margin-bottom: 3px;
 }
-.nav-btn:hover  { color: var(--muted2); background: rgba(255,255,255,0.04); }
-.nav-btn:active { transform: scale(0.92); }
+.nav-btn:hover {
+  color: var(--text);
+  background: rgba(255,159,0,0.07);
+  border-color: rgba(255,159,0,0.15);
+  box-shadow: 0 0 10px rgba(255,159,0,0.12);
+}
+.nav-btn:active { transform: scale(0.91); }
 .nav-btn.active {
   background: var(--acc-dim);
   border-color: var(--acc-glow);
   color: var(--acc);
-  box-shadow: var(--shadow-acc);
+  box-shadow: 0 0 14px rgba(255,159,0,0.35),
+              inset 0 0 10px rgba(255,159,0,0.08);
 }
 .nav-btn .badge {
   position: absolute; top: -3px; right: -3px;
@@ -159,18 +169,25 @@
   width: 34px; height: 34px;
   border-radius: 9px;
   border: 1px solid var(--bord2);
-  background: var(--glass);
+  background: rgba(255,255,255,0.05);
   color: var(--muted2);
   font-size: 1rem;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.18s;
+  transition: all 0.2s;
   flex-shrink: 0;
+}
+.topbar-btn:hover {
+  color: var(--text);
+  border-color: rgba(255,159,0,0.2);
+  box-shadow: 0 0 10px rgba(255,159,0,0.15);
 }
 .topbar-btn:active, .topbar-btn.active {
   background: var(--acc-dim);
   border-color: var(--acc-glow);
   color: var(--acc);
+  box-shadow: 0 0 16px rgba(255,159,0,0.4),
+              inset 0 0 8px rgba(255,159,0,0.08);
 }
     .logo { font-family:'Space Mono',monospace; font-size:1rem; font-weight:700; color:var(--acc); letter-spacing:0.05em; margin-right:auto; display:flex; align-items:center; gap:0.4rem; }
     .logo-dot { width:7px; height:7px; border-radius:50%; background:var(--acc); box-shadow:0 0 10px var(--acc); animation:pulse-dot 2s ease infinite; }
@@ -204,9 +221,9 @@
     .place-mode-bar .pm-sub  { font-size:0.72rem; color:var(--muted2); margin-top:0.2rem; }
 
     .dock { position:absolute; bottom:0; left:54px; right:0; z-index:200; padding:0.6rem 0.85rem; padding-bottom:max(0.6rem, env(safe-area-inset-bottom)); background:rgba(8,11,16,0.95); backdrop-filter:blur(24px); border-top:1px solid var(--bord2); box-shadow:var(--inset); display:flex; gap:0.5rem; align-items:center; }
-    .dock-btn { flex:1; padding:0.6rem 0.5rem; border-radius:10px; border:1px solid var(--bord); background:rgba(255,255,255,0.03); color:var(--muted); font-size:0.68rem; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:0.2rem; transition:all 0.2s; white-space:nowrap; }
+    .dock-btn { flex:1; padding:0.6rem 0.5rem; border-radius:10px; border:1px solid var(--bord); background:rgba(255,255,255,0.04); color:var(--muted2); font-size:0.68rem; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:0.2rem; transition:all 0.2s; white-space:nowrap; }
     .dock-btn .di { font-size:1rem; }
-    .dock-btn:active, .dock-btn.active { border-color:var(--acc-glow); background:var(--acc-dim); color:var(--acc); }
+    .dock-btn:active, .dock-btn.active { border-color:var(--acc-glow); background:var(--acc-dim); color:var(--acc); box-shadow:0 0 16px rgba(255,159,0,0.3), inset 0 0 8px rgba(255,159,0,0.06); }
 
     .drawer-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.6); z-index:400; opacity:0; pointer-events:none; transition:opacity 0.3s; }
     .drawer-overlay.show { opacity:1; pointer-events:all; }
