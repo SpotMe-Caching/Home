@@ -5,14 +5,14 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'v36.1';        // Erhöht für SW-Update
+const CACHE_VERSION = 'v36.2';        // Erhöht für SW-Update
 const CACHE_STATIC  = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API     = `spotme-api-${CACHE_VERSION}`;
 const CACHE_TILES   = `spotme-map-tiles-${CACHE_VERSION}`;
 
 // Max. Anzahl der zu speichernden Kartenkacheln
 // Schützt vor Speicherüberlauf. Pro Kachel ca. 10-50 KB.
-const MAX_TILE_CACHE_ITEMS = 500;
+const MAX_TILE_CACHE_ITEMS = 750;
 
 // Alle Dateien die offline verfügbar sein müssen.
 // Schlägt eine Datei fehl, wird sie übersprungen (kein Totalausfall).
