@@ -1,11 +1,4 @@
-body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-}
-.logo, .mono-text, .tag, .status-pill, .countdown-value, .navi-stat-val {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
-}
-
-:root {
+    :root {
       --bg:        #080b10;
       --sur:       #0d1117;
       --glass:     rgba(13,17,23,0.90);
@@ -32,7 +25,19 @@ body {
     }
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; }
-    #map { position:absolute; inset:0; filter:brightness(0.50) saturate(0.99); }
+
+    #map { position:absolute; inset:0; }
+
+    /* Filter NUR auf den WebGL-Canvas – Marker (DOM) bleiben unberührt.
+       invert(0.88) + hue-rotate(180deg) = Liberty-Details in Dark-Optik.
+       brightness + saturate für taktische Tiefe & gedämpfte Farben. */
+    .maplibregl-canvas-container {
+      filter:
+        invert(0.88)
+        hue-rotate(180deg)
+        brightness(0.80)
+        saturate(0.85);
+    }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
 
 /* Lucide SVG-Icon Größe in Rail + Topbar */
@@ -449,7 +454,7 @@ body {
     /* ── EIGENE GPS POSITION: White Pulse Rings ──────────────────────── */
     .user-marker {
       width: 14px; height: 14px;
-      background: #00FFFF;
+      background: #ffffff;
       border-radius: 50%;
       box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
       position: relative;
