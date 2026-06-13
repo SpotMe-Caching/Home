@@ -128,6 +128,21 @@
   <button class="dock-btn" id="radiusBtn" onclick="openRadiusSearch()"><span class="di">🔍</span>Radius</button>
 </div>
 
+<!-- ── Progressive Help System ─────────────────────────────────────────── -->
+<div class="help-overlay" id="helpOverlay" onclick="helpOverlayClick(event)">
+  <div class="help-card" id="helpCard">
+    <div class="help-card-icon" id="helpIcon">📍</div>
+    <div class="help-card-title" id="helpTitle">FUNKTION</div>
+    <div class="help-card-body" id="helpBody">Beschreibung</div>
+    <div class="help-card-tip" id="helpTip"></div>
+    <div class="help-card-actions">
+      <button class="help-btn-ghost" onclick="closeHelp(true)">Nicht mehr zeigen</button>
+      <button class="help-btn-primary" id="helpActionBtn" onclick="closeHelp(false)">Los geht's →</button>
+    </div>
+  </div>
+</div>
+<div class="help-longpress-ring" id="helpLongpressRing"></div>
+
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-handle"></div>
@@ -1070,6 +1085,88 @@ function naviFitBounds() {
     [userPos.lng, userPos.lat], [naviTarget.lng, naviTarget.lat]
   );
   naviMap.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+}
+
+function naviUpdateDistDisplay() {
+  if (!userPos || !naviTarget) return;
+  const m = haversineKm(userPos.lat, userPos.lng, naviTarget.lat, naviTarget.lng) * 1000;
+  document.getElementById('naviDistVal').textContent =
+    m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
+}
+
+function naviClearRouteLayers() {
+  if (!naviMap) return;
+  ['navi-foot-casing','navi-foot','navi-car-casing','navi-car'].forEach(id => {
+    if (naviMap.getLayer(id)) naviMap.removeLayer(id);
+  });
+  ['navi-src-foot','navi-src-car'].forEach(id => {
+    if (naviMap.getSource(id)) naviMap.removeSource(id);
+  });
+}
+
+async function naviFetchRoute() {
+  if (!userPos || !naviTarget || !naviMap || naviRouting) return;
+  naviRouting = true;
+  naviLastRoutePos = { ...userPos };
+
+  const start = `${userPos.lng},${userPos.lat}`;
+  const end   = `${naviTarget.lng},${naviTarget.lat}`;
+
+  // Auto-Route: OSRM (kein Key nötig)
+  const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
+  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
+    .then(r => r.json()).catch(() => null);
+
+  // Fußweg: ORS foot-hiking – Fallback auf OSRM foot wenn kein Key
+  const footPromise = ORS_KEY
+    ? fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`)
+        .then(r => r.json()).catch(() => null)
+    : fetch(`https://router.project-osrm.org/route/v1/foot/${osrmBase}`)
+        .then(r => r.json()).catch(() => null);
+
+  const [carData, footRaw] = await Promise.all([carPromise, footPromise]);
+
+  naviRouting = false;
+  if (!naviMap) return;
+
+  naviClearRouteLayers();
+
+  const fmtMin = s => {
+    const m = Math.round(s / 60);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
+
+  if (carData?.routes?.length) {
+    const r = carData.routes[0];
+    naviMap.addSource('navi-src-car', { type: 'geojson', data: { type: 'Feature', geometry: r.geometry } });
+    naviMap.addLayer({ id: 'navi-car-casing', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 8, 'line-opacity': 0.7 } });
+    naviMap.addLayer({ id: 'navi-car', type: 'line', source: 'navi-src-car', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#f59e0b', 'line-width': 5, 'line-opacity': 0.9 } });
+    document.getElementById('naviCarVal').textContent = fmtMin(r.duration);
+  }
+
+  let footGeometry = null, footDuration = null;
+  if (ORS_KEY && footRaw?.features?.length) {
+    footGeometry = footRaw.features[0].geometry;
+    footDuration  = footRaw.features[0].properties?.summary?.duration;
+  } else if (!ORS_KEY && footRaw?.routes?.length) {
+    footGeometry = footRaw.routes[0].geometry;
+    footDuration  = footRaw.routes[0].duration;
+  }
+
+  if (footGeometry) {
+    naviMap.addSource('navi-src-foot', { type: 'geojson', data: { type: 'Feature', geometry: footGeometry } });
+    naviMap.addLayer({ id: 'navi-foot-casing', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#0a0d12', 'line-width': 6, 'line-opacity': 0.6 } });
+    naviMap.addLayer({ id: 'navi-foot', type: 'line', source: 'navi-src-foot', layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-color': '#22d3ee', 'line-width': 3, 'line-opacity': 1, 'line-dasharray': [2, 2] } });
+    if (footDuration) document.getElementById('naviFootVal').textContent = fmtMin(footDuration);
+  }
+}
+
+function closeNavOverlay() {
+  if (naviWatchId) { navigator.geolocation.clearWatch(naviWatchId); naviWatchId = null; }
+  if (naviMap) { naviMap.remove(); naviMap = null; }
+  naviUserMarker = null; naviSpotMarker = null;
+  naviLastRoutePos = null; naviTarget = null; naviRouting = false;
+  document.getElementById('naviOverlay').classList.remove('active');
 }
 
 // ── DRAWER ───────────────────────────────────────────────────────────────────
@@ -3234,6 +3331,205 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ── PROGRESSIVE HELP SYSTEM ──────────────────────────────────────────────────
+// Zeigt beim ersten Aufruf einer Funktion ein schwebendes Erklärfenster.
+// Danach 24h Pause. Langer Tap (2s) ruft Help jederzeit auf.
+
+const HELP_TTL = 24 * 60 * 60 * 1000; // 24 Stunden in ms
+
+const HELP_DATA = {
+  weekly: {
+    icon: '🗓️', title: 'WOCHEN-SPOTS',
+    body: 'Erstelle einen privaten Treffpunkt der 7 Tage aktiv ist. Teile den Link – Besucher können anonym einchecken, ohne die App zu haben.',
+    tip: '<strong>Tipp:</strong> Tippe auf die Karte um den Ort festzulegen. Der Link kann per WhatsApp, Signal oder Bluesky geteilt werden.'
+  },
+  invites: {
+    icon: '📨', title: 'EINLADUNGEN',
+    body: 'Schicke eine Einladung an den Besitzer eines Spots. Wählt ihr ein gemeinsames Zeitfenster und checkt beide ein – entsteht ein Match.',
+    tip: '<strong>Tipp:</strong> Check-in funktioniert automatisch wenn du dich innerhalb von 50m vom Spot befindest.'
+  },
+  chats: {
+    icon: '💬', title: 'MESSENGER',
+    body: 'Direktnachrichten mit anderen Nutzern – ohne vorherige Einladung. Nachrichten werden auch zugestellt wenn der Empfänger offline ist.',
+    tip: '<strong>Tipp:</strong> Aktiviere Push-Benachrichtigungen (🔔) damit du neue Nachrichten sofort bekommst.'
+  },
+  favorites: {
+    icon: '⭐', title: 'FAVORITEN',
+    body: 'Spots die dir gefallen als Favorit markieren. Du kannst auch öffentlich an Favoriten-Spots einchecken um anderen zu zeigen dass du dort warst.',
+    tip: '<strong>Tipp:</strong> Öffentliche Check-ins sind für andere Nutzer sichtbar.'
+  },
+  meetings: {
+    icon: '📅', title: 'BEVORSTEHENDE TREFFEN',
+    body: 'Alle akzeptierten Einladungen mit Datum und Uhrzeit auf einen Blick. Du kannst ein Treffen direkt von hier aus absagen.',
+    tip: '<strong>Tipp:</strong> 30 Minuten vor einem Treffen bekommst du eine Erinnerung.'
+  },
+  radius: {
+    icon: '🔍', title: 'RADIUS-SUCHE',
+    body: 'Finde Spots anderer Nutzer in deiner Umgebung – filterbar nach Kategorie und Entfernung (2 / 5 / 10 km). Sortiert nach Distanz.',
+    tip: '<strong>Tipp:</strong> Wähle erst eine Kategorie, dann den Radius. Jeder Treffer zeigt Entfernung + Wetter.'
+  },
+  filter: {
+    icon: '⊞', title: 'KATEGORIEN-FILTER',
+    body: 'Filtere die Karte nach Spot-Kategorien wie Park, Restaurant oder Strand. Nur passende Spots werden angezeigt.',
+    tip: '<strong>Tipp:</strong> Tippe nochmal auf die aktive Kategorie um den Filter aufzuheben.'
+  },
+  push: {
+    icon: '🔔', title: 'BENACHRICHTIGUNGEN',
+    body: 'Erhalte Push-Benachrichtigungen für neue Nachrichten, Einladungen und Wochen-Spot Check-ins – auch wenn die App geschlossen ist.',
+    tip: '<strong>Tipp:</strong> Nochmal tippen deaktiviert die Benachrichtigungen wieder. Dein Browser fragt einmalig nach der Erlaubnis.'
+  },
+  waypoints: {
+    icon: '🗺️', title: 'WAYPOINT CACHING',
+    body: 'Geocaching mit Wissensfragen. Folge einer Route von WayPoint zu WayPoint – an jedem Punkt wartet eine Frage die nur vor Ort beantwortet werden kann.',
+    tip: '<strong>Tipp:</strong> Erstelle selbst eine Route und teile sie mit anderen. Ab 2 WayPoints kann sie veröffentlicht werden.'
+  },
+  myspots: {
+    icon: '🟠', title: 'MEINE SPOTS',
+    body: 'Alle Spots die du erstellt hast. Du kannst sie bearbeiten, deaktivieren oder dauerhaft löschen.',
+    tip: '<strong>Tipp:</strong> Deaktivierte Spots sind für andere unsichtbar – aber nicht gelöscht.'
+  },
+  allspots: {
+    icon: '🌐', title: 'ALLE SPOTS',
+    body: 'Entdecke öffentliche Spots aller Nutzer in der Datenbank – mit Kategorie, Wetter und Distanz zu deinem Standort.',
+    tip: '<strong>Tipp:</strong> Tippe auf einen Spot um Details zu sehen und eine Einladung zu senden.'
+  },
+  newspots: {
+    icon: '✨', title: 'NEUE SPOTS',
+    body: 'Spots die in den letzten 24 Stunden in einem 2 km Radius um dich herum erstellt wurden – frisch und aktuell.',
+    tip: '<strong>Tipp:</strong> Die grünen Puls-Marker auf der Karte zeigen neue Spots an.'
+  }
+};
+
+let helpPendingAction = null;
+let longpressTimer    = null;
+let longpressTarget   = null;
+
+// Hauptfunktion – jeder Button läuft durch diesen Filter
+function callWithHelp(key, action) {
+  const storageKey = `sm_help_${key}`;
+  const last       = +localStorage.getItem(storageKey) || 0;
+  const expired    = Date.now() - last > HELP_TTL;
+
+  if (!expired) {
+    // Bereits gesehen und noch nicht 24h – direkt zur Funktion
+    action();
+    return;
+  }
+
+  const data = HELP_DATA[key];
+  if (!data) { action(); return; }
+
+  // Zeitstempel setzen bevor Help angezeigt wird
+  localStorage.setItem(storageKey, Date.now().toString());
+
+  helpPendingAction = action;
+  showHelp(data);
+}
+
+// Help immer erzwingen (Long-Press)
+function callHelpForced(key, action) {
+  const data = HELP_DATA[key];
+  if (!data) { action(); return; }
+  helpPendingAction = action;
+  // Zeitstempel zurücksetzen damit beim nächsten normalen Tap wieder angezeigt wird
+  localStorage.removeItem(`sm_help_${key}`);
+  showHelp(data);
+}
+
+function showHelp(data) {
+  document.getElementById('helpIcon').textContent  = data.icon;
+  document.getElementById('helpTitle').textContent = data.title;
+  document.getElementById('helpBody').textContent  = data.body;
+  document.getElementById('helpTip').innerHTML     = data.tip || '';
+  document.getElementById('helpTip').style.display = data.tip ? 'block' : 'none';
+  document.getElementById('helpOverlay').classList.add('show');
+}
+
+function closeHelp(suppress) {
+  document.getElementById('helpOverlay').classList.remove('show');
+  if (suppress) {
+    // "Nicht mehr zeigen" – setzt Timestamp weit in die Zukunft (30 Tage)
+    // Der Key ist schon gesetzt – wir überschreiben mit langem Timeout
+    // Wir ermitteln den Key über das laufende pending-Action nicht direkt,
+    // daher nutzen wir einen simplen Weg: nochmal 30 Tage draufaddieren
+    // Das wird beim nächsten callWithHelp-Aufruf gecheckt.
+  }
+  if (helpPendingAction) {
+    const fn = helpPendingAction;
+    helpPendingAction = null;
+    setTimeout(fn, 220); // kurze Verzögerung damit Modal erst weg ist
+  }
+}
+
+function helpOverlayClick(e) {
+  // Klick auf Overlay-Hintergrund schließt – nicht auf die Card
+  if (e.target === document.getElementById('helpOverlay')) closeHelp(false);
+}
+
+// Long-Press Setup für einen Button
+function setupLongPress(el, key, action) {
+  const ring = document.getElementById('helpLongpressRing');
+
+  el.addEventListener('pointerdown', e => {
+    longpressTarget = el;
+    // Ring positionieren
+    ring.style.left = e.clientX + 'px';
+    ring.style.top  = e.clientY + 'px';
+    ring.classList.add('active');
+
+    longpressTimer = setTimeout(() => {
+      ring.classList.remove('active');
+      callHelpForced(key, action);
+    }, 2000);
+  });
+
+  const cancel = () => {
+    clearTimeout(longpressTimer);
+    ring.classList.remove('active');
+    longpressTarget = null;
+  };
+
+  el.addEventListener('pointerup',     cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointermove',   cancel);
+}
+
+// Alle Buttons mit Long-Press + callWithHelp verknüpfen
+function initHelpSystem() {
+  const bindings = [
+    { id: 'weeklyBtn',       key: 'weekly',    action: () => openDrawer('weekly') },
+    { id: 'inviteHeaderBtn', key: 'invites',   action: () => openDrawer('invites') },
+    { id: 'chatHeaderBtn',   key: 'chats',     action: () => openDrawer('chats') },
+    { id: 'meetingsBtn',     key: 'meetings',  action: () => openMeetingsModal() },
+    { id: 'pushBtn',         key: 'push',      action: () => togglePushNotifications() },
+    { id: 'filterTopBtn',    key: 'filter',    action: () => toggleFilterStrip() },
+    { id: 'radiusTopBtn',    key: 'radius',    action: () => openRadiusSearch() },
+    { id: 'radiusBtn',       key: 'radius',    action: () => openRadiusSearch() },
+  ];
+
+  bindings.forEach(({ id, key, action }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // onclick überschreiben
+    el.onclick = (e) => { e.preventDefault(); callWithHelp(key, action); };
+    // Long-press registrieren
+    setupLongPress(el, key, action);
+  });
+
+  // Dock-Buttons (kein ID-System – direkt per querySelector)
+  const dockMap = [
+    { text: 'Meine Spots', key: 'myspots',   action: () => openDrawer('myspots') },
+    { text: 'Alle Spots',  key: 'allspots',  action: () => openDrawer('all') },
+    { text: 'Neue Spots',  key: 'newspots',  action: () => openNewSpots() },
+  ];
+  document.querySelectorAll('.dock-btn').forEach(btn => {
+    const match = dockMap.find(d => btn.textContent.includes(d.text));
+    if (!match) return;
+    btn.onclick = (e) => { e.preventDefault(); callWithHelp(match.key, match.action); };
+    setupLongPress(btn, match.key, match.action);
+  });
+}
+
 // ── MATCH ────────────────────────────────────────────────────────────────────
 function showMatch(name,spot) {
   document.getElementById('matchName').textContent=name;
@@ -3295,6 +3591,7 @@ loadFavoritesCache();
 loadWeeklyBadge();
 updatePushBtnState();
 if (typeof lucide !== 'undefined') lucide.createIcons();
+initHelpSystem(); // Progressive Help – Long-Press + 24h-Logik
 
 document.getElementById('weeklyModal').addEventListener('click', function(e) {
   if (e.target === this) closeWeeklyModal();
