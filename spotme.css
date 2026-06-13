@@ -471,7 +471,7 @@
     /* ── EIGENE GPS POSITION: White Pulse Rings ──────────────────────── */
     .user-marker {
       width: 14px; height: 14px;
-      background: #17c8f2;
+      background: #ffffff;
       border-radius: 50%;
       box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
       position: relative;
@@ -834,86 +834,63 @@
   color: #0a0d12;
 }
 
-/* ── PROGRESSIVE HELP SYSTEM ─────────────────────────────────────────────── */
-.help-overlay {
-  position: fixed; inset: 0; z-index: 1100;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(4px);
+
+/* ── HELP PAGE OVERLAY ───────────────────────────────────────────────────── */
+#helpPageOverlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
-  padding: 1.25rem;
+  padding: 1rem;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.25s;
+  transition: opacity 0.3s;
 }
-.help-overlay.show { opacity: 1; pointer-events: all; }
+#helpPageOverlay.show { opacity: 1; pointer-events: all; }
 
-.help-card {
-  background: var(--card2);
-  border: 1px solid var(--bord2);
-  border-radius: 20px;
-  padding: 1.4rem 1.25rem 1rem;
-  max-width: 340px; width: 100%;
-  box-shadow: 0 0 0 1px rgba(255,159,0,0.08),
-              0 24px 60px rgba(0,0,0,0.6),
-              0 0 40px rgba(255,159,0,0.06);
-  transform: translateY(12px) scale(0.97);
-  transition: transform 0.28s cubic-bezier(0.17,0.67,0.4,1.2);
+#helpPageCard {
+  width: 82%; height: 82vh;
+  max-width: 480px;
+  background: #0d1117;
+  border: 1px solid rgba(255,159,0,0.2);
+  border-radius: 22px;
+  box-shadow: 0 0 0 1px rgba(255,159,0,0.06),
+              0 32px 80px rgba(0,0,0,0.7),
+              0 0 60px rgba(255,159,0,0.06);
+  position: relative;
+  overflow: hidden;
+  transform: translateY(20px) scale(0.96);
+  transition: transform 0.32s cubic-bezier(0.17,0.67,0.35,1.1);
+  display: flex; flex-direction: column;
 }
-.help-overlay.show .help-card { transform: translateY(0) scale(1); }
+#helpPageOverlay.show #helpPageCard {
+  transform: translateY(0) scale(1);
+}
 
-.help-card-icon {
-  width: 46px; height: 46px; border-radius: 13px;
-  background: var(--acc-dim); border: 1px solid var(--acc-glow);
+#helpPageClose {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.35rem; margin-bottom: 0.9rem;
-  box-shadow: 0 0 16px rgba(255,159,0,0.2);
+  transition: all 0.18s;
 }
-.help-card-title {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.82rem; font-weight: 700;
-  color: var(--acc); letter-spacing: 0.04em;
-  margin-bottom: 0.45rem;
-}
-.help-card-body {
-  font-size: 0.88rem; color: var(--muted2);
-  line-height: 1.55; margin-bottom: 1rem;
-}
-.help-card-tip {
-  font-size: 0.72rem; color: var(--muted);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--bord);
-  border-radius: 9px; padding: 0.5rem 0.75rem;
-  margin-bottom: 1rem; line-height: 1.4;
-  font-family: 'Space Mono', monospace;
-}
-.help-card-tip strong { color: var(--cyan); }
-.help-card-actions { display: flex; gap: 0.5rem; }
-.help-btn-primary {
-  flex: 1; padding: 0.7rem;
-  border-radius: 11px; border: none;
-  background: var(--acc); color: #080b10;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.88rem; font-weight: 700;
-  cursor: pointer; transition: opacity 0.18s;
-}
-.help-btn-primary:active { opacity: 0.8; }
-.help-btn-ghost {
-  padding: 0.7rem 0.85rem;
-  border-radius: 11px;
-  border: 1px solid var(--bord2);
-  background: transparent; color: var(--muted2);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.82rem; cursor: pointer;
+#helpPageClose:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+#helpPageFrame {
+  flex: 1; width: 100%; border: none;
+  border-radius: 22px;
+  background: transparent;
 }
 
-/* Long-press Ripple-Indikator */
+/* Long-press Ring */
 .help-longpress-ring {
   position: fixed; pointer-events: none; z-index: 1050;
   width: 52px; height: 52px; border-radius: 50%;
   border: 2px solid var(--acc);
   box-shadow: 0 0 14px rgba(255,159,0,0.5);
   transform: translate(-50%, -50%) scale(0);
-  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              opacity 0.5s;
+  transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.5s;
   opacity: 0;
 }
 .help-longpress-ring.active {
