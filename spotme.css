@@ -447,7 +447,7 @@
       width: 13px; height: 13px;
       background: var(--muted);
       border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,0.35);
+      border: 1.5px solid rgb(104,215,238);
       box-shadow: 0 0 6px rgba(100,140,160,0.35);
       cursor: pointer; position: relative;
     }
