@@ -38,8 +38,8 @@
       filter:
         invert(0.88)
         hue-rotate(180deg)
-        brightness(0.92)
-        saturate(0.95);
+        brightness(0.80)
+        saturate(0.85);
     }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
 
@@ -447,7 +447,7 @@
       width: 13px; height: 13px;
       background: var(--muted);
       border-radius: 50%;
-      border: 1.5px solid rgb(104,215,238);
+      border: 1.5px solid rgba(255,255,255,0.35);
       box-shadow: 0 0 6px rgba(100,140,160,0.35);
       cursor: pointer; position: relative;
     }
@@ -473,7 +473,7 @@
       width: 14px; height: 14px;
       background: #ffffff;
       border-radius: 50%;
-      box-shadow: 0 0 0 3px rgb(106,223,79), 0 0 18px rgba(255,255,255,0.5);
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
       position: relative;
     }
     .user-marker::before {
