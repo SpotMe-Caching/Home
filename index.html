@@ -3403,7 +3403,13 @@ function handleHelpOverlayBg(e) {
 // Long-Press (2s) – Amber-Ring als visuelles Feedback
 function setupLongPress(el, key, action) {
   const ring = document.getElementById('helpLongpressRing');
+  let startX = 0, startY = 0;
+
+  // Chrome feuert contextmenu bei langem Halten → verhindert pointerdown
+  el.addEventListener('contextmenu', e => e.preventDefault());
+
   el.addEventListener('pointerdown', e => {
+    startX = e.clientX; startY = e.clientY;
     ring.style.left = e.clientX + 'px';
     ring.style.top  = e.clientY + 'px';
     ring.classList.add('active');
@@ -3412,7 +3418,18 @@ function setupLongPress(el, key, action) {
       callHelpForced(key, action);
     }, 2000);
   });
-  const cancel = () => { clearTimeout(longpressTimer); ring.classList.remove('active'); };
+
+  const cancel = (e) => {
+    // Nur abbrechen wenn wirklich bewegt (>8px Threshold) – nicht bei Mikro-Jitter
+    if (e.type === 'pointermove') {
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx < 8 && dy < 8) return;
+    }
+    clearTimeout(longpressTimer);
+    ring.classList.remove('active');
+  };
+
   el.addEventListener('pointerup',     cancel);
   el.addEventListener('pointercancel', cancel);
   el.addEventListener('pointermove',   cancel);
