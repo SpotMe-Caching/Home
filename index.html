@@ -591,6 +591,28 @@ function initMap() {
   if ('Notification' in window) Notification.requestPermission();
 }
 
+// Auto Reload der Karte uns Spots 
+let lastAutoRefresh = Date.now(); // ← nicht 0, sonst sofort-Trigger nach Init
+const AUTO_REFRESH_INTERVAL = 3 * 60 * 1000;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!map) return; // ← Map noch nicht geladen
+
+  const now = Date.now();
+  if (now - lastAutoRefresh < AUTO_REFRESH_INTERVAL) return;
+
+  lastAutoRefresh = now;
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    }, null, { enableHighAccuracy: true });
+  }
+
+  loadAllSpots();
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
