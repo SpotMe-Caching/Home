@@ -3,6 +3,8 @@
 > **Entdecke. Verbinde. Triff dich.**  
 > Eine mobile-first PWA zum Setzen, Teilen und Entdecken von geheimen Spots — mit integriertem Einladungssystem, Profilen, Chat, Wochen-Spots und In-App-Navigation.
 
+![1781260252518~3](_res/1781260252518~3.png)
+
 ---
 
 ## 📖 Über das Projekt
