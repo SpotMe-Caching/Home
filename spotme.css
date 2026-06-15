@@ -38,7 +38,7 @@
       filter:
         invert(0.92)
         hue-rotate(180deg)
-        brightness(0.90)
+        brightness(0.95)
         saturate(0.85);
     }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
