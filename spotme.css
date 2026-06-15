@@ -473,7 +473,7 @@
       width: 14px; height: 14px;
       background: #ffffff;
       border-radius: 50%;
-      box-shadow: 0 0 0 3px rgb(26,175,22), 0 0 18px rgba(255,255,255,0.5);
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
       position: relative;
     }
     .user-marker::before {
@@ -896,4 +896,30 @@
 .help-longpress-ring.active {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
+}
+
+/* ── LIVE SPOT MARKER ─────────────────────────────────────────────────────── */
+.live-spot-marker {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+}
+/* Grüner Kern */
+.live-spot-marker::before {
+  content: '📡';
+  font-size: 1rem;
+  position: relative; z-index: 2;
+  filter: drop-shadow(0 0 6px rgba(0,230,118,0.9));
+}
+/* Pulsierender grüner Ring */
+.live-spot-marker::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0,230,118,0.7);
+  animation: live-ring 1.8s ease-out infinite;
+}
+@keyframes live-ring {
+  0%   { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
 }

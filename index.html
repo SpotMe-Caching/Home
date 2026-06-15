@@ -91,6 +91,10 @@
     <button class="nav-btn" onclick="location.href='waypoints.html'" title="WayPoint Caching">
       <i data-lucide="map" class="nav-icon"></i>
     </button>
+    <button class="nav-btn" id="liveBtn" onclick="callWithHelp('livespots', () => openDrawer('live'))" title="Live Spots">
+      <i data-lucide="radio" class="nav-icon"></i>
+      <span class="badge" id="liveBadge" style="display:none;background:var(--green);color:#080b10;">0</span>
+    </button>
 
     <div class="rail-sep"></div>
 
@@ -125,7 +129,6 @@
   <button class="dock-btn" onclick="openDrawer('myspots')"><span class="di">🟠</span>Meine Spots</button>
   <button class="dock-btn" onclick="openDrawer('all')"><span class="di">🌐</span>Alle Spots</button>
   <button class="dock-btn" id="newSpotsBtn" onclick="openNewSpots()"><span class="di">✨</span>Neue Spots</button>
-  <button class="dock-btn" id="radiusBtn" onclick="openRadiusSearch()"><span class="di">🔍</span>Radius</button>
 </div>
 
 <!-- ── Help Page Overlay (iframe, 80% Screen, scrollable) ──────────────── -->
@@ -1310,6 +1313,10 @@ function openDrawer(type) {
   } else if (type === 'weekly') {
     title.textContent = '🗓️ WOCHEN-SPOTS';
     loadWeeklyDrawer(body);
+
+  } else if (type === 'live') {
+    title.textContent = '📡 LIVE SPOTS';
+    loadLiveDrawer(body);
   }
 }
 
@@ -2913,7 +2920,7 @@ function selectRadius(km) {
   const catSuffix = radiusCatFilter ? ` · ${CATEGORY_EMOJI[radiusCatFilter]||'📌'} ${radiusCatFilter}` : '';
   document.getElementById('radiusResult').textContent =
     `${nearby.length} Spot${nearby.length!==1?'s':''} innerhalb ${km} km${catSuffix}`;
-  document.getElementById('radiusBtn').classList.add('active');
+  document.getElementById('radiusTopBtn').classList.add('active');
   setTimeout(()=>{closeModals();openDrawerFiltered(nearby,km);},600);
 }
 
@@ -2922,7 +2929,7 @@ function clearRadius() {
   if (map.getLayer('radius-line')) map.removeLayer('radius-line');
   if (map.getSource('radius')) map.removeSource('radius');
   activeRadius=null;
-  document.getElementById('radiusBtn').classList.remove('active');
+  document.getElementById('radiusTopBtn').classList.remove('active');
 }
 
 async function openDrawerFiltered(spots, km) {
@@ -3346,7 +3353,7 @@ const HELP_MAP = {
   myspots:   { file: 'meine-spots',   action: () => openDrawer('myspots') },
   allspots:  { file: 'alle-spots',    action: () => openDrawer('all') },
   newspots:  { file: 'neue-spots',    action: () => openNewSpots() },
-  navigation:{ file: 'navigation',    action: () => {} },
+  livespots: { file: 'live-spots',    action: () => openDrawer('live') },
 };
 
 let helpPendingAction = null;
@@ -3444,7 +3451,6 @@ function initHelpSystem() {
     { id: 'pushBtn',         key: 'push',     action: () => togglePushNotifications() },
     { id: 'filterTopBtn',    key: 'filter',   action: () => toggleFilterStrip() },
     { id: 'radiusTopBtn',    key: 'radius',   action: () => openRadiusSearch() },
-    { id: 'radiusBtn',       key: 'radius',   action: () => openRadiusSearch() },
   ];
 
   bindings.forEach(({ id, key, action }) => {
@@ -3467,7 +3473,90 @@ function initHelpSystem() {
   });
 }
 
-// ── MATCH ────────────────────────────────────────────────────────────────────
+// ── LIVE SPOTS ────────────────────────────────────────────────────────────────
+
+let liveSpots = [];
+
+function updateLastLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async pos => {
+    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    try {
+      await fetch(`${API}/location/update`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: CODE, token: localStorage.getItem('sm_token'), lat: userPos.lat, lng: userPos.lng })
+      });
+    } catch {}
+  }, null, { enableHighAccuracy: false, timeout: 8000 });
+}
+
+async function renderLiveSpotMarkers() {
+  try {
+    const r = await fetch(`${API}/live-spots`);
+    if (!r.ok) return;
+    liveSpots = await r.json();
+  } catch { return; }
+
+  const badge = document.getElementById('liveBadge');
+  if (badge) { badge.textContent = liveSpots.length; badge.style.display = liveSpots.length ? 'flex' : 'none'; }
+
+  liveSpots.forEach(s => {
+    if (!s.lat || !s.lng) return;
+    const el = document.createElement('div');
+    el.className = 'live-spot-marker';
+    el.title = s.name;
+    el.addEventListener('click', () => window.open(`live-spot.html?id=${s.id}`, '_blank'));
+    new maplibregl.Marker({ element: el }).setLngLat([s.lng, s.lat]).addTo(map);
+  });
+}
+
+async function loadLiveDrawer(body) {
+  body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div>Lädt…</div>`;
+  const token = localStorage.getItem('sm_token');
+  const qs = `code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(token)}`;
+
+  const [followingRes, mineRes] = await Promise.allSettled([
+    fetch(`${API}/live-spots/following?${qs}`).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/live-spots/mine?${qs}`).then(r => r.ok ? r.json() : [])
+  ]);
+
+  const following = followingRes.status === 'fulfilled' ? followingRes.value : [];
+  const mine      = mineRes.status     === 'fulfilled' ? mineRes.value     : [];
+
+  const badge = document.getElementById('liveBadge');
+  const onlineCount = following.filter(s => s.status === 'online').length;
+  if (badge) { badge.textContent = onlineCount; badge.style.display = onlineCount ? 'flex' : 'none'; }
+
+  const card = (s, own) => {
+    const online = s.status === 'online';
+    return `<div class="spot-card" style="margin-bottom:0.5rem;">
+      <div class="sc-icon">${CATEGORY_EMOJI[s.category]||'📡'}</div>
+      <div class="sc-info">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-detail">
+          <span style="font-size:0.68rem;color:${online?'var(--green)':'var(--muted)'};font-weight:700;">${online?'● LIVE':'○ Offline'}</span>
+          <span style="font-size:0.68rem;color:var(--muted2);">👥 ${s.follower_count}</span>
+          ${s.location_note?`<span style="font-size:0.68rem;color:var(--muted2);">${esc(s.location_note)}</span>`:''}
+        </div>
+      </div>
+      <div class="sc-actions">
+        ${online&&s.lat?`<button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>`:''}
+        <button class="sc-btn primary" onclick="window.open('live-spot.html?id=${s.id}','_blank')">${own?'⚙️':'📋'}</button>
+      </div>
+    </div>`;
+  };
+
+  let html = `<button class="btn-primary" style="margin-bottom:0.75rem;"
+    onclick="location.href='live-spot-manage.html'">📡 Live Spot erstellen / verwalten</button>`;
+
+  if (mine.length) html += `<div class="section-title" style="margin-bottom:0.4rem;">MEINE LIVE SPOTS</div>` + mine.map(s=>card(s,true)).join('');
+  if (following.length) html += `<div class="section-title" style="margin:0.75rem 0 0.4rem;">ICH FOLGE</div>` + following.map(s=>card(s,false)).join('');
+  if (!mine.length && !following.length) html += `<div class="empty-state"><div class="es-icon">📡</div>Noch keine Live Spots.<br><span style="font-size:0.75rem;">Erstelle einen oder entdecke welche auf der Karte.</span></div>`;
+
+  body.innerHTML = html;
+  body.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>navigateToSpot(+b.dataset.lat,+b.dataset.lng)));
+}
+
 // ── MATCH ────────────────────────────────────────────────────────────────────
 function showMatch(name,spot) {
   document.getElementById('matchName').textContent=name;
@@ -3529,7 +3618,9 @@ loadFavoritesCache();
 loadWeeklyBadge();
 updatePushBtnState();
 if (typeof lucide !== 'undefined') lucide.createIcons();
-initHelpSystem(); // Progressive Help – Long-Press + 24h-Logik
+initHelpSystem();
+updateLastLocation();       // Standort für 10km Push-Filter aktualisieren
+renderLiveSpotMarkers();    // Live Spots auf der Karte anzeigen
 
 document.getElementById('weeklyModal').addEventListener('click', function(e) {
   if (e.target === this) closeWeeklyModal();
