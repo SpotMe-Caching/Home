@@ -36,9 +36,9 @@
        invert:     0.82 weicher    ← → 0.92 harter Kontrast          */
     .maplibregl-canvas-container {
       filter:
-        invert(0.88)
+        invert(0.92)
         hue-rotate(180deg)
-        brightness(0.80)
+        brightness(0.90)
         saturate(0.85);
     }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display:none !important; }
@@ -473,7 +473,7 @@
       width: 14px; height: 14px;
       background: #ffffff;
       border-radius: 50%;
-      box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 18px rgba(255,255,255,0.5);
+      box-shadow: 0 0 0 3px rgb(37,175,111), 0 0 18px rgba(255,255,255,0.5);
       position: relative;
     }
     .user-marker::before {
