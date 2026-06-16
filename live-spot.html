@@ -83,7 +83,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
 
 <div class="page-header">
   <div class="logo"><div class="logo-dot"></div>SPOT<span style="font-weight:300">ME</span></div>
-  <span class="back-link" style="cursor:pointer;" onclick="goToApp()">← App</span>
+  <a href="/" class="back-link">← App</a>
 </div>
 
 <div id="map"></div>
@@ -106,16 +106,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
-
-function goToApp() {
-  const referrer = document.referrer || '';
-  const origin = window.location.origin;
-  if (referrer.startsWith(origin) && window.history.length > 1) {
-    history.back();
-  } else {
-    window.location.href = '/';
-  }
-}
 
 function initMap(lat, lng) {
   if (spotMap) spotMap.remove();
