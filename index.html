@@ -3529,7 +3529,7 @@ async function renderLiveSpotMarkers() {
     const el = document.createElement('div');
     el.className = 'live-spot-marker';
     el.title = s.name;
-    el.addEventListener('click', () => window.open(`live-spot.html?id=${s.id}`, '_blank'));
+    el.addEventListener('click', () => window.location.href = `live-spot.html?id=${s.id}`);
     new maplibregl.Marker({ element: el }).setLngLat([s.lng, s.lat]).addTo(map);
   });
 }
@@ -3565,7 +3565,7 @@ async function loadLiveDrawer(body) {
       </div>
       <div class="sc-actions">
         ${online&&s.lat?`<button class="sc-btn navigate" data-lat="${s.lat}" data-lng="${s.lng}">🧭</button>`:''}
-        <button class="sc-btn primary" onclick="window.open('live-spot.html?id=${s.id}','_blank')">${own?'⚙️':'📋'}</button>
+        <button class="sc-btn primary" onclick="window.location.href='live-spot.html?id=${s.id}'">${own?'⚙️':'📋'}</button>
       </div>
     </div>`;
   };
