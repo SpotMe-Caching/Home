@@ -108,7 +108,7 @@
       </svg>
     </button>
 
-    <button class="nav-btn" onclick="location.reload()" title="Neu laden">
+    <button class="nav-btn" onclick="manualRefresh()" title="Neu laden">
       <i data-lucide="refresh-ccw" class="nav-icon"></i>
     </button>
 
@@ -594,25 +594,23 @@ function initMap() {
 }
 
 // Auto Reload der Karte uns Spots 
-let lastAutoRefresh = Date.now(); // ← nicht 0, sonst sofort-Trigger nach Init
+function manualRefresh() {
+  lastAutoRefresh = Date.now();
+  navigator.geolocation?.getCurrentPosition(pos => {
+    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    userMarker?.setLngLat([userPos.lng, userPos.lat]);
+    loadAllSpots();
+  }, () => loadAllSpots(), { enableHighAccuracy: true });
+}
+
+let lastAutoRefresh = Date.now();
 const AUTO_REFRESH_INTERVAL = 3 * 60 * 1000;
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  if (!map) return; // ← Map noch nicht geladen
-
-  const now = Date.now();
-  if (now - lastAutoRefresh < AUTO_REFRESH_INTERVAL) return;
-
-  lastAutoRefresh = now;
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    }, null, { enableHighAccuracy: true });
-  }
-
-  loadAllSpots();
+  if (!map) return;
+  if (Date.now() - lastAutoRefresh < AUTO_REFRESH_INTERVAL) return;
+  manualRefresh(); // ← beide Wege über dieselbe Funktion
 });
 
 if ('serviceWorker' in navigator) {
