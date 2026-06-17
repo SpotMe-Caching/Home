@@ -7,6 +7,8 @@ Das Problem mit normalen GPS-Apps: Sie zeigen jeden Schritt. Jede Bewegung. Jede
 
 **SpotME Caching macht das anders.** Hier ist, wie das Abenteuer abläuft.
 
+![image-310~2](_res/image-310~2.jpg)
+
 ---
 
 #### 1 · Einwahl ohne Spuren
