@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v5.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v7.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -25,6 +25,7 @@
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const webpush = require("web-push");
 const { ExpressPeerServer } = require("peer");
 const { Pool } = require("pg");
 
@@ -132,6 +133,26 @@ const pool = new Pool({
     ? { rejectUnauthorized: false }
     : false,
 });
+
+// ---------- Web Push / VAPID ----------
+// Beim ersten Start ohne Env-Vars: Schlüssel einmalig generieren + loggen.
+// → In Render unter Environment als VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY eintragen.
+// → Danach neu deployen – ab dann sind die Schlüssel stabil.
+if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  const keys = webpush.generateVAPIDKeys();
+  console.log(
+    "🔑 VAPID Schlüssel (einmalig generiert – bitte in Render speichern!):",
+  );
+  console.log("   VAPID_PUBLIC_KEY =", keys.publicKey);
+  console.log("   VAPID_PRIVATE_KEY=", keys.privateKey);
+  process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+  process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+}
+webpush.setVapidDetails(
+  "mailto:admin@spotme.app",
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY,
+);
 
 // ---------- Konstanten ----------
 const OFFLINE_VISIBLE_MS = 24 * 60 * 60 * 1000;
@@ -326,12 +347,152 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v5.0 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v7.0 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
     );
   }
+
+  // Wochen-Spots – privater 7-Tage-Spot mit teilbarem Link
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS weekly_spots (
+      id             SERIAL PRIMARY KEY,
+      token          TEXT UNIQUE NOT NULL,
+      code           TEXT NOT NULL,
+      name           TEXT NOT NULL,
+      category       TEXT,
+      description    TEXT,
+      lat            DOUBLE PRECISION NOT NULL,
+      lng            DOUBLE PRECISION NOT NULL,
+      meeting_at     BIGINT,
+      expires_at     BIGINT NOT NULL,
+      created_at     BIGINT NOT NULL,
+      checkin_count  INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_weekly_token      ON weekly_spots(token);
+    CREATE INDEX IF NOT EXISTS idx_weekly_code       ON weekly_spots(code);
+    CREATE INDEX IF NOT EXISTS idx_weekly_expires    ON weekly_spots(expires_at);
+  `);
+
+  // Push-Subscriptions für Web-Push-Benachrichtigungen
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id         SERIAL PRIMARY KEY,
+      code       TEXT NOT NULL,
+      endpoint   TEXT NOT NULL,
+      p256dh     TEXT NOT NULL,
+      auth       TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(code, endpoint)
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_code ON push_subscriptions(code);
+  `);
+
+  // ── WayPoint Caching ─────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wp_routes (
+      id          SERIAL PRIMARY KEY,
+      code        TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      description TEXT,
+      difficulty  SMALLINT NOT NULL DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 5),
+      published   BOOLEAN NOT NULL DEFAULT false,
+      play_count  INTEGER NOT NULL DEFAULT 0,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_wpr_code      ON wp_routes(code);
+    CREATE INDEX IF NOT EXISTS idx_wpr_published ON wp_routes(published);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wp_waypoints (
+      id             SERIAL PRIMARY KEY,
+      route_id       INTEGER NOT NULL REFERENCES wp_routes(id) ON DELETE CASCADE,
+      order_index    SMALLINT NOT NULL,
+      lat            DOUBLE PRECISION NOT NULL,
+      lng            DOUBLE PRECISION NOT NULL,
+      question       TEXT NOT NULL,
+      option_a       TEXT NOT NULL,
+      option_b       TEXT NOT NULL,
+      option_c       TEXT NOT NULL,
+      correct_option CHAR(1) NOT NULL CHECK (correct_option IN ('a','b','c')),
+      UNIQUE(route_id, order_index)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wpw_route ON wp_waypoints(route_id);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wp_progress (
+      id                  SERIAL PRIMARY KEY,
+      route_id            INTEGER NOT NULL,
+      player_code         TEXT NOT NULL,
+      current_index       SMALLINT NOT NULL DEFAULT 0,
+      started_at          BIGINT NOT NULL,
+      last_activity_at    BIGINT NOT NULL,
+      UNIQUE(route_id, player_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wpp_player ON wp_progress(player_code);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wp_completions (
+      id           SERIAL PRIMARY KEY,
+      route_id     INTEGER NOT NULL,
+      player_code  TEXT NOT NULL,
+      time_seconds INTEGER NOT NULL,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(route_id, player_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wpc_route  ON wp_completions(route_id);
+    CREATE INDEX IF NOT EXISTS idx_wpc_player ON wp_completions(player_code);
+  `);
+
+  // Live Spots – mobile Profil-Spots für Creator die sich bewegen
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS live_spots (
+      id             SERIAL PRIMARY KEY,
+      token          TEXT UNIQUE NOT NULL,
+      creator_code   TEXT NOT NULL,
+      name           TEXT NOT NULL,
+      description    TEXT,
+      category       TEXT,
+      avatar         TEXT,
+      status         TEXT NOT NULL DEFAULT 'offline',
+      lat            DOUBLE PRECISION,
+      lng            DOUBLE PRECISION,
+      location_note  TEXT,
+      follower_count INTEGER NOT NULL DEFAULT 0,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ls_creator ON live_spots(creator_code);
+    CREATE INDEX IF NOT EXISTS idx_ls_status  ON live_spots(status);
+    CREATE INDEX IF NOT EXISTS idx_ls_token   ON live_spots(token);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS live_followers (
+      id           SERIAL PRIMARY KEY,
+      live_spot_id INTEGER NOT NULL REFERENCES live_spots(id) ON DELETE CASCADE,
+      follower_code TEXT NOT NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(live_spot_id, follower_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_lf_spot   ON live_followers(live_spot_id);
+    CREATE INDEX IF NOT EXISTS idx_lf_follower ON live_followers(follower_code);
+  `);
+
+  // Letzter bekannter Standort der Nutzer – für 10km Push-Filter
+  await pool
+    .query(
+      `
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_lat  DOUBLE PRECISION;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_lng  DOUBLE PRECISION;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+  `,
+    )
+    .catch(() => {});
 
   console.log("✅ Datenbank-Tabellen bereit");
 }
@@ -1178,6 +1339,13 @@ app.post("/api/message", async (req, res) => {
     );
 
     console.log(`💬 Chat: ${sender_code} → ${recipient}`);
+    // Push-Benachrichtigung an Empfänger (fire-and-forget)
+    sendPushToCode(
+      recipient,
+      "💬 Neue Nachricht",
+      `${sender_name || sender_code}: ${clean.slice(0, 80)}`,
+      "/",
+    );
     res.json({ success: true });
   } catch (e) {
     console.error("POST /api/message:", e.message);
@@ -1626,7 +1794,8 @@ app.post("/api/weekly-spots", async (req, res) => {
     const tokenId = crypto.randomBytes(16).toString("hex");
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const meetingTimestamp = meetingAt ? new Date(meetingAt).getTime() : null;
+    // Hier die Änderung: meetingAt ist bereits ISO-String, keine Umwandlung in Millisekunden
+    const meetingTimestamp = meetingAt ? meetingAt : null;
     await pool.query(
       `INSERT INTO weekly_spots (token, code, name, category, description, lat, lng, meeting_at, expires_at, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -1727,18 +1896,25 @@ app.post("/api/weekly-spots/:token/checkin", async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE weekly_spots SET checkin_count = checkin_count + 1
-       WHERE token = $1 AND expires_at > $2 RETURNING checkin_count`,
+       WHERE token = $1 AND expires_at > $2
+       RETURNING checkin_count, name, code`,
       [token, Date.now()],
     );
     if (result.rowCount === 0)
       return res
         .status(404)
         .json({ error: "Spot nicht gefunden oder abgelaufen" });
-    res.json({
-      success: true,
-      label: "anonym",
-      count: result.rows[0].checkin_count,
-    });
+
+    const { checkin_count, name, code } = result.rows[0];
+    // Push an Wochen-Spot Ersteller (fire-and-forget)
+    sendPushToCode(
+      code,
+      "🗓️ Neuer Check-in",
+      `Jemand hat deinen Wochen-Spot „${name}" besucht`,
+      `/spot-woche.html?token=${token}`,
+    );
+
+    res.json({ success: true, label: "anonym", count: checkin_count });
   } catch (e) {
     console.error("POST /api/weekly-spots/:token/checkin:", e.message);
     res.status(500).json({ error: "Datenbankfehler" });
@@ -2371,6 +2547,13 @@ app.post("/api/spotcache/invite", async (req, res) => {
     );
 
     res.json({ success: true });
+    // Push an Spot-Besitzer (fire-and-forget)
+    sendPushToCode(
+      to,
+      "📨 Neue Einladung",
+      "Jemand möchte deinen Spot besuchen – tippe zum Antworten",
+      "/",
+    );
   } catch (e) {
     console.error("POST /api/spotcache/invite:", e.message);
     res.status(500).json({ error: "Fehler beim Einladen" });
@@ -2405,6 +2588,13 @@ app.post("/api/spotcache/invite/respond", async (req, res) => {
     await pool.query(
       `UPDATE spot_cache_invites SET status = 'accepted' WHERE id = $1`,
       [id],
+    );
+    // Push an Einladungs-Sender (fire-and-forget)
+    sendPushToCode(
+      inv.from_code,
+      "✅ Einladung angenommen",
+      `${code} hat deine Einladung angenommen`,
+      "/",
     );
     res.json({ success: true, status: "accepted" });
   } catch (e) {
@@ -2762,6 +2952,1060 @@ app.post("/api/admin/spot-image-action", requireAdmin, async (req, res) => {
     res.status(500).json({ error: "Datenbankfehler" });
   }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLUESKY INTEGRATION
+// App-Passwort wird mit demselben AES-256-CBC Schlüssel (CRYPTO_KEY)
+// verschlüsselt wie alle anderen sensiblen Profildaten.
+// Das entschlüsselte Passwort verlässt NIEMALS den Server.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Bluesky-Accounts Tabelle (falls noch nicht vorhanden)
+// Wird von initDB() gehandhabt – hier zur Referenz:
+// CREATE TABLE IF NOT EXISTS bluesky_accounts (
+//   id           SERIAL PRIMARY KEY,
+//   code         TEXT UNIQUE NOT NULL,
+//   handle       TEXT NOT NULL,
+//   app_password TEXT NOT NULL,   -- AES-256-CBC verschlüsselt
+//   created_at   TIMESTAMPTZ DEFAULT NOW()
+// );
+
+// AT-Protocol Hilfsfunktion – erstellt eine Bluesky-Session
+async function bskyCreateSession(handle, appPassword) {
+  const res = await fetch(
+    "https://bsky.social/xrpc/com.atproto.server.createSession",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: handle, password: appPassword }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Bluesky-Authentifizierung fehlgeschlagen");
+  }
+  return res.json();
+}
+
+// AT-Protocol Hilfsfunktion – postet einen Beitrag
+async function bskyPost(accessJwt, did, text) {
+  const res = await fetch(
+    "https://bsky.social/xrpc/com.atproto.repo.createRecord",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessJwt}`,
+      },
+      body: JSON.stringify({
+        repo: did,
+        collection: "app.bsky.feed.post",
+        record: {
+          $type: "app.bsky.feed.post",
+          text,
+          createdAt: new Date().toISOString(),
+        },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Bluesky-Post fehlgeschlagen");
+  }
+  return res.json();
+}
+
+// ── Verbindung herstellen ────────────────────────────────────────────────────
+app.post("/api/bluesky/connect", async (req, res) => {
+  const { code, token, handle, appPassword } = req.body;
+  if (!code || !token || !handle || !appPassword)
+    return res
+      .status(400)
+      .json({ error: "code, token, handle, appPassword erforderlich" });
+
+  try {
+    // Auth prüfen
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token))
+      return res.status(403).json({ error: "Ungültiger Token" });
+
+    // Bluesky-Credentials testen bevor wir speichern
+    const session = await bskyCreateSession(handle, appPassword);
+
+    // App-Passwort verschlüsselt speichern – nie im Klartext in der DB
+    const encryptedPassword = encrypt(appPassword);
+
+    await pool.query(
+      `INSERT INTO bluesky_accounts (code, handle, app_password)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (code) DO UPDATE
+         SET handle = EXCLUDED.handle,
+             app_password = EXCLUDED.app_password`,
+      [code, handle.toLowerCase().replace(/^@/, ""), encryptedPassword],
+    );
+
+    console.log(`🦋 Bluesky verbunden: ${handle} für ${code}`);
+    res.json({ success: true, handle: session.handle });
+  } catch (e) {
+    console.error("POST /api/bluesky/connect:", e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ── Status abrufen (kein Passwort zurückgeben!) ──────────────────────────────
+app.get("/api/bluesky/status/:code", async (req, res) => {
+  const { token } = req.query;
+  const { code } = req.params;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token))
+      return res.status(403).json({ error: "Ungültiger Token" });
+
+    const { rows } = await pool.query(
+      "SELECT handle FROM bluesky_accounts WHERE code = $1",
+      [code],
+    );
+
+    if (!rows.length) return res.json({ connected: false });
+    // Nur Handle zurückgeben – niemals app_password
+    res.json({ connected: true, handle: rows[0].handle });
+  } catch (e) {
+    console.error("GET /api/bluesky/status:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Spot auf Bluesky teilen ──────────────────────────────────────────────────
+app.post("/api/bluesky/share-spot", async (req, res) => {
+  const { code, token, spotId, message } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token))
+      return res.status(403).json({ error: "Ungültiger Token" });
+
+    // Bluesky-Konto + verschlüsseltes Passwort holen
+    const { rows } = await pool.query(
+      "SELECT handle, app_password FROM bluesky_accounts WHERE code = $1",
+      [code],
+    );
+    if (!rows.length)
+      return res.status(404).json({ error: "Kein Bluesky-Konto verknüpft" });
+
+    // Passwort serverseitig entschlüsseln – verlässt diesen Scope nicht
+    const appPassword = decrypt(rows[0].app_password);
+    const session = await bskyCreateSession(rows[0].handle, appPassword);
+
+    // Nachrichtentext (vom Client oder Standard-Fallback)
+    const postText =
+      message?.slice(0, 300) ||
+      `📍 Ich habe einen neuen Spot auf SpotMe Caching entdeckt! #SpotMe #Caching`;
+
+    const result = await bskyPost(session.accessJwt, session.did, postText);
+
+    console.log(`🦋 Bluesky-Post: ${rows[0].handle} → ${result.uri}`);
+    res.json({ success: true, uri: result.uri });
+  } catch (e) {
+    console.error("POST /api/bluesky/share-spot:", e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ── Verbindung trennen ───────────────────────────────────────────────────────
+app.delete("/api/bluesky/disconnect", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token))
+      return res.status(403).json({ error: "Ungültiger Token" });
+
+    await pool.query("DELETE FROM bluesky_accounts WHERE code = $1", [code]);
+    console.log(`🔌 Bluesky getrennt: ${code}`);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("DELETE /api/bluesky/disconnect:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Helper – sendet Push an alle Geräte eines Nutzers.
+// Fire-and-forget (kein await nötig), blockiert den Request-Handler nicht.
+// Abgelaufene Subscriptions (410/404) werden automatisch aus der DB gelöscht.
+async function sendPushToCode(code, title, body, url = "/") {
+  if (!process.env.VAPID_PUBLIC_KEY) return;
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM push_subscriptions WHERE code = $1",
+      [code],
+    );
+    if (!rows.length) return;
+    const payload = JSON.stringify({
+      title,
+      body,
+      url,
+      tag: `spotme-${Date.now()}`,
+    });
+    for (const sub of rows) {
+      webpush
+        .sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          payload,
+        )
+        .catch(async (err) => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await pool
+              .query("DELETE FROM push_subscriptions WHERE endpoint = $1", [
+                sub.endpoint,
+              ])
+              .catch(() => {});
+          }
+        });
+    }
+  } catch (e) {
+    console.error("sendPushToCode:", e.message);
+  }
+}
+
+// Öffentlichen VAPID-Key ans Frontend liefern
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+// Push-Subscription speichern
+app.post("/api/push/subscribe", async (req, res) => {
+  const { code, token, subscription } = req.body;
+  if (!code || !token || !subscription?.endpoint) {
+    return res
+      .status(400)
+      .json({ error: "code, token, subscription erforderlich" });
+  }
+  try {
+    const authRes = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!authRes.rows.length || !authRes.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    await pool.query(
+      `INSERT INTO push_subscriptions (code, endpoint, p256dh, auth)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (code, endpoint) DO UPDATE
+         SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`,
+      [
+        code,
+        subscription.endpoint,
+        subscription.keys.p256dh,
+        subscription.keys.auth,
+      ],
+    );
+    console.log(`🔔 Push registriert: ${code}`);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("POST /api/push/subscribe:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// Push-Subscription löschen
+app.delete("/api/push/unsubscribe", async (req, res) => {
+  const { code, token, endpoint } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    const authRes = await pool.query(
+      "SELECT token FROM profiles WHERE code = $1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!authRes.rows.length || !authRes.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    if (endpoint) {
+      await pool.query(
+        "DELETE FROM push_subscriptions WHERE code=$1 AND endpoint=$2",
+        [code, endpoint],
+      );
+    } else {
+      await pool.query("DELETE FROM push_subscriptions WHERE code=$1", [code]);
+    }
+    res.json({ success: true });
+  } catch (e) {
+    console.error("DELETE /api/push/unsubscribe:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WAYPOINT CACHING
+// Öffentliche Geocaching-Routen mit Wissensfragen an jedem WayPoint.
+// Sicherheitsprinzip: Koordinaten von WayPoint N+1 werden NIEMALS an den
+// Client gesendet bevor WayPoint N serverseitig korrekt beantwortet wurde.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Alle öffentlichen Routen ─────────────────────────────────────────────────
+app.get("/api/wp/routes", async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT r.id, r.code, r.name, r.description, r.difficulty,
+             r.play_count, r.created_at,
+             COUNT(w.id)::int          AS waypoint_count,
+             MIN(c.time_seconds)       AS best_time,
+             COUNT(DISTINCT c.player_code)::int AS completion_count
+      FROM wp_routes r
+      LEFT JOIN wp_waypoints   w ON w.route_id = r.id
+      LEFT JOIN wp_completions c ON c.route_id = r.id
+      WHERE r.published = true
+      GROUP BY r.id
+      ORDER BY r.created_at DESC
+    `);
+    res.json(rows);
+  } catch (e) {
+    console.error("GET /api/wp/routes:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Route starten: gibt Metadaten + ersten WayPoint ──────────────────────────
+app.post("/api/wp/routes/:id/start", async (req, res) => {
+  const { player_code } = req.body;
+  const routeId = +req.params.id;
+  if (!player_code)
+    return res.status(400).json({ error: "player_code erforderlich" });
+
+  try {
+    // Route existiert und ist veröffentlicht?
+    const route = await pool.query(
+      "SELECT * FROM wp_routes WHERE id=$1 AND published=true",
+      [routeId],
+    );
+    if (!route.rows.length)
+      return res.status(404).json({ error: "Route nicht gefunden" });
+
+    // Bereits abgeschlossen?
+    const done = await pool.query(
+      "SELECT time_seconds FROM wp_completions WHERE route_id=$1 AND player_code=$2",
+      [routeId, player_code],
+    );
+    if (done.rows.length) {
+      return res.json({
+        alreadyCompleted: true,
+        time_seconds: done.rows[0].time_seconds,
+      });
+    }
+
+    // Fortschritt abrufen oder neu anlegen
+    const now = Date.now();
+    await pool.query(
+      `
+      INSERT INTO wp_progress (route_id, player_code, current_index, started_at, last_activity_at)
+      VALUES ($1,$2,0,$3,$3)
+      ON CONFLICT (route_id, player_code) DO UPDATE SET last_activity_at=$3
+    `,
+      [routeId, player_code, now],
+    );
+
+    const prog = await pool.query(
+      "SELECT * FROM wp_progress WHERE route_id=$1 AND player_code=$2",
+      [routeId, player_code],
+    );
+
+    // Ersten noch offenen WayPoint liefern
+    const wp = await pool.query(
+      `SELECT id, order_index, lat, lng, question, option_a, option_b, option_c
+       FROM wp_waypoints WHERE route_id=$1 AND order_index=$2`,
+      [routeId, prog.rows[0].current_index],
+    );
+    if (!wp.rows.length)
+      return res.status(404).json({ error: "Kein WayPoint gefunden" });
+
+    // play_count nur beim echten ersten Start erhöhen
+    if (prog.rows[0].current_index === 0 && prog.rows[0].started_at === now) {
+      await pool.query(
+        "UPDATE wp_routes SET play_count=play_count+1 WHERE id=$1",
+        [routeId],
+      );
+    }
+
+    const total = await pool.query(
+      "SELECT COUNT(*)::int AS cnt FROM wp_waypoints WHERE route_id=$1",
+      [routeId],
+    );
+
+    res.json({
+      route: route.rows[0],
+      waypoint: wp.rows[0],
+      current_index: prog.rows[0].current_index,
+      total: total.rows[0].cnt,
+      started_at: prog.rows[0].started_at,
+    });
+  } catch (e) {
+    console.error("POST /api/wp/routes/:id/start:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Antwort einreichen → gibt nächsten WayPoint oder Completion zurück ────────
+app.post("/api/wp/routes/:id/answer", async (req, res) => {
+  const { player_code, waypoint_index, answer } = req.body;
+  const routeId = +req.params.id;
+  if (!player_code || waypoint_index == null || !answer) {
+    return res
+      .status(400)
+      .json({ error: "player_code, waypoint_index, answer erforderlich" });
+  }
+
+  try {
+    // Fortschritt prüfen – verhindert Springen
+    const prog = await pool.query(
+      "SELECT * FROM wp_progress WHERE route_id=$1 AND player_code=$2",
+      [routeId, player_code],
+    );
+    if (!prog.rows.length)
+      return res.status(403).json({ error: "Route nicht gestartet" });
+    if (prog.rows[0].current_index !== +waypoint_index) {
+      return res.status(409).json({ error: "Falscher WayPoint-Index" });
+    }
+
+    // Richtige Antwort server-seitig prüfen (nie im Client!)
+    const wp = await pool.query(
+      "SELECT * FROM wp_waypoints WHERE route_id=$1 AND order_index=$2",
+      [routeId, +waypoint_index],
+    );
+    if (!wp.rows.length)
+      return res.status(404).json({ error: "WayPoint nicht gefunden" });
+
+    if (answer.toLowerCase() !== wp.rows[0].correct_option) {
+      return res.json({ correct: false });
+    }
+
+    // Richtig! → nächsten Index berechnen
+    const nextIndex = +waypoint_index + 1;
+    const total = await pool.query(
+      "SELECT COUNT(*)::int AS cnt FROM wp_waypoints WHERE route_id=$1",
+      [routeId],
+    );
+    const isLast = nextIndex >= total.rows[0].cnt;
+
+    if (isLast) {
+      // Route abgeschlossen – Zeit berechnen und speichern
+      const timeSec = Math.round((Date.now() - prog.rows[0].started_at) / 1000);
+      await pool.query(
+        `
+        INSERT INTO wp_completions (route_id, player_code, time_seconds)
+        VALUES ($1,$2,$3)
+        ON CONFLICT (route_id, player_code) DO UPDATE SET
+          time_seconds = LEAST(EXCLUDED.time_seconds, wp_completions.time_seconds),
+          completed_at = NOW()
+      `,
+        [routeId, player_code, timeSec],
+      );
+      await pool.query(
+        "DELETE FROM wp_progress WHERE route_id=$1 AND player_code=$2",
+        [routeId, player_code],
+      );
+
+      // Rang berechnen
+      const rank = await pool.query(
+        `SELECT COUNT(*)::int + 1 AS rank FROM wp_completions
+         WHERE route_id=$1 AND time_seconds < $2`,
+        [routeId, timeSec],
+      );
+
+      console.log(
+        `🏆 WayPoint abgeschlossen: ${player_code} Route ${routeId} in ${timeSec}s`,
+      );
+      return res.json({
+        correct: true,
+        completed: true,
+        time_seconds: timeSec,
+        rank: rank.rows[0].rank,
+      });
+    }
+
+    // Noch nicht fertig → Fortschritt aktualisieren + nächsten WayPoint liefern
+    await pool.query(
+      `UPDATE wp_progress SET current_index=$1, last_activity_at=$2
+       WHERE route_id=$3 AND player_code=$4`,
+      [nextIndex, Date.now(), routeId, player_code],
+    );
+    const nextWp = await pool.query(
+      `SELECT id, order_index, lat, lng, question, option_a, option_b, option_c
+       FROM wp_waypoints WHERE route_id=$1 AND order_index=$2`,
+      [routeId, nextIndex],
+    );
+
+    res.json({
+      correct: true,
+      completed: false,
+      next_waypoint: nextWp.rows[0],
+      current_index: nextIndex,
+      total: total.rows[0].cnt,
+    });
+  } catch (e) {
+    console.error("POST /api/wp/routes/:id/answer:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Highscore einer Route ────────────────────────────────────────────────────
+app.get("/api/wp/routes/:id/score", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT c.player_code, c.time_seconds, c.completed_at,
+             RANK() OVER (ORDER BY c.time_seconds ASC) AS rank
+      FROM wp_completions c
+      WHERE c.route_id = $1
+      ORDER BY c.time_seconds ASC
+      LIMIT 20
+    `,
+      [+req.params.id],
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("GET /api/wp/routes/:id/score:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Meine Routen + Fortschritt ───────────────────────────────────────────────
+app.get("/api/wp/my", async (req, res) => {
+  const { code, token } = req.query;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    const created = await pool.query(
+      `SELECT r.*, COUNT(w.id)::int AS waypoint_count,
+              COUNT(DISTINCT c.player_code)::int AS completion_count
+       FROM wp_routes r
+       LEFT JOIN wp_waypoints w ON w.route_id=r.id
+       LEFT JOIN wp_completions c ON c.route_id=r.id
+       WHERE r.code=$1 GROUP BY r.id ORDER BY r.created_at DESC`,
+      [code],
+    );
+    const completions = await pool.query(
+      `SELECT c.*, r.name AS route_name, r.difficulty,
+              (SELECT COUNT(*)::int FROM wp_waypoints WHERE route_id=r.id) AS waypoint_count
+       FROM wp_completions c JOIN wp_routes r ON r.id=c.route_id
+       WHERE c.player_code=$1 ORDER BY c.completed_at DESC`,
+      [code],
+    );
+    res.json({ created: created.rows, completions: completions.rows });
+  } catch (e) {
+    console.error("GET /api/wp/my:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Route erstellen ──────────────────────────────────────────────────────────
+app.post("/api/wp/routes", async (req, res) => {
+  const { code, token, name, description, difficulty } = req.body;
+  if (!code || !token || !name)
+    return res.status(400).json({ error: "code, token, name erforderlich" });
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO wp_routes (code, name, description, difficulty)
+       VALUES ($1,$2,$3,$4) RETURNING *`,
+      [
+        code,
+        name.slice(0, 80),
+        description?.slice(0, 300) || null,
+        Math.min(5, Math.max(1, +difficulty || 1)),
+      ],
+    );
+    res.json({ success: true, route: rows[0] });
+  } catch (e) {
+    console.error("POST /api/wp/routes:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── WayPoint hinzufügen ──────────────────────────────────────────────────────
+app.post("/api/wp/routes/:id/waypoints", async (req, res) => {
+  const {
+    code,
+    token,
+    lat,
+    lng,
+    question,
+    option_a,
+    option_b,
+    option_c,
+    correct_option,
+  } = req.body;
+  const routeId = +req.params.id;
+  if (
+    !code ||
+    !token ||
+    !lat ||
+    !lng ||
+    !question ||
+    !option_a ||
+    !option_b ||
+    !option_c ||
+    !correct_option
+  ) {
+    return res.status(400).json({ error: "Alle Felder erforderlich" });
+  }
+  if (!["a", "b", "c"].includes(correct_option)) {
+    return res
+      .status(400)
+      .json({ error: "correct_option muss a, b oder c sein" });
+  }
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    // Gehört die Route diesem Nutzer?
+    const owns = await pool.query(
+      "SELECT id FROM wp_routes WHERE id=$1 AND code=$2 AND published=false",
+      [routeId, code],
+    );
+    if (!owns.rows.length)
+      return res
+        .status(403)
+        .json({ error: "Route nicht gefunden oder bereits veröffentlicht" });
+
+    // Nächsten order_index berechnen
+    const cnt = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM wp_waypoints WHERE route_id=$1",
+      [routeId],
+    );
+    const { rows } = await pool.query(
+      `INSERT INTO wp_waypoints
+         (route_id, order_index, lat, lng, question, option_a, option_b, option_c, correct_option)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, order_index`,
+      [
+        routeId,
+        cnt.rows[0].n,
+        lat,
+        lng,
+        question.slice(0, 300),
+        option_a.slice(0, 120),
+        option_b.slice(0, 120),
+        option_c.slice(0, 120),
+        correct_option,
+      ],
+    );
+    res.json({ success: true, waypoint: rows[0] });
+  } catch (e) {
+    console.error("POST /api/wp/routes/:id/waypoints:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Route veröffentlichen ────────────────────────────────────────────────────
+app.post("/api/wp/routes/:id/publish", async (req, res) => {
+  const { code, token } = req.body;
+  const routeId = +req.params.id;
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    // Mindestens 2 WayPoints erforderlich
+    const cnt = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM wp_waypoints WHERE route_id=$1",
+      [routeId],
+    );
+    if (cnt.rows[0].n < 2)
+      return res
+        .status(400)
+        .json({ error: "Mindestens 2 WayPoints erforderlich" });
+
+    await pool.query(
+      "UPDATE wp_routes SET published=true WHERE id=$1 AND code=$2",
+      [routeId, code],
+    );
+    console.log(`🗺️ WayPoint-Route veröffentlicht: ${routeId} von ${code}`);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("POST /api/wp/routes/:id/publish:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Route löschen ────────────────────────────────────────────────────────────
+app.delete("/api/wp/routes/:id", async (req, res) => {
+  const { code, token } = req.body;
+  const routeId = +req.params.id;
+  try {
+    const auth = await pool.query(
+      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      [code],
+    );
+    if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
+      return res.status(403).json({ error: "Ungültiger Token" });
+    }
+    await pool.query("DELETE FROM wp_routes WHERE id=$1 AND code=$2", [
+      routeId,
+      code,
+    ]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("DELETE /api/wp/routes/:id:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIVE SPOTS
+// Mobile Profil-Spots – Creator setzt Standort manuell, Follower bekommen
+// Push wenn Creator innerhalb 10km online geht.
+// ══════════════════════════════════════════════════════════════════════════════
+
+function liveHaversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371,
+    dLat = ((lat2 - lat1) * Math.PI) / 180,
+    dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function authCheck(code, token) {
+  const r = await pool.query(
+    "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+    [code],
+  );
+  return r.rows.length && r.rows.some((row) => row.token === token);
+}
+
+// ── Live Spot erstellen ──────────────────────────────────────────────────────
+app.post("/api/live-spots", async (req, res) => {
+  const { code, token, name, description, category, avatar } = req.body;
+  if (!code || !token || !name)
+    return res.status(400).json({ error: "code, token, name erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    const lsToken = crypto.randomBytes(16).toString("hex");
+    const { rows } = await pool.query(
+      `INSERT INTO live_spots (token, creator_code, name, description, category, avatar)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [
+        lsToken,
+        code,
+        name.slice(0, 80),
+        description?.slice(0, 300) || null,
+        category || null,
+        avatar || null,
+      ],
+    );
+    console.log(`📡 Live Spot erstellt: "${name}" von ${code}`);
+    res.json({ success: true, spot: rows[0] });
+  } catch (e) {
+    console.error("POST /api/live-spots:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Alle online Live Spots (für Karte) ──────────────────────────────────────
+app.get("/api/live-spots", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, token, name, description, category, avatar,
+              status, lat, lng, location_note, follower_count, updated_at
+       FROM live_spots WHERE status = 'online' ORDER BY updated_at DESC`,
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("GET /api/live-spots:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Meine Live Spots ─────────────────────────────────────────────────────────
+// MUSS vor /:id stehen!
+app.get("/api/live-spots/mine", async (req, res) => {
+  const { code, token } = req.query;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    const { rows } = await pool.query(
+      "SELECT * FROM live_spots WHERE creator_code=$1 ORDER BY created_at DESC",
+      [code],
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Live Spots denen ich folge ───────────────────────────────────────────────
+app.get("/api/live-spots/following", async (req, res) => {
+  const { code, token } = req.query;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    const { rows } = await pool.query(
+      `SELECT ls.* FROM live_spots ls
+       INNER JOIN live_followers lf ON lf.live_spot_id = ls.id
+       WHERE lf.follower_code = $1 ORDER BY ls.status DESC, ls.updated_at DESC`,
+      [code],
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Einzelner Live Spot (öffentlich) ────────────────────────────────────────
+app.get("/api/live-spots/:id", async (req, res) => {
+  try {
+    const col = isNaN(req.params.id) ? "token" : "id";
+    const { rows } = await pool.query(
+      `SELECT id, token, name, description, category, avatar,
+              status, lat, lng, location_note, follower_count, updated_at
+       FROM live_spots WHERE ${col}=$1`,
+      [req.params.id],
+    );
+    if (!rows.length)
+      return res.status(404).json({ error: "Live Spot nicht gefunden" });
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Live gehen (Standort setzen + online schalten) ───────────────────────────
+app.post("/api/live-spots/:id/golive", async (req, res) => {
+  const { code, token, lat, lng, location_note } = req.body;
+  if (!code || !token || lat == null || lng == null)
+    return res
+      .status(400)
+      .json({ error: "code, token, lat, lng erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    const result = await pool.query(
+      `UPDATE live_spots SET status='online', lat=$1, lng=$2,
+       location_note=$3, updated_at=NOW()
+       WHERE id=$4 AND creator_code=$5 RETURNING *`,
+      [lat, lng, location_note || null, req.params.id, code],
+    );
+    if (!result.rowCount)
+      return res.status(404).json({ error: "Live Spot nicht gefunden" });
+
+    const spot = result.rows[0];
+    console.log(
+      `📡 Live Spot online: "${spot.name}" @ ${lat.toFixed(4)},${lng.toFixed(4)}`,
+    );
+
+    // Push an Follower innerhalb 10km (fire-and-forget)
+    sendLivePush(spot).catch(console.error);
+
+    res.json({ success: true, spot });
+  } catch (e) {
+    console.error("POST /api/live-spots/:id/golive:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Offline gehen ─────────────────────────────────────────────────────────────
+app.post("/api/live-spots/:id/gooffline", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    await pool.query(
+      `UPDATE live_spots SET status='offline', updated_at=NOW()
+       WHERE id=$1 AND creator_code=$2`,
+      [req.params.id, code],
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Live Spot Profil bearbeiten ──────────────────────────────────────────────
+app.put("/api/live-spots/:id", async (req, res) => {
+  const { code, token, name, description, category, avatar } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    await pool.query(
+      `UPDATE live_spots SET name=$1, description=$2, category=$3, avatar=$4, updated_at=NOW()
+       WHERE id=$5 AND creator_code=$6`,
+      [
+        name?.slice(0, 80),
+        description?.slice(0, 300) || null,
+        category || null,
+        avatar || null,
+        req.params.id,
+        code,
+      ],
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Folgen ────────────────────────────────────────────────────────────────────
+app.post("/api/live-spots/:id/follow", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    await pool.query(
+      `INSERT INTO live_followers (live_spot_id, follower_code) VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [req.params.id, code],
+    );
+    await pool.query(
+      "UPDATE live_spots SET follower_count = (SELECT COUNT(*) FROM live_followers WHERE live_spot_id=$1) WHERE id=$1",
+      [req.params.id],
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Entfolgen ────────────────────────────────────────────────────────────────
+app.delete("/api/live-spots/:id/follow", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    await pool.query(
+      "DELETE FROM live_followers WHERE live_spot_id=$1 AND follower_code=$2",
+      [req.params.id, code],
+    );
+    await pool.query(
+      "UPDATE live_spots SET follower_count = (SELECT COUNT(*) FROM live_followers WHERE live_spot_id=$1) WHERE id=$1",
+      [req.params.id],
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// ── Letzten Standort eines Nutzers aktualisieren (für 10km Push-Filter) ─────
+app.post("/api/location/update", async (req, res) => {
+  const { code, token, lat, lng } = req.body;
+  if (!code || !token || lat == null || lng == null)
+    return res.status(400).json({ error: "Pflichtfelder fehlen" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    await pool.query(
+      "UPDATE profiles SET last_lat=$1, last_lng=$2, last_seen=NOW() WHERE code=$3",
+      [lat, lng, code],
+    );
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+// Push an Follower innerhalb 10km wenn Live Spot online geht
+async function sendLivePush(spot) {
+  if (!spot.lat || !spot.lng) return;
+  const { rows: followers } = await pool.query(
+    `SELECT p.code, p.last_lat, p.last_lng, ps.endpoint, ps.p256dh, ps.auth
+     FROM live_followers lf
+     JOIN profiles p ON p.code = lf.follower_code
+     LEFT JOIN push_subscriptions ps ON ps.code = p.code
+     WHERE lf.live_spot_id = $1 AND ps.endpoint IS NOT NULL`,
+    [spot.id],
+  );
+  const payload = JSON.stringify({
+    title: `📡 ${spot.name} ist jetzt live!`,
+    body: spot.location_note || "Tippe um den Standort zu sehen.",
+    url: `/live-spot.html?id=${spot.id}`,
+    tag: `live-${spot.id}`,
+  });
+  for (const f of followers) {
+    // Push nur wenn Follower Standort bekannt und innerhalb 10km
+    if (f.last_lat && f.last_lng) {
+      const km = liveHaversineKm(
+        +f.last_lat,
+        +f.last_lng,
+        +spot.lat,
+        +spot.lng,
+      );
+      if (km > 10) continue;
+    }
+    webpush
+      .sendNotification(
+        { endpoint: f.endpoint, keys: { p256dh: f.p256dh, auth: f.auth } },
+        payload,
+      )
+      .catch(async (err) => {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await pool
+            .query("DELETE FROM push_subscriptions WHERE endpoint=$1", [
+              f.endpoint,
+            ])
+            .catch(() => {});
+        }
+      });
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PING & START
