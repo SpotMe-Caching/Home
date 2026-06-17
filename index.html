@@ -374,7 +374,7 @@ const CODE = localStorage.getItem('sm_code') || '000000';
 // ── OpenRouteService API-Key ──────────────────────────────────────────────────
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
 
-let map, userPos, placeMode = false, tempLatLng = null;
+let map, userPos, userMarker, placeMode = false, tempLatLng = null;
 let mySpots = [], allSpots = [], markers = [];
 let onlineSet = new Set();
 let selectedInviteSpot = null;
@@ -556,32 +556,34 @@ function initMap() {
     attributionControl: false
   });
 
-map.on('load', () => {
-  loadAllSpots();
-  startInvitePolling();
-  checkBlueskyStatusForRail();
+  map.on('load', () => {
+    loadAllSpots();
+    startInvitePolling();
+    checkBlueskyStatusForRail();
 
-  // Navi-Deep-Link prüfen
-  const urlParams = new URLSearchParams(window.location.search);
-  const navLat = urlParams.get('navlat');
-  if (navLat) {
-    openNavOverlay(parseFloat(navLat), parseFloat(urlParams.get('navlng')), urlParams.get('navname'));
-  }
-});
+    // Navi-Deep-Link prüfen
+    const urlParams = new URLSearchParams(window.location.search);
+    const navLat = urlParams.get('navlat');
+    if (navLat) {
+      openNavOverlay(parseFloat(navLat), parseFloat(urlParams.get('navlng')), urlParams.get('navname'));
+    }
+  });
 
   navigator.geolocation?.getCurrentPosition(pos => {
     userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    
+
     // Nur zentrieren, wenn wir nicht über einen geteilten Link reingekommen sind
     const urlParams = new URLSearchParams(window.location.search);
     if (!urlParams.get('spot')) {
       map.setCenter([userPos.lng, userPos.lat]);
       map.setZoom(15);
     }
-    
+
     const el = document.createElement('div');
     el.className = 'user-marker';
-    new maplibregl.Marker({ element: el }).setLngLat([userPos.lng, userPos.lat]).addTo(map);
+    userMarker = new maplibregl.Marker({ element: el })   // ← Fix: zuweisen statt nur erstellen
+      .setLngLat([userPos.lng, userPos.lat])
+      .addTo(map);
   });
 
   map.on('click', e => {
