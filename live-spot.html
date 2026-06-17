@@ -205,8 +205,9 @@ async function loadSpot(id) {
         onclick="toggleFollow(${spot.id})">
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
-      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng})">🧭 Route</button>` : ''}
-    </div>
+      // Zeile 208 — Button: spot.name jetzt beim Rendern einbetten
+      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
+      </div>
 
     ${!CODE ? `<div style="font-size:0.78rem;color:var(--muted2);text-align:center;">
       <a href="/" style="color:var(--acc);">App öffnen</a> um zu folgen und Benachrichtigungen zu erhalten.
@@ -234,9 +235,9 @@ async function toggleFollow(id) {
   } catch { showToast('⚠️ Verbindungsfehler'); }
   btn.disabled = false;
 }
-
-function navigate(lat, lng) {
-  window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(spot.name || 'Spot')}`;
+// Zeile 238 — navigate() nimmt jetzt name als Parameter
+function navigate(lat, lng, name) {
+  window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(name || 'Spot')}`;
 }
 
 const params = new URLSearchParams(window.location.search);
