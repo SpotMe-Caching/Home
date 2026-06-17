@@ -205,8 +205,8 @@ async function loadSpot(id) {
         onclick="toggleFollow(${spot.id})">
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
-      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng})">🧭 Route</button>` : ''}
-    </div>
+      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
+      </div>
 
     ${!CODE ? `<div style="font-size:0.78rem;color:var(--muted2);text-align:center;">
       <a href="/" style="color:var(--acc);">App öffnen</a> um zu folgen und Benachrichtigungen zu erhalten.
@@ -235,11 +235,8 @@ async function toggleFollow(id) {
   btn.disabled = false;
 }
 
-function navigate(lat, lng) {
-  if (!navigator.geolocation) { showToast('❌ GPS nicht verfügbar'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    window.open(`https://www.google.com/maps/dir/${pos.coords.latitude},${pos.coords.longitude}/${lat},${lng}`,'_blank');
-  }, () => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,'_blank'));
+function navigate(lat, lng, name) {
+  window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(name || 'Spot')}`;
 }
 
 const params = new URLSearchParams(window.location.search);
