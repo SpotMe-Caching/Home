@@ -556,11 +556,18 @@ function initMap() {
     attributionControl: false
   });
 
-  map.on('load', () => {
-    loadAllSpots();
-    startInvitePolling();
-    checkBlueskyStatusForRail(); // Bluesky Icon auf Verfügbarkeit prüfen
-  });
+map.on('load', () => {
+  loadAllSpots();
+  startInvitePolling();
+  checkBlueskyStatusForRail();
+
+  // Navi-Deep-Link prüfen
+  const urlParams = new URLSearchParams(window.location.search);
+  const navLat = urlParams.get('navlat');
+  if (navLat) {
+    openNavOverlay(parseFloat(navLat), parseFloat(urlParams.get('navlng')), urlParams.get('navname'));
+  }
+});
 
   navigator.geolocation?.getCurrentPosition(pos => {
     userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };

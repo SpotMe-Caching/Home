@@ -236,10 +236,7 @@ async function toggleFollow(id) {
 }
 
 function navigate(lat, lng) {
-  if (!navigator.geolocation) { showToast('❌ GPS nicht verfügbar'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    window.open(`https://www.google.com/maps/dir/${pos.coords.latitude},${pos.coords.longitude}/${lat},${lng}`,'_blank');
-  }, () => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,'_blank'));
+  window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(spot.name || 'Spot')}`;
 }
 
 const params = new URLSearchParams(window.location.search);
