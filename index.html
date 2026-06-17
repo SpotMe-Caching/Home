@@ -3585,7 +3585,11 @@ async function loadLiveDrawer(body) {
   if (!mine.length && !following.length) html += `<div class="empty-state"><div class="es-icon">📡</div>Noch keine Live Spots.<br><span style="font-size:0.75rem;">Erstelle einen oder entdecke welche auf der Karte.</span></div>`;
 
   body.innerHTML = html;
-  body.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>navigateToSpot(+b.dataset.lat,+b.dataset.lng)));
+   body.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>{
+   const lat = +b.dataset.lat, lng = +b.dataset.lng;
+   closeDrawer();
+   setTimeout(() => navigateToSpot(lat, lng), 300);
+   }));
 }
 
 // ── MATCH ────────────────────────────────────────────────────────────────────
