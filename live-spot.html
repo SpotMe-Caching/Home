@@ -205,7 +205,6 @@ async function loadSpot(id) {
         onclick="toggleFollow(${spot.id})">
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
-      // Zeile 208 — Button: spot.name jetzt beim Rendern einbetten
       ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
       </div>
 
