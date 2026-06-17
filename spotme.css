@@ -51,6 +51,17 @@
   pointer-events: none;
 }
 
+/* News Teaser */
+#newsOverlay { position:fixed; inset:0; z-index:920; background:rgba(8,12,16,0.78); backdrop-filter:blur(6px); display:none; align-items:flex-end; justify-content:center; }
+#newsOverlay.active { display:flex; }
+.news-card { background:var(--card); border:1px solid var(--bord2); border-radius:22px 22px 0 0; width:100%; max-width:480px; padding:1.5rem 1.25rem max(1.5rem, env(safe-area-inset-bottom)); animation:newsSlideUp .3s ease; }
+@keyframes newsSlideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+.news-emoji { font-size:2rem; margin-bottom:.5rem; }
+.news-title { font-size:1.1rem; font-weight:700; margin-bottom:.6rem; }
+.news-body { font-size:.9rem; color:var(--muted2); line-height:1.55; margin-bottom:1.25rem; }
+.news-body b, .news-body strong { color:var(--text); }
+.news-close-btn { width:100%; padding:.8rem; border:none; border-radius:13px; background:var(--acc); color:#080b10; font-weight:700; font-size:.92rem; cursor:pointer; }
+
 /* ── NAV-RAIL (links, scrollbar, taktisch) ─────────────────────────── */
 #navRail {
   position: fixed;

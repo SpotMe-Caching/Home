@@ -5,7 +5,7 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ══════════════════════════════════════════════════════════════
-const CACHE_VERSION = "v98.5"; // Erhöht für SW-Update
+const CACHE_VERSION = "v99.0"; // Erhöht für SW-Update
 const CACHE_STATIC = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API = `spotme-api-${CACHE_VERSION}`;
 const CACHE_TILES = `spotme-map-tiles-${CACHE_VERSION}`;
@@ -13,6 +13,23 @@ const CACHE_TILES = `spotme-map-tiles-${CACHE_VERSION}`;
 // Max. Anzahl der zu speichernden Kartenkacheln
 // Schützt vor Speicherüberlauf. Pro Kachel ca. 10-50 KB.
 const MAX_TILE_CACHE_ITEMS = 750;
+
+// ── NEWS TEASER: Network First ─────────────────────────────────
+// Immer aktuellen Content holen, Cache nur als Offline-Fallback.
+if (url.pathname.endsWith("/news.md")) {
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_STATIC).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request)),
+  );
+  return;
+}
 
 // Alle Dateien die offline verfügbar sein müssen.
 // Schlägt eine Datei fehl, wird sie übersprungen (kein Totalausfall).

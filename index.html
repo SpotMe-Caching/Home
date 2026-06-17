@@ -6,6 +6,8 @@
 
 <link rel="stylesheet" href="spotme.css">
 
+<script src="https://unpkg.com/marked@4.3.0/marked.min.js"></script>
+
 <script src="bluesky.js"></script>
 <script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js"></script>
 
@@ -314,6 +316,16 @@
 
 <!-- ── Navigation Overlay ─────────────────────────────────────────────── -->
 <div id="naviOverlay">
+
+<div id="newsOverlay">
+  <div class="news-card">
+    <div class="news-emoji" id="newsEmoji">🆕</div>
+    <div class="news-title" id="newsTitle"></div>
+    <div class="news-body" id="newsBody"></div>
+    <button class="news-close-btn" onclick="closeNewsTeaser()">Weiter →</button>
+  </div>
+</div>
+
   <div id="naviMap"></div>
 
   <!-- Topbar -->
@@ -601,6 +613,45 @@ function initMap() {
 
   if ('Notification' in window) Notification.requestPermission();
 }
+
+async function loadNewsTeaser() {
+  let raw;
+  try {
+    raw = await fetch('news.md', { cache: 'no-store' }).then(r => r.ok ? r.text() : null);
+  } catch { raw = null; }
+  if (!raw) return;
+
+  const [meta, ...rest] = raw.split('\n---\n');
+  const body = rest.join('\n---\n').trim();
+  const fields = {};
+  meta.split('\n').forEach(line => {
+    const idx = line.indexOf(':');
+    if (idx === -1) return;
+    fields[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+  });
+
+  if (!fields.id || !shouldShowNews(fields.id)) return;
+
+  window.__currentNewsId = fields.id;
+  document.getElementById('newsEmoji').textContent = fields.emoji || '🆕';
+  document.getElementById('newsTitle').textContent = fields.title || '';
+  document.getElementById('newsBody').innerHTML = marked.parse(body);
+  document.getElementById('newsOverlay').classList.add('active');
+}
+
+function shouldShowNews(id) {
+  const s = JSON.parse(localStorage.getItem('sm_news_state') || 'null');
+  if (!s) return true;
+  if (s.id !== id) return true;
+  return Date.now() - s.shownAt > 7*24*60*60*1000;
+}
+
+function closeNewsTeaser() {
+  localStorage.setItem('sm_news_state', JSON.stringify({ id: window.__currentNewsId, shownAt: Date.now() }));
+  document.getElementById('newsOverlay').classList.remove('active');
+}
+
+loadNewsTeaser();
 
 // Auto Reload der Karte uns Spots 
 function manualRefresh() {
