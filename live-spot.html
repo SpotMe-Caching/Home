@@ -235,7 +235,7 @@ async function toggleFollow(id) {
   } catch { showToast('⚠️ Verbindungsfehler'); }
   btn.disabled = false;
 }
-// Zeile 238 — navigate() nimmt jetzt name als Parameter
+
 function navigate(lat, lng, name) {
   window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(name || 'Spot')}`;
 }
