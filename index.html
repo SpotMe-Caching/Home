@@ -60,6 +60,9 @@
       <button class="topbar-btn" id="radiusTopBtn" onclick="openRadiusSearch()" title="Radius-Suche">
         <i data-lucide="scan" class="nav-icon"></i>
       </button>
+      <button class="topbar-btn" id="newsTopBtn" onclick="loadNewsTeaser(true)" title="News">
+      <i data-lucide="newspaper" class="nav-icon"></i>
+      </button>
     </div>
   </div>
 
@@ -619,12 +622,13 @@ function initMap() {
   if ('Notification' in window) Notification.requestPermission();
 }
 
-async function loadNewsTeaser() {
+
+async function loadNewsTeaser(force = false) {
   let raw;
   try {
     raw = await fetch('news.md', { cache: 'no-store' }).then(r => r.ok ? r.text() : null);
   } catch { raw = null; }
-  if (!raw) return;
+  if (!raw) { if (force) toast('⚠️ Keine News verfügbar'); return; }
 
   const [meta, ...rest] = raw.split('\n---\n');
   const body = rest.join('\n---\n').trim();
@@ -635,7 +639,7 @@ async function loadNewsTeaser() {
     fields[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
   });
 
-  if (!fields.id || !shouldShowNews(fields.id)) return;
+  if (!fields.id || (!force && !shouldShowNews(fields.id))) return;
 
   window.__currentNewsId = fields.id;
   document.getElementById('newsEmoji').textContent = fields.emoji || '🆕';
