@@ -1,4 +1,4 @@
-02: news-2026-w25
+id: news-2026-w25
 emoji: 🆕
 title: Live Spots sind da!
 ---
