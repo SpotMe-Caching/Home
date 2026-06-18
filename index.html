@@ -622,7 +622,6 @@ function initMap() {
   if ('Notification' in window) Notification.requestPermission();
 }
 
-
 async function loadNewsTeaser(force = false) {
   let raw;
   try {
@@ -644,9 +643,18 @@ async function loadNewsTeaser(force = false) {
   window.__currentNewsId = fields.id;
   document.getElementById('newsEmoji').textContent = fields.emoji || '🆕';
   document.getElementById('newsTitle').textContent = fields.title || '';
-  document.getElementById('newsBody').innerHTML = marked.parse(body);
+
+  let html;
+  try {
+    html = (typeof marked !== 'undefined') ? marked.parse(body) : body;
+  } catch (err) {
+    console.warn('[News] marked.parse fehlgeschlagen:', err);
+    html = body;
+  }
+  document.getElementById('newsBody').innerHTML = html;
   document.getElementById('newsOverlay').classList.add('active');
 }
+
 
 function shouldShowNews(id) {
   const s = JSON.parse(localStorage.getItem('sm_news_state') || 'null');
