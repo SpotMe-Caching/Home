@@ -564,7 +564,7 @@ function openImg(src) {
 function initMap() {
   map = new maplibregl.Map({
     container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
+    style: 'https://tiles.openfreemap.org/styles/satellite',
     center: [-0.38, 39.47],
     zoom: 14,
     attributionControl: false
@@ -1117,7 +1117,7 @@ function openNavOverlay(lat, lng, name) {
 
     naviMap = new maplibregl.Map({
       container: 'naviMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/satellite',
       center, zoom: 14,
       attributionControl: false
     });
@@ -2708,7 +2708,7 @@ async function openSpotDetail(spotId) {
   setTimeout(() => {
     detailMiniMap = new maplibregl.Map({
       container: 'spotDetailMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/satellite',
       center: [spot.lng, spot.lat],
       zoom: 14,
       interactive: false,
@@ -3209,7 +3209,7 @@ function openWeeklyCreateModal() {
     const center = userPos ? [userPos.lng, userPos.lat] : [0, 0];
     weeklyMiniMap = new maplibregl.Map({
       container: 'weeklyCreateMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/satellite',
       center,
       zoom: 13,
       attributionControl: false
