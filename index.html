@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-
 <meta charset="UTF-8">
 
 <link rel="stylesheet" href="spotme.css">
@@ -16,7 +15,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<!-- iPhone X, XS, 11 Pro, 12 Mini, 13 Mini -->
+<!-- iPhone X, XS, 11 Pro, 12 Mini, 13 Mini  -->
 <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash-1125x2436.png">
 <!-- iPhone 8, 7, 6, SE -->
 <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/icons/splash-750x1334.png">
@@ -58,6 +57,7 @@
       <button class="topbar-btn" id="newsTopBtn" onclick="loadNewsTeaser(true)" title="News">
       <i data-lucide="newspaper" class="nav-icon"></i>
       </button>
+      <button class="btn-primary" onclick="donate(5)">❤️ 5€ spenden</button>
     </div>
   </div>
 
@@ -576,6 +576,8 @@ function initMap() {
     startInvitePolling();
     checkBlueskyStatusForRail();
 
+    setTimeout(() => loadNewsTeaser(), 1500);
+
     // Navi-Deep-Link prüfen
     const urlParams = new URLSearchParams(window.location.search);
     const navLat = urlParams.get('navlat');
@@ -662,8 +664,6 @@ function closeNewsTeaser() {
   localStorage.setItem('sm_news_state', JSON.stringify({ id: window.__currentNewsId, shownAt: Date.now() }));
   document.getElementById('newsOverlay').classList.remove('active');
 }
-
-loadNewsTeaser();
 
 // Auto Reload der Karte uns Spots 
 function manualRefresh() {
@@ -2329,6 +2329,22 @@ async function checkFavoriteNotifications() {
       badge.style.display = 'inline-block';
     }
   } catch {}
+}
+
+// SumUp Donate
+async function donate(amount) {
+  try {
+    const r = await fetch(`${API}/donate/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    const data = await r.json();
+    if (!data.url) { toast('⚠️ Spende gerade nicht möglich'); return; }
+    window.location.href = data.url;
+  } catch {
+    toast('⚠️ Verbindungsfehler');
+  }
 }
 
 // ── WETTER (Open-Meteo) ──────────────────────────────────────────────────────
