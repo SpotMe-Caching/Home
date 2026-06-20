@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v7.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v8.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -347,7 +347,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v7.0 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v8.0 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
@@ -2199,6 +2199,7 @@ app.get("/api/userspots/:code", async (req, res) => {
               image,           -- immer zurückgeben, nicht nach Status filtern
               image_status,    -- Frontend kann den Status selbst anzeigen
               active,
+              area_type, time_pref, crowd_level, intimacy_level,
               created_at
        FROM user_spots
        WHERE code = $1
@@ -4035,7 +4036,8 @@ app.post("/api/donate/checkout", async (req, res) => {
         merchant_code: process.env.SUMUP_MERCHANT_CODE,
         description: "SpotMe Caching · Spende",
         return_url: "https://spotme-caching.github.io/?donation=danke",
-        callback_url: "https://spotme-chat-obom.onrender.com/api/donate/callback",
+        callback_url:
+          "https://spotme-chat-obom.onrender.com/api/donate/callback",
         hosted_checkout: { enabled: true },
       }),
     });
