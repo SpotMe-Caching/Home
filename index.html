@@ -169,6 +169,24 @@
     <input id="spotDesc" class="finp" placeholder="Was macht diesen Spot besonders?" maxlength="120">
     <span class="finp-label">Wunsch-Tag</span>
     <select id="spotWish" class="finp"></select>
+    <span class="finp-label">Kategorie</span>
+    <select id="spotCategory" class="finp">
+  <option value="">— keine —</option>
+  <option value="Bahnhof">🚉 Bahnhof</option>
+  <option value="Club">🎉 Club</option>
+  <option value="Einkaufsviertel">🛍️ Einkaufsviertel</option>
+  <option value="Filmtheater">🎬 Filmtheater</option>
+  <option value="Fitnesscenter">💪 Fitnesscenter</option>
+  <option value="Industriepark">🏭 Industriepark</option>
+  <option value="Internetcafé">💻 Internetcafé</option>
+  <option value="Naturschutzgebiet">🌿 Naturschutzgebiet</option>
+  <option value="Park">🌳 Park</option>
+  <option value="Rastplatz">🛣️ Rastplatz</option>
+  <option value="Restaurant">🍽️ Restaurant</option>
+  <option value="Sauna">🧖 Sauna</option>
+  <option value="Strand">🏖️ Strand</option>
+  <option value="Sonstiges">📌 Sonstiges</option>
+</select>
     <span class="finp-label">Foto (optional)</span>
     <div id="spotPhotoPreview" style="display:none;margin-bottom:0.6rem;position:relative;">
       <img id="spotPhotoImg" src="" alt="" style="width:100%;max-height:160px;object-fit:cover;border-radius:11px;border:1px solid var(--bord2);">
@@ -1001,6 +1019,7 @@ async function saveSpot() {
   const name=document.getElementById('spotName').value.trim();
   const desc=document.getElementById('spotDesc').value.trim();
   const wish=document.getElementById('spotWish').value;
+  const category=document.getElementById('spotCategory').value;   // ← neu
   if (!name) { toast('⚠️ Name eingeben'); return; }
 
   if (editSpotId) {
@@ -1008,7 +1027,7 @@ async function saveSpot() {
     try {
       await fetch(`${API}/userspots/${editSpotId}`, {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ code:CODE, name, description:desc, wishTag:wish, image:spotPhotoData||null })
+        body: JSON.stringify({ code:CODE, name, description:desc, wishTag:wish, area_type:category||null, image:spotPhotoData||null })
       });
     } catch {}
     toast('✅ Spot aktualisiert');
