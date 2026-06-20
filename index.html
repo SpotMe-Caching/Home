@@ -877,11 +877,12 @@ function buildFilterStrip() {
   const categories = Object.keys(counts);
 
   if (!categories.length) {
+    strip.innerHTML = '';
     strip.style.display = 'none';
     return;
   }
 
-  strip.style.display = 'flex';
+  const wasVisible = strip.style.display === 'flex'; // ← Zustand merken
 
   const allCount = allSpots.length;
   strip.innerHTML = `
@@ -896,6 +897,8 @@ function buildFilterStrip() {
         <span class="pill-count">${counts[cat]}</span>
       </div>
     `).join('')}`;
+
+  strip.style.display = wasVisible ? 'flex' : 'none'; // ← nur wiederherstellen, nicht erzwingen
 
   strip.querySelectorAll('.filter-pill').forEach(pill => {
     pill.addEventListener('click', () => {
