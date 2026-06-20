@@ -510,7 +510,7 @@ function openSpotEdit(s) {
   document.getElementById('spotName').value = s.name || '';
   document.getElementById('spotDesc').value = s.description || '';
   document.getElementById('spotWish').value = s.wishTag || '';
-
+  document.getElementById('spotCategory').value = s.area_type || '';
   spotPhotoData = null;
   if (s.image) {
     spotPhotoData = s.image;
