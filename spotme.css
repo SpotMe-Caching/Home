@@ -62,6 +62,57 @@
 .news-body b, .news-body strong { color:var(--text); }
 .news-close-btn { width:100%; padding:.8rem; border:none; border-radius:13px; background:var(--acc); color:#080b10; font-weight:700; font-size:.92rem; cursor:pointer; }
 
+/* ── KATEGORIE-FILTER STRIP (unter der Topbar) ─────────────────────── */
+.filter-strip {
+  position: fixed;
+  top: calc(max(0.65rem, env(safe-area-inset-top)) + 0.65rem + 34px + 1px);
+  left: 54px;
+  right: 0;
+  z-index: 190;
+  display: none;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(8,11,16,0.88);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--bord2);
+  scrollbar-width: none;
+}
+.filter-strip::-webkit-scrollbar { display: none; }
+
+.filter-pill {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--bord2);
+  color: var(--muted2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.filter-pill:hover {
+  color: var(--text);
+  border-color: rgba(255,159,0,0.2);
+}
+.filter-pill.active {
+  background: var(--acc-dim);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+}
+.pill-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+.all-pill { font-weight: 700; }
+
 /* ── NAV-RAIL (links, scrollbar, taktisch) ─────────────────────────── */
 #navRail {
   position: fixed;
