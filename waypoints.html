@@ -219,6 +219,29 @@ select.finp{appearance:none;cursor:pointer}
 .wp-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .section-title{font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted2);font-weight:700;letter-spacing:0.08em;margin-bottom:0.1rem}
+
+.diff-row{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.4rem}
+.diff-btn{flex:1 1 30%;padding:0.55rem;border-radius:10px;background:var(--bg);border:1px solid var(--bord2);color:var(--muted2);font-size:0.8rem;cursor:pointer;transition:all 0.18s;text-align:center}
+
+.osm-suggest-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.35rem;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--bord2);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.osm-suggest-btn:hover {
+  border-color: var(--acc-glow);
+  background: var(--acc-dim);
+}
+
 </style>
 </head>
 <body>
@@ -300,6 +323,13 @@ select.finp{appearance:none;cursor:pointer}
           <button class="diff-btn" data-d="2" onclick="setDiff(2)">⭐⭐ Mittel</button>
           <button class="diff-btn" data-d="3" onclick="setDiff(3)">⭐⭐⭐ Schwer</button>
         </div>
+         <div class="diff-row" id="diffRow">
+           <button class="diff-btn sel" data-d="1" onclick="setDiff(1)">⭐ Leicht</button>
+           <button class="diff-btn" data-d="2" onclick="setDiff(2)">⭐⭐ Mittel</button>
+           <button class="diff-btn" data-d="3" onclick="setDiff(3)">⭐⭐⭐ Schwer</button>
+           <button class="diff-btn" data-d="4" onclick="setDiff(4)">⭐⭐⭐⭐ Experte</button>
+           <button class="diff-btn" data-d="5" onclick="setDiff(5)">⭐⭐⭐⭐⭐ Meister</button>
+         </div>
         <button class="btn-primary" id="crCreateBtn" onclick="createRoute()">Route anlegen →</button>
       </div>
 
@@ -313,23 +343,38 @@ select.finp{appearance:none;cursor:pointer}
         </div>
 
         <div id="createMap"></div>
+        <div id="osmSuggestions" style="display:none;margin-top:0.6rem;"></div>
 
-        <span class="finp-label" style="margin-top:0.75rem;">Frage an diesem WayPoint</span>
-        <textarea class="finp" id="wpQuestion" placeholder="Was steht auf dem Schild an der Brücke?" maxlength="300" rows="2"></textarea>
+<span class="finp-label" style="margin-top:0.75rem;">Frage an diesem WayPoint</span>
+<textarea class="finp" id="wpQuestion" placeholder="Was steht auf dem Schild an der Brücke?" maxlength="300" rows="2"></textarea>
 
-        <span class="finp-label">Option A</span>
-        <input class="finp" id="wpOptA" placeholder="Erste Antwortoption" maxlength="120">
-        <span class="finp-label">Option B</span>
-        <input class="finp" id="wpOptB" placeholder="Zweite Antwortoption" maxlength="120">
-        <span class="finp-label">Option C</span>
-        <input class="finp" id="wpOptC" placeholder="Dritte Antwortoption" maxlength="120">
+<span class="finp-label">Fragetyp</span>
+<div class="diff-row" id="qTypeRow">
+  <button class="diff-btn sel" data-t="multiple_choice" onclick="setQType('multiple_choice')">☑️ Multiple Choice</button>
+  <button class="diff-btn" data-t="freitext" onclick="setQType('freitext')">✏️ Freitext</button>
+</div>
 
-        <span class="finp-label">Richtige Antwort</span>
-        <div class="correct-row">
-          <button class="correct-opt-btn" data-v="a" onclick="setCorrect('a')">A</button>
-          <button class="correct-opt-btn" data-v="b" onclick="setCorrect('b')">B</button>
-          <button class="correct-opt-btn" data-v="c" onclick="setCorrect('c')">C</button>
-        </div>
+<div id="mcFields">
+  <span class="finp-label">Option A</span>
+  <input class="finp" id="wpOptA" placeholder="Erste Antwortoption" maxlength="120">
+  <span class="finp-label">Option B</span>
+  <input class="finp" id="wpOptB" placeholder="Zweite Antwortoption" maxlength="120">
+  <span class="finp-label">Option C</span>
+  <input class="finp" id="wpOptC" placeholder="Dritte Antwortoption" maxlength="120">
+
+  <span class="finp-label">Richtige Antwort</span>
+  <div class="correct-row">
+    <button class="correct-opt-btn" data-v="a" onclick="setCorrect('a')">A</button>
+    <button class="correct-opt-btn" data-v="b" onclick="setCorrect('b')">B</button>
+    <button class="correct-opt-btn" data-v="c" onclick="setCorrect('c')">C</button>
+  </div>
+</div>
+
+<div id="freitextFields" style="display:none;">
+  <span class="finp-label">Richtige Antwort (Freitext)</span>
+  <input class="finp" id="wpCorrectText" placeholder="z.B. 1873" maxlength="200">
+  <div style="font-size:0.72rem;color:var(--muted2);margin-top:0.3rem;">Groß-/Kleinschreibung und Leerzeichen am Rand spielen keine Rolle.</div>
+</div>
 
         <button class="btn-primary" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
 
@@ -457,6 +502,67 @@ let draftWpCount   = 0;
 let createMap      = null;
 let createMarker   = null;
 let createCoords   = null;
+
+let selectedQType = 'multiple_choice';
+function setQType(t) {
+  selectedQType = t;
+  document.querySelectorAll('#qTypeRow .diff-btn').forEach(b => {
+    b.classList.toggle('sel', b.dataset.t === t);
+  });
+  document.getElementById('mcFields').style.display = t === 'multiple_choice' ? '' : 'none';
+  document.getElementById('freitextFields').style.display = t === 'freitext' ? '' : 'none';
+}
+
+async function addWaypoint() {
+  if (!createCoords) { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
+  const q = document.getElementById('wpQuestion').value.trim();
+  if (!q) { toast('⚠️ Bitte eine Frage eingeben'); return; }
+
+  let payload = {
+    code: CODE, token: TOKEN,
+    lat: createCoords.lat, lng: createCoords.lng,
+    question: q, question_type: selectedQType,
+  };
+
+  if (selectedQType === 'multiple_choice') {
+    const a = document.getElementById('wpOptA').value.trim();
+    const b = document.getElementById('wpOptB').value.trim();
+    const c = document.getElementById('wpOptC').value.trim();
+    if (!a || !b || !c) { toast('⚠️ Bitte alle 3 Optionen ausfüllen'); return; }
+    if (!draftCorrect) { toast('⚠️ Bitte richtige Antwort markieren'); return; }
+    payload = { ...payload, option_a: a, option_b: b, option_c: c, correct_option: draftCorrect };
+  } else {
+    const text = document.getElementById('wpCorrectText').value.trim();
+    if (!text) { toast('⚠️ Bitte die richtige Antwort eingeben'); return; }
+    payload.correct_text = text;
+  }
+
+  const btn = document.getElementById('wpAddBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await fetch(`\${API}/wp/routes/\${draftRouteId}/waypoints`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.success) throw new Error(data.error || 'Fehler');
+
+    draftWpCount++;
+    sessionStorage.setItem('wp_draft_count', String(draftWpCount));
+    ['wpQuestion','wpOptA','wpOptB','wpOptC','wpCorrectText'].forEach(id => document.getElementById(id).value = '');
+    draftCorrect = null;
+    document.querySelectorAll('.correct-opt-btn').forEach(b => b.classList.remove('sel'));
+    setQType('multiple_choice');
+    createCoords = null;
+    document.getElementById('osmSuggestions').style.display = 'none';
+    renderWpDraftList();
+    updateWpNextHint();
+    toast(`✅ WayPoint \${draftWpCount} hinzugefügt`);
+  } catch (e) {
+    toast('❌ ' + (e.message || 'Fehler'));
+  }
+  btn.disabled = false; btn.textContent = '＋ WayPoint hinzufügen';
+}
 
 // ── UTILS ────────────────────────────────────────────────────────────────────
 let toastTimer;
@@ -656,25 +762,34 @@ function startTimer() {
   }, 1000);
 }
 
+
 function openQuestion() {
   if (!activeWaypoint) return;
   const overlay = document.getElementById('questionOverlay');
-  document.getElementById('qWpLabel').textContent = `WAYPOINT ${activeIndex+1} VON ${activeRoute?.total}`;
+  document.getElementById('qWpLabel').textContent = `WAYPOINT \${activeIndex+1} VON \${activeRoute?.total}`;
   document.getElementById('qText').textContent = activeWaypoint.question;
   document.getElementById('qFeedback').className='q-feedback';
   document.getElementById('qFeedback').textContent='';
 
-  const opts = [
-    { key:'a', text: activeWaypoint.option_a },
-    { key:'b', text: activeWaypoint.option_b },
-    { key:'c', text: activeWaypoint.option_c }
-  ];
-  document.getElementById('qOptions').innerHTML = opts.map(o =>
-    `<button class="q-option" data-k="${o.key}" onclick="submitAnswer('${o.key}')">
-       <span class="q-option-letter">${o.key.toUpperCase()}</span>
-       ${esc(o.text)}
-     </button>`
-  ).join('');
+  if (activeWaypoint.question_type === 'freitext') {
+    document.getElementById('qOptions').innerHTML = `
+      <input class="finp" id="qFreitextInput" placeholder="Deine Antwort..." maxlength="200">
+      <button class="play-question-btn" style="margin-top:0.6rem;width:100%;" onclick="submitAnswer(document.getElementById('qFreitextInput').value)">Antwort prüfen</button>
+    `;
+    setTimeout(() => document.getElementById('qFreitextInput')?.focus(), 200);
+  } else {
+    const opts = [
+      { key:'a', text: activeWaypoint.option_a },
+      { key:'b', text: activeWaypoint.option_b },
+      { key:'c', text: activeWaypoint.option_c }
+    ];
+    document.getElementById('qOptions').innerHTML = opts.map(o =>
+      `<button class="q-option" data-k="\${o.key}" onclick="submitAnswer('\${o.key}')">
+         <span class="q-option-letter">\${o.key.toUpperCase()}</span>
+         \${esc(o.text)}
+       </button>`
+    ).join('');
+  }
 
   overlay.classList.add('show');
   answering = false;
@@ -686,42 +801,45 @@ function handleQOverlayClick(e) {
   }
 }
 
-async function submitAnswer(key) {
+
+async function submitAnswer(value) {
   if (answering) return;
+  if (!value || !value.trim()) { toast('⚠️ Bitte etwas eingeben'); return; }
   answering = true;
   const fb = document.getElementById('qFeedback');
-  document.querySelectorAll('.q-option').forEach(b => b.classList.add('disabled'));
+  const isMC = activeWaypoint.question_type !== 'freitext';
+  if (isMC) document.querySelectorAll('.q-option').forEach(b => b.classList.add('disabled'));
 
   try {
-    const r = await fetch(`${API}/wp/routes/${activeRoute.id}/answer`, {
+    const r = await fetch(`\${API}/wp/routes/\${activeRoute.id}/answer`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ player_code: CODE, waypoint_index: activeIndex, answer: key })
+      body: JSON.stringify({ player_code: CODE, waypoint_index: activeIndex, answer: value })
     });
     const data = await r.json();
     if (!r.ok) { toast('❌ '+(data.error||'Fehler')); answering=false; return; }
 
     if (!data.correct) {
-      // Falsche Antwort: markieren + Button wieder freigeben
-      document.querySelector(`.q-option[data-k="${key}"]`)?.classList.add('wrong');
+      if (isMC) {
+        document.querySelector(`.q-option[data-k="\${value}"]`)?.classList.add('wrong');
+        document.querySelectorAll('.q-option').forEach(b=>b.classList.remove('disabled'));
+      }
       fb.textContent = '❌ Falsch! Versuche es nochmal.';
       fb.className = 'q-feedback show err';
-      document.querySelectorAll('.q-option').forEach(b=>b.classList.remove('disabled'));
       answering = false;
       return;
     }
 
-    // Richtig!
-    document.querySelector(`.q-option[data-k="${key}"]`)?.classList.add('correct');
+    if (isMC) document.querySelector(`.q-option[data-k="\${value}"]`)?.classList.add('correct');
 
     if (data.completed) {
-      fb.textContent = '🎉 Letzter WayPoint gelöst!';
+      fb.textContent = `🎉 Letzter WayPoint gelöst! +\${data.coins_earned} Coins`;
       fb.className = 'q-feedback show ok';
       setTimeout(() => {
         document.getElementById('questionOverlay').classList.remove('show');
-        showCompletion(data.time_seconds, data.rank);
+        showCompletion(data.time_seconds, data.rank, data.coins_earned);
       }, 1200);
     } else {
-      fb.textContent = '✅ Richtig! Nächster WayPoint wird geladen…';
+      fb.textContent = `✅ Richtig! +\${data.coins_earned} Coins — nächster WayPoint wird geladen…`;
       fb.className = 'q-feedback show ok';
       setTimeout(() => {
         document.getElementById('questionOverlay').classList.remove('show');
@@ -732,7 +850,8 @@ async function submitAnswer(key) {
           addWpMarker();
           playMap.flyTo({ center:[activeWaypoint.lng,activeWaypoint.lat], zoom:14, duration:800 });
         }
-        toast(`✅ WayPoint ${activeIndex} gelöst! Weiter zu WayPoint ${activeIndex+1}`);
+        refreshCoinDisplay();
+        toast(`✅ WayPoint \${activeIndex} gelöst! Weiter zu WayPoint \${activeIndex+1}`);
       }, 1000);
     }
   } catch {
@@ -741,7 +860,8 @@ async function submitAnswer(key) {
   }
 }
 
-function showCompletion(timeSec, rank) {
+
+function showCompletion(timeSec, rank, coinsEarned) {
   clearInterval(timerInterval);
   stopGPS();
   lastCompletedRouteId = activeRoute?.id;
@@ -749,13 +869,24 @@ function showCompletion(timeSec, rank) {
   document.getElementById('completeRouteName').textContent = activeRoute?.name || '';
   document.getElementById('completeTime').textContent = fmtTime(timeSec);
   document.getElementById('completeWpCount').textContent = activeRoute?.total || '—';
-  const rankTxt = rank === 1 ? '🥇 Du bist Erster!' : rank === 2 ? '🥈 Platz 2!' : rank === 3 ? '🥉 Platz 3!' : `Platz ${rank}`;
-  document.getElementById('completeRank').innerHTML = `<strong>${rankTxt}</strong> auf dem Highscore dieser Route`;
+  const rankTxt = rank === 1 ? '🥇 Du bist Erster!' : rank === 2 ? '🥈 Platz 2!' : rank === 3 ? '🥉 Platz 3!' : `Platz \${rank}`;
+  document.getElementById('completeRank').innerHTML = `<strong>\${rankTxt}</strong> auf dem Highscore dieser Route · <strong style="color:var(--acc)">+\${coinsEarned} 🪙</strong>`;
 
   activeRoute=null; activeWaypoint=null; activeIndex=0;
   document.getElementById('tab-play').classList.remove('has-badge');
   document.getElementById('completeOverlay').classList.add('show');
-  loadRoutes(); // Statistiken neu laden
+  loadRoutes();
+  refreshCoinDisplay();
+}
+
+async function refreshCoinDisplay() {
+  if (!CODE) return;
+  try {
+    const r = await fetch(`\${API}/coins/\${CODE}`);
+    const data = await r.json();
+    const el = document.getElementById('coinDisplay');
+    if (el) el.textContent = `🪙 \${data.coins ?? 0}`;
+  } catch {}
 }
 
 function closeComplete() {
@@ -841,6 +972,56 @@ async function createRoute() {
   }
 }
 
+async function fetchNearbyOSM(lat, lng) {
+  const box = document.getElementById('osmSuggestions');
+  box.style.display = 'none';
+  box.innerHTML = '';
+
+  const query = `[out:json][timeout:8];(
+    node(around:60,\${lat},\${lng})[tourism=artwork];
+    node(around:60,\${lat},\${lng})[historic];
+    node(around:60,\${lat},\${lng})[tourism=viewpoint];
+    node(around:60,\${lat},\${lng})[amenity=fountain];
+  );out body;`;
+
+  try {
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: 'data=' + encodeURIComponent(query)
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    const elements = (data.elements || []).filter(e => e.tags?.name);
+    if (!elements.length) return;
+
+    box.style.display = 'block';
+    box.innerHTML = `<div style="font-size:0.72rem;color:var(--muted2);margin-bottom:0.4rem;">📡 In der Nähe gefunden (OpenStreetMap):</div>` +
+      elements.slice(0, 4).map((e, i) => {
+        const name = e.tags.name;
+        const type = e.tags.tourism || e.tags.historic || e.tags.amenity || 'Ort';
+        return `<button class="osm-suggest-btn" onclick='applyOsmSuggestion(\${i})'>📍 \${esc(name)} <span style="opacity:0.6;">(\${esc(type)})</span></button>`;
+      }).join('');
+
+    window.__osmCandidates = elements;
+  } catch {
+    // Overpass nicht erreichbar – einfach ignorieren, manuelle Eingabe bleibt möglich
+  }
+}
+
+function applyOsmSuggestion(i) {
+  const e = window.__osmCandidates?.[i];
+  if (!e) return;
+  const name = e.tags.name;
+  let question = `Wie heißt dieser Ort/dieses Objekt hier?`;
+  if (e.tags.start_date) {
+    question = `In welchem Jahr wurde "\${name}" errichtet?`;
+  } else if (e.tags.artist_name) {
+    question = `Von wem stammt "\${name}"?`;
+  }
+  document.getElementById('wpQuestion').value = question;
+  toast(`✅ Vorschlag übernommen: \${name}`);
+}
+
 function initCreateMap() {
   if (createMap) { createMap.remove(); createMap=null; createMarker=null; }
   const center = userPos ? [userPos.lng,userPos.lat] : [0,20];
@@ -855,13 +1036,14 @@ function initCreateMap() {
     });
   }
   createMap.on('click', e => {
-    createCoords = { lat: e.lngLat.lat, lng: e.lngLat.lng };
-    if (createMarker) createMarker.remove();
-    const el = document.createElement('div');
-    el.style.cssText='width:22px;height:22px;background:var(--acc);border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(245,158,11,0.8);';
-    createMarker = new maplibregl.Marker({element:el}).setLngLat([createCoords.lng,createCoords.lat]).addTo(createMap);
-    toast(`📍 Position gesetzt (WP ${draftWpCount+1})`);
-  });
+  createCoords = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+  if (createMarker) createMarker.remove();
+  const el = document.createElement('div');
+  el.style.cssText='width:22px;height:22px;background:var(--acc);border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(245,158,11,0.8);';
+  createMarker = new maplibregl.Marker({element:el}).setLngLat([createCoords.lng,createCoords.lat]).addTo(createMap);
+  toast(`📍 Position gesetzt (WP \${draftWpCount+1})`);
+  fetchNearbyOSM(createCoords.lat, createCoords.lng); // ← neu
+});
 }
 
 function setCorrect(v) {
