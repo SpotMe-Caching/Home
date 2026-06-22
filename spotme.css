@@ -360,7 +360,7 @@
       display: none; flex-direction: column;
     }
     #naviOverlay.active { display: flex; }
-    #naviMap { width: 100%; height: 100%; }
+    #naviMap { width: 100%; height: 25vh; }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display: none !important; }
 
     .navi-topbar {
