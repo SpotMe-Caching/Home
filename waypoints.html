@@ -2,9 +2,9 @@
 <html lang="de">
 <head>
 
-<!-- Eruda – Mobile Console (nur für Debugging) -->
+<!-- Eruda – Mobile Console (nur für Debugging)
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
+  <script>eruda.init();</script> -->
   
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -513,57 +513,6 @@ function setQType(t) {
   document.getElementById('freitextFields').style.display = t === 'freitext' ? '' : 'none';
 }
 
-async function addWaypoint() {
-  if (!createCoords) { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
-  const q = document.getElementById('wpQuestion').value.trim();
-  if (!q) { toast('⚠️ Bitte eine Frage eingeben'); return; }
-
-  let payload = {
-    code: CODE, token: TOKEN,
-    lat: createCoords.lat, lng: createCoords.lng,
-    question: q, question_type: selectedQType,
-  };
-
-  if (selectedQType === 'multiple_choice') {
-    const a = document.getElementById('wpOptA').value.trim();
-    const b = document.getElementById('wpOptB').value.trim();
-    const c = document.getElementById('wpOptC').value.trim();
-    if (!a || !b || !c) { toast('⚠️ Bitte alle 3 Optionen ausfüllen'); return; }
-    if (!draftCorrect) { toast('⚠️ Bitte richtige Antwort markieren'); return; }
-    payload = { ...payload, option_a: a, option_b: b, option_c: c, correct_option: draftCorrect };
-  } else {
-    const text = document.getElementById('wpCorrectText').value.trim();
-    if (!text) { toast('⚠️ Bitte die richtige Antwort eingeben'); return; }
-    payload.correct_text = text;
-  }
-
-  const btn = document.getElementById('wpAddBtn');
-  btn.disabled = true; btn.textContent = '⏳';
-  try {
-    const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await r.json();
-    if (!r.ok || !data.success) throw new Error(data.error || 'Fehler');
-
-    draftWpCount++;
-    sessionStorage.setItem('wp_draft_count', String(draftWpCount));
-    ['wpQuestion','wpOptA','wpOptB','wpOptC','wpCorrectText'].forEach(id => document.getElementById(id).value = '');
-    draftCorrect = null;
-    document.querySelectorAll('.correct-opt-btn').forEach(b => b.classList.remove('sel'));
-    setQType('multiple_choice');
-    createCoords = null;
-    document.getElementById('osmSuggestions').style.display = 'none';
-    renderWpDraftList();
-    updateWpNextHint();
-    toast(`✅ WayPoint ${draftWpCount} hinzugefügt`);
-  } catch (e) {
-    toast('❌ ' + (e.message || 'Fehler'));
-  }
-  btn.disabled = false; btn.textContent = '＋ WayPoint hinzufügen';
-}
-
 // ── UTILS ────────────────────────────────────────────────────────────────────
 let toastTimer;
 function toast(msg) {
@@ -1052,38 +1001,53 @@ function setCorrect(v) {
 }
 
 async function addWaypoint() {
-  if (!createCoords)                        { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
-  const q=document.getElementById('wpQuestion').value.trim();
-  const a=document.getElementById('wpOptA').value.trim();
-  const b=document.getElementById('wpOptB').value.trim();
-  const c=document.getElementById('wpOptC').value.trim();
-  if (!q||!a||!b||!c)                      { toast('⚠️ Frage und alle 3 Optionen ausfüllen'); return; }
-  if (!draftCorrect)                        { toast('⚠️ Bitte die richtige Antwort markieren'); return; }
+  if (!createCoords) { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
+  const q = document.getElementById('wpQuestion').value.trim();
+  if (!q) { toast('⚠️ Bitte eine Frage eingeben'); return; }
 
-  const btn=document.getElementById('wpAddBtn');
-  btn.disabled=true; btn.textContent='⏳';
+  let payload = {
+    code: CODE, token: TOKEN,
+    lat: createCoords.lat, lng: createCoords.lng,
+    question: q, question_type: selectedQType,
+  };
+
+  let summaryHtml = '';
+  if (selectedQType === 'multiple_choice') {
+    const a = document.getElementById('wpOptA').value.trim();
+    const b = document.getElementById('wpOptB').value.trim();
+    const c = document.getElementById('wpOptC').value.trim();
+    if (!a || !b || !c) { toast('⚠️ Bitte alle 3 Optionen ausfüllen'); return; }
+    if (!draftCorrect) { toast('⚠️ Bitte richtige Antwort markieren'); return; }
+    payload = { ...payload, option_a: a, option_b: b, option_c: c, correct_option: draftCorrect };
+    summaryHtml = `A:${esc(a)} · B:${esc(b)} · C:${esc(c)} → <b style="color:var(--cyan);">${draftCorrect.toUpperCase()}</b>`;
+  } else {
+    const text = document.getElementById('wpCorrectText').value.trim();
+    if (!text) { toast('⚠️ Bitte die richtige Antwort eingeben'); return; }
+    payload.correct_text = text;
+    summaryHtml = `Freitext-Antwort: <b style="color:var(--cyan);">${esc(text)}</b>`;
+  }
+
+  const btn = document.getElementById('wpAddBtn');
+  btn.disabled = true; btn.textContent = '⏳';
   try {
     const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        code:CODE, token:TOKEN,
-        lat:createCoords.lat, lng:createCoords.lng,
-        question:q, option_a:a, option_b:b, option_c:c,
-        correct_option:draftCorrect
-      })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    const data=await r.json();
-    if (!r.ok) throw new Error(data.error||'Fehler');
+    const data = await r.json();
+    if (!r.ok || !data.success) throw new Error(data.error || 'Fehler');
+
     draftWpCount++;
     sessionStorage.setItem('wp_draft_count', String(draftWpCount));
-    const savedCorrect = draftCorrect; // vor dem Reset sichern
 
     // Formular zurücksetzen
-    ['wpQuestion','wpOptA','wpOptB','wpOptC'].forEach(id=>document.getElementById(id).value='');
-    draftCorrect=null;
-    document.querySelectorAll('.correct-opt-btn').forEach(b=>b.classList.remove('sel'));
-    createCoords=null;
-    if (createMarker) { createMarker.remove(); createMarker=null; }
+    ['wpQuestion','wpOptA','wpOptB','wpOptC','wpCorrectText'].forEach(id => document.getElementById(id).value = '');
+    draftCorrect = null;
+    document.querySelectorAll('.correct-opt-btn').forEach(b => b.classList.remove('sel'));
+    setQType('multiple_choice');
+    createCoords = null;
+    if (createMarker) { createMarker.remove(); createMarker = null; }
+    document.getElementById('osmSuggestions').style.display = 'none';
 
     // Hinweis + Finale-Anzeige aktualisieren
     const hintEl = document.getElementById('wpNextHintText');
@@ -1094,21 +1058,20 @@ async function addWaypoint() {
     }
 
     // Liste aktualisieren
-    const item=document.createElement('div');
-    item.className='wp-draft-item';
-    item.innerHTML=`<div class="wp-draft-num">${draftWpCount}</div><div class="wp-draft-q">${esc(q)}<br><span style="font-size:0.7rem;color:var(--muted2);">A:${esc(a)} · B:${esc(b)} · C:${esc(c)} → <b style="color:var(--cyan);">${savedCorrect.toUpperCase()}</b></span></div>`;
+    const item = document.createElement('div');
+    item.className = 'wp-draft-item';
+    item.innerHTML = `<div class="wp-draft-num">${draftWpCount}</div><div class="wp-draft-q">${esc(q)}<br><span style="font-size:0.7rem;color:var(--muted2);">${summaryHtml}</span></div>`;
     document.getElementById('wpDraftList').appendChild(item);
 
     toast(`✅ WayPoint ${draftWpCount} gespeichert – tippe jetzt WayPoint ${draftWpCount + 1} auf der Karte`);
 
-    // Auto-Scroll zurück zur Karte
     setTimeout(() => {
       document.getElementById('createMap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 200);
-  } catch(e) {
-    toast('❌ '+(e.message||'Fehler'));
+  } catch (e) {
+    toast('❌ ' + (e.message || 'Fehler'));
   }
-  btn.disabled=false; btn.textContent='＋ WayPoint hinzufügen';
+  btn.disabled = false; btn.textContent = '＋ WayPoint hinzufügen';
 }
 
 async function publishRoute() {
