@@ -5,7 +5,7 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ═════════════════════════════════════════════════════════════
-const CACHE_VERSION = "v113.1"; // Erhöht für SW-Update
+const CACHE_VERSION = "v113.5"; // Erhöht für SW-Update
 const CACHE_STATIC = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API = `spotme-api-${CACHE_VERSION}`;
 const CACHE_TILES = `spotme-map-tiles-${CACHE_VERSION}`;
@@ -51,7 +51,7 @@ const STATIC_ASSETS = [
 
 // API-Antworten maximal so lange im Cache behalten (in Sekunden).
 // Verhindert unbegrenztes Cache-Wachstum.
-const API_CACHE_MAX_AGE = 60; // 1 Minute
+const API_CACHE_MAX_AGE = 60;
 
 // ── INSTALLATION ─────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
