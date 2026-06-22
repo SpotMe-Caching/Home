@@ -535,7 +535,7 @@ async function addWaypoint() {
   const btn = document.getElementById('wpAddBtn');
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const r = await fetch(`\${API}/wp/routes/\${draftRouteId}/waypoints`, {
+    const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -552,7 +552,7 @@ async function addWaypoint() {
     document.getElementById('osmSuggestions').style.display = 'none';
     renderWpDraftList();
     updateWpNextHint();
-    toast(`✅ WayPoint \${draftWpCount} hinzugefügt`);
+    toast(`✅ WayPoint ${draftWpCount} hinzugefügt`);
   } catch (e) {
     toast('❌ ' + (e.message || 'Fehler'));
   }
@@ -761,7 +761,7 @@ function startTimer() {
 function openQuestion() {
   if (!activeWaypoint) return;
   const overlay = document.getElementById('questionOverlay');
-  document.getElementById('qWpLabel').textContent = `WAYPOINT \${activeIndex+1} VON \${activeRoute?.total}`;
+  document.getElementById('qWpLabel').textContent = `WAYPOINT ${activeIndex+1} VON ${activeRoute?.total}`;
   document.getElementById('qText').textContent = activeWaypoint.question;
   document.getElementById('qFeedback').className='q-feedback';
   document.getElementById('qFeedback').textContent='';
@@ -779,9 +779,9 @@ function openQuestion() {
       { key:'c', text: activeWaypoint.option_c }
     ];
     document.getElementById('qOptions').innerHTML = opts.map(o =>
-      `<button class="q-option" data-k="\${o.key}" onclick="submitAnswer('\${o.key}')">
-         <span class="q-option-letter">\${o.key.toUpperCase()}</span>
-         \${esc(o.text)}
+      `<button class="q-option" data-k="${o.key}" onclick="submitAnswer('${o.key}')">
+         <span class="q-option-letter">${o.key.toUpperCase()}</span>
+         ${esc(o.text)}
        </button>`
     ).join('');
   }
@@ -806,7 +806,7 @@ async function submitAnswer(value) {
   if (isMC) document.querySelectorAll('.q-option').forEach(b => b.classList.add('disabled'));
 
   try {
-    const r = await fetch(`\${API}/wp/routes/\${activeRoute.id}/answer`, {
+    const r = await fetch(`${API}/wp/routes/${activeRoute.id}/answer`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ player_code: CODE, waypoint_index: activeIndex, answer: value })
     });
@@ -815,7 +815,7 @@ async function submitAnswer(value) {
 
     if (!data.correct) {
       if (isMC) {
-        document.querySelector(`.q-option[data-k="\${value}"]`)?.classList.add('wrong');
+        document.querySelector(`.q-option[data-k="${value}"]`)?.classList.add('wrong');
         document.querySelectorAll('.q-option').forEach(b=>b.classList.remove('disabled'));
       }
       fb.textContent = '❌ Falsch! Versuche es nochmal.';
@@ -824,17 +824,17 @@ async function submitAnswer(value) {
       return;
     }
 
-    if (isMC) document.querySelector(`.q-option[data-k="\${value}"]`)?.classList.add('correct');
+    if (isMC) document.querySelector(`.q-option[data-k="${value}"]`)?.classList.add('correct');
 
     if (data.completed) {
-      fb.textContent = `🎉 Letzter WayPoint gelöst! +\${data.coins_earned} Coins`;
+      fb.textContent = `🎉 Letzter WayPoint gelöst! +${data.coins_earned} Coins`;
       fb.className = 'q-feedback show ok';
       setTimeout(() => {
         document.getElementById('questionOverlay').classList.remove('show');
         showCompletion(data.time_seconds, data.rank, data.coins_earned);
       }, 1200);
     } else {
-      fb.textContent = `✅ Richtig! +\${data.coins_earned} Coins — nächster WayPoint wird geladen…`;
+      fb.textContent = `✅ Richtig! +${data.coins_earned} Coins — nächster WayPoint wird geladen…`;
       fb.className = 'q-feedback show ok';
       setTimeout(() => {
         document.getElementById('questionOverlay').classList.remove('show');
@@ -846,7 +846,7 @@ async function submitAnswer(value) {
           playMap.flyTo({ center:[activeWaypoint.lng,activeWaypoint.lat], zoom:14, duration:800 });
         }
         refreshCoinDisplay();
-        toast(`✅ WayPoint \${activeIndex} gelöst! Weiter zu WayPoint \${activeIndex+1}`);
+        toast(`✅ WayPoint ${activeIndex} gelöst! Weiter zu WayPoint ${activeIndex+1}`);
       }, 1000);
     }
   } catch {
@@ -864,8 +864,8 @@ function showCompletion(timeSec, rank, coinsEarned) {
   document.getElementById('completeRouteName').textContent = activeRoute?.name || '';
   document.getElementById('completeTime').textContent = fmtTime(timeSec);
   document.getElementById('completeWpCount').textContent = activeRoute?.total || '—';
-  const rankTxt = rank === 1 ? '🥇 Du bist Erster!' : rank === 2 ? '🥈 Platz 2!' : rank === 3 ? '🥉 Platz 3!' : `Platz \${rank}`;
-  document.getElementById('completeRank').innerHTML = `<strong>\${rankTxt}</strong> auf dem Highscore dieser Route · <strong style="color:var(--acc)">+\${coinsEarned} 🪙</strong>`;
+  const rankTxt = rank === 1 ? '🥇 Du bist Erster!' : rank === 2 ? '🥈 Platz 2!' : rank === 3 ? '🥉 Platz 3!' : `Platz ${rank}`;
+  document.getElementById('completeRank').innerHTML = `<strong>${rankTxt}</strong> auf dem Highscore dieser Route · <strong style="color:var(--acc)">+${coinsEarned} 🪙</strong>`;
 
   activeRoute=null; activeWaypoint=null; activeIndex=0;
   document.getElementById('tab-play').classList.remove('has-badge');
@@ -877,10 +877,10 @@ function showCompletion(timeSec, rank, coinsEarned) {
 async function refreshCoinDisplay() {
   if (!CODE) return;
   try {
-    const r = await fetch(`\${API}/coins/\${CODE}`);
+    const r = await fetch(`${API}/coins/${CODE}`);
     const data = await r.json();
     const el = document.getElementById('coinDisplay');
-    if (el) el.textContent = `🪙 \${data.coins ?? 0}`;
+    if (el) el.textContent = `🪙 ${data.coins ?? 0}`;
   } catch {}
 }
 
@@ -973,10 +973,10 @@ async function fetchNearbyOSM(lat, lng) {
   box.innerHTML = '';
 
   const query = `[out:json][timeout:8];(
-    node(around:60,\${lat},\${lng})[tourism=artwork];
-    node(around:60,\${lat},\${lng})[historic];
-    node(around:60,\${lat},\${lng})[tourism=viewpoint];
-    node(around:60,\${lat},\${lng})[amenity=fountain];
+    node(around:60,${lat},${lng})[tourism=artwork];
+    node(around:60,${lat},${lng})[historic];
+    node(around:60,${lat},${lng})[tourism=viewpoint];
+    node(around:60,${lat},${lng})[amenity=fountain];
   );out body;`;
 
   try {
@@ -994,7 +994,7 @@ async function fetchNearbyOSM(lat, lng) {
       elements.slice(0, 4).map((e, i) => {
         const name = e.tags.name;
         const type = e.tags.tourism || e.tags.historic || e.tags.amenity || 'Ort';
-        return `<button class="osm-suggest-btn" onclick='applyOsmSuggestion(\${i})'>📍 \${esc(name)} <span style="opacity:0.6;">(\${esc(type)})</span></button>`;
+        return `<button class="osm-suggest-btn" onclick='applyOsmSuggestion(${i})'>📍 ${esc(name)} <span style="opacity:0.6;">(${esc(type)})</span></button>`;
       }).join('');
 
     window.__osmCandidates = elements;
@@ -1009,12 +1009,12 @@ function applyOsmSuggestion(i) {
   const name = e.tags.name;
   let question = `Wie heißt dieser Ort/dieses Objekt hier?`;
   if (e.tags.start_date) {
-    question = `In welchem Jahr wurde "\${name}" errichtet?`;
+    question = `In welchem Jahr wurde "${name}" errichtet?`;
   } else if (e.tags.artist_name) {
-    question = `Von wem stammt "\${name}"?`;
+    question = `Von wem stammt "${name}"?`;
   }
   document.getElementById('wpQuestion').value = question;
-  toast(`✅ Vorschlag übernommen: \${name}`);
+  toast(`✅ Vorschlag übernommen: ${name}`);
 }
 
 function initCreateMap() {
@@ -1036,7 +1036,7 @@ function initCreateMap() {
   const el = document.createElement('div');
   el.style.cssText='width:22px;height:22px;background:var(--acc);border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(245,158,11,0.8);';
   createMarker = new maplibregl.Marker({element:el}).setLngLat([createCoords.lng,createCoords.lat]).addTo(createMap);
-  toast(`📍 Position gesetzt (WP \${draftWpCount+1})`);
+  toast(`📍 Position gesetzt (WP ${draftWpCount+1})`);
   fetchNearbyOSM(createCoords.lat, createCoords.lng); // ← neu
 });
 }
