@@ -28,7 +28,7 @@
 <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash-1179x2556.png">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SpotMe · Caching</title>
+  <title>SpotMe · 🇪🇺</title>
   <meta name="theme-color" content="#0a0d12">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
@@ -430,27 +430,36 @@ const i18n = {
   locale: 'de',
   data: {},
 
-  // Sprache initialisieren & laden
-  async init() {
-    // Browser-Sprache ermitteln (z.B. "en-US" -> "en")
-    const browserLang = (navigator.language || 'de-DE').split('-')[0];
-    this.locale = ['de', 'en'].includes(browserLang) ? browserLang : 'de';
+// Sprache initialisieren & laden
+async init() {
+  const browserLang = (navigator.language || 'de-DE').split('-')[0];
+  this.locale = ['de', 'en'].includes(browserLang) ? browserLang : 'de';
 
-    try {
-      const res = await fetch(`/locales/${this.locale}.json`);
-      if (res.ok) this.data = await res.json();
-    } catch (e) {
-      // Fallback auf Deutsch falls Datei nicht existiert
-      console.warn('Übersetzungsdatei nicht gefunden, verwende Default.');
-      this.locale = 'de';
-    }
+  try {
+    const res = await fetch(`/locales/${this.locale}.json`);
+    if (res.ok) this.data = await res.json();
+  } catch (e) {
+    console.warn('Übersetzungsdatei nicht gefunden, verwende Default.');
+    this.locale = 'de';
+  }
 
-    // 1. Statische HTML-Elemente übersetzen
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.dataset.i18n;
-      el.textContent = this.t(key);
-    });
-  },
+  // ═══════════════════════════════════════════════════════════════
+  // 0. Browser Tab Titel setzen (NEU)
+  document.title = this.t('app_title_flag');
+  // ═══════════════════════════════════════════════════════════════
+
+  // 1. Statische HTML-Elemente übersetzen
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    el.textContent = this.t(key);
+  });
+
+  // 2. Tooltip-Titel (data-i18n-title) übersetzen
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.dataset.i18nTitle;
+    el.title = this.t(key);
+  });
+},
 
   // Übersetzung abrufen (Fallback: Wenn Key nicht existiert, zeige Key an)
   t(key) {
