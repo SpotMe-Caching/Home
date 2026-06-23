@@ -406,6 +406,45 @@
 <script>
 'use strict';
 
+// ═══════════════════════════════════════════════
+// SIMPLE JSON i18n TRANSLATION HELPER
+// ═══════════════════════════════════════════════
+const i18n = {
+  locale: 'de',
+  data: {},
+
+  // Sprache initialisieren & laden
+  async init() {
+    // Browser-Sprache ermitteln (z.B. "en-US" -> "en")
+    const browserLang = (navigator.language || 'de-DE').split('-')[0];
+    this.locale = ['de', 'en'].includes(browserLang) ? browserLang : 'de';
+
+    try {
+      const res = await fetch(`/locales/${this.locale}.json`);
+      if (res.ok) this.data = await res.json();
+    } catch (e) {
+      // Fallback auf Deutsch falls Datei nicht existiert
+      console.warn('Übersetzungsdatei nicht gefunden, verwende Default.');
+      this.locale = 'de';
+    }
+
+    // 1. Statische HTML-Elemente übersetzen
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      el.textContent = this.t(key);
+    });
+  },
+
+  // Übersetzung abrufen (Fallback: Wenn Key nicht existiert, zeige Key an)
+  t(key) {
+    return this.data[key] || key;
+  }
+};
+
+// Direkt beim Start initialisieren (bevor die Karte lädt)
+await i18n.init();
+// ═══════════════════════════════════════════════
+
 const API  = 'https://spotme-chat-obom.onrender.com/api';
 const CODE = localStorage.getItem('sm_code') || '000000';
 

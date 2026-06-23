@@ -1,0 +1,17 @@
+{
+  "app_title": "SpotMe · Caching",
+  "place_mode_text": "Spot platzieren",
+  "place_mode_sub": "Tippe auf die Karte",
+  "my_spots": "Meine Spots",
+  "all_spots": "Alle Spots",
+  "new_spots": "Neue Spots",
+  "invites": "Einladungen",
+  "favorites": "Favoriten",
+  "chats": "CHATS",
+  "share_bluesky": "Auf Bluesky teilen",
+  "profil": "Profil",
+  "route": "Route",
+  "no_location": "⚠️ Kein Standort verfügbar",
+  "edit_spot": "✏️ Spot bearbeiten",
+  "delete_spot": "🗑️ Spot gelöscht"
+}
