@@ -457,9 +457,8 @@ const i18n = {
     return this.data[key] || key;
   }
 };
-
-// Direkt beim Start initialisieren (bevor die Karte lädt)
-await i18n.init();
+// Übersetzung im Hintergrund laden (blockiert nicht die Karte)
+i18n.init().catch(err => console.warn('i18n Fehler:', err));
 // ═══════════════════════════════════════════════
 
 // Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
