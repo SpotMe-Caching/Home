@@ -406,6 +406,23 @@
 <script>
 'use strict';
 
+const API  = 'https://spotme-chat-obom.onrender.com/api';
+const CODE = localStorage.getItem('sm_code') || '000000';
+
+// ── OpenRouteService API-Key ──────────────────────────────────────────────────
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
+
+let map, userPos, userMarker, placeMode = false, tempLatLng = null;
+let mySpots = [], allSpots = [], markers = [];
+let onlineSet = new Set();
+let selectedInviteSpot = null;
+let invitePollInterval = null, knownInviteCount = 0;
+let toastTimer, currentDrawer = null;
+let activeRadius = null, detailSpot = null, detailMiniMap = null;
+let radiusCatFilter = null;
+let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null;
+let urlSpotChecked = false; // Verhindert mehrfaches Fliegen zum Spot beim Laden
+
 // ═══════════════════════════════════════════════
 // SIMPLE JSON i18n TRANSLATION HELPER
 // ═══════════════════════════════════════════════
@@ -444,23 +461,6 @@ const i18n = {
 // Direkt beim Start initialisieren (bevor die Karte lädt)
 await i18n.init();
 // ═══════════════════════════════════════════════
-
-const API  = 'https://spotme-chat-obom.onrender.com/api';
-const CODE = localStorage.getItem('sm_code') || '000000';
-
-// ── OpenRouteService API-Key ──────────────────────────────────────────────────
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
-
-let map, userPos, userMarker, placeMode = false, tempLatLng = null;
-let mySpots = [], allSpots = [], markers = [];
-let onlineSet = new Set();
-let selectedInviteSpot = null;
-let invitePollInterval = null, knownInviteCount = 0;
-let toastTimer, currentDrawer = null;
-let activeRadius = null, detailSpot = null, detailMiniMap = null;
-let radiusCatFilter = null;
-let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null;
-let urlSpotChecked = false; // Verhindert mehrfaches Fliegen zum Spot beim Laden
 
 // Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
 function buildRadiusCatPills() {
