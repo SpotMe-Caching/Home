@@ -947,12 +947,12 @@ function buildFilterStrip() {
   const categories = Object.keys(counts);
 
   if (!categories.length) {
-    strip.innerHTML = '';
-    strip.style.display = 'none';
-    return;
+     strip.innerHTML = '';
+     strip.style.display = 'none';
+     document.getElementById('filterTopBtn')?.classList.remove('active');
+     return;
   }
-
-  const wasVisible = strip.style.display === 'flex'; // ← Zustand merken
+  const wasVisible = strip.style.display === 'flex';
 
   const allCount = allSpots.length;
   strip.innerHTML = `
