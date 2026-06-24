@@ -84,6 +84,35 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
   background: #0a0d12;
   display: none; flex-direction: column;
 }
+
+#chatOverlay { position: fixed; inset: 0; z-index: 960; background: #0a0d12; display: none; flex-direction: column; }
+#chatOverlay.active { display: flex; }
+.chat-overlay-header { padding: max(0.85rem, env(safe-area-inset-top)) 1rem 0.85rem; display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+.chat-msgs { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.chat-bubble { max-width: 78%; padding: 0.55rem 0.8rem; border-radius: 14px; font-size: 0.88rem; line-height: 1.4; }
+.chat-bubble.mine { align-self: flex-end; background: var(--acc); color: #080b10; border-bottom-right-radius: 4px; }
+.chat-bubble.theirs { align-self: flex-start; background: #1a222c; color: #dce8f0; border-bottom-left-radius: 4px; }
+.chat-bubble-author { display: block; font-size: 0.68rem; font-weight: 700; color: #22d3ee; margin-bottom: 2px; }
+.chat-bubble-time { font-size: 0.62rem; opacity: 0.6; margin-top: 3px; text-align: right; }
+.chat-input-row { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+.chat-input { flex: 1; background: #141a22; border: 1px solid rgba(255,255,255,0.1); border-radius: 100px; padding: 0.65rem 1rem; color: #dce8f0; font-size: 0.88rem; }
+.chat-send-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--acc); border: none; color: #080b10; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; }
+
+<div id="chatOverlay">
+  <div class="chat-overlay-header">
+    <button class="navi-close-btn" onclick="closeChatOverlay()" title="Schließen">✕</button>
+    <div class="navi-spot-label">
+      <div class="navi-spot-label-name" id="chatPartnerLabel">—</div>
+      <div class="navi-spot-label-sub">CHAT</div>
+    </div>
+  </div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-input-row">
+    <input class="chat-input" id="chatInput" placeholder="Nachricht..." maxlength="500" onkeydown="if(event.key==='Enter')sendChatMsg()">
+    <button class="chat-send-btn" onclick="sendChatMsg()">➤</button>
+  </div>
+</div>
+
 #naviOverlay.active { display: flex; }
 #naviMap { width: 100%; height: 100%; }
 
@@ -215,6 +244,121 @@ let spotMap = null;
 let userPos = null;
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI5NmQwYWMxYmM0MzQxNjdiOTE2Mjk2ZjFiOTk3MmRjIiwiaCI6Im11cm11cjY0In0=';
 
+const CHAT_PREFIX = 'sm_local_msg_';
+let chatPartnerCode = null;
+let chatPartnerName = null;
+let chatRoom        = null;
+let chatPollTimer   = null;
+
+function buildChatRoom(a, b) { return [a, b].sort().join('-'); }
+
+function getChatMessages() {
+  if (!chatRoom) return [];
+  try { return JSON.parse(localStorage.getItem(CHAT_PREFIX + chatRoom) || '[]'); }
+  catch { return []; }
+}
+function saveChatMessages(msgs) {
+  if (!chatRoom) return;
+  localStorage.setItem(CHAT_PREFIX + chatRoom, JSON.stringify(msgs));
+}
+
+function renderChatMessages() {
+  const container = document.getElementById('chatMsgs');
+  if (!container) return;
+  const msgs = getChatMessages();
+  if (!msgs.length) {
+    container.innerHTML = `<div style="text-align:center;color:#64748b;font-size:0.85rem;padding:2rem 0;">💬 Noch keine Nachrichten.</div>`;
+    return;
+  }
+  container.innerHTML = msgs.map(m => {
+    const isMine = m.from === CODE;
+    const time = new Date(m.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">
+      ${!isMine ? `<span class="chat-bubble-author">${esc(m.fromName || chatPartnerName)}</span>` : ''}
+      ${esc(m.text)}
+      <div class="chat-bubble-time">${time}</div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendChatMsg() {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text || !chatPartnerCode) return;
+
+  const myName = JSON.parse(localStorage.getItem('sm_profile_caching') || '{}').name || CODE;
+
+  const msgs = getChatMessages();
+  msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
+  saveChatMessages(msgs);
+  input.value = '';
+  renderChatMessages();
+
+  try {
+    await fetch(`${API}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: chatPartnerCode,
+        sender_code: CODE,
+        sender_name: myName,
+        message: text,
+        spot_type: 'caching_chat'
+      })
+    });
+  } catch {}
+}
+
+function startChatPolling() {
+  stopChatPolling();
+  chatPollTimer = setInterval(async () => {
+    if (!chatPartnerCode || !CODE) return;
+    try {
+      const r = await fetch(`${API}/messages/${CODE}?spot_type=caching_chat`);
+      if (!r.ok) return;
+      const newMsgs = await r.json();
+      const fromPartner = newMsgs.filter(m => m.sender_code === chatPartnerCode);
+      if (!fromPartner.length) return;
+
+      const existing = getChatMessages();
+      let hasNew = false;
+      fromPartner.forEach(m => {
+        const isDuplicate = existing.some(e =>
+          e.from === m.sender_code && e.text === m.message &&
+          Math.abs(e.ts - new Date(m.created_at).getTime()) < 5000
+        );
+        if (!isDuplicate) {
+          existing.push({ from: m.sender_code, fromName: m.sender_name, text: m.message, ts: new Date(m.created_at).getTime() });
+          hasNew = true;
+        }
+      });
+      if (hasNew) { saveChatMessages(existing); renderChatMessages(); }
+    } catch {}
+  }, 4000);
+}
+function stopChatPolling() {
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+}
+
+function openChatOverlay(partnerCode, partnerName) {
+  if (!CODE) { showToast('⚠️ Bitte in der App anmelden'); return; }
+  chatPartnerCode = partnerCode;
+  chatPartnerName = partnerName || partnerCode;
+  chatRoom        = buildChatRoom(CODE, partnerCode);
+
+  document.getElementById('chatPartnerLabel').textContent = chatPartnerName;
+  document.getElementById('chatOverlay').classList.add('active');
+  renderChatMessages();
+  startChatPolling();
+}
+
+function closeChatOverlay() {
+  stopChatPolling();
+  document.getElementById('chatOverlay').classList.remove('active');
+}
+
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -327,6 +471,7 @@ async function loadSpot(id) {
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
       ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
+      ${CODE && spot.creator_code && spot.creator_code !== CODE ? `<button class="btn btn-nav" onclick="openChatOverlay('${spot.creator_code}','${esc(spot.name).replace(/'/g,"\\'")}')">💬 Chat</button>` : ''}
     </div>
 
     ${!CODE ? `<div style="font-size:0.78rem;color:var(--muted2);text-align:center;">
