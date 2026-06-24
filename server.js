@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v8.2 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v8.3 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -374,7 +374,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v8.2 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v8.3 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
@@ -3565,6 +3565,35 @@ app.get("/api/wp/routes/:id/score", async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error("GET /api/wp/routes/:id/score:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+app.get("/api/wp/stats/:code", async (req, res) => {
+  const { code } = req.params;
+  try {
+    const coinsRow = await pool.query(
+      "SELECT coins FROM profiles WHERE code=$1",
+      [code],
+    );
+    const coins = coinsRow.rows[0]?.coins || 0;
+
+    const completions = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM wp_completions WHERE player_code=$1",
+      [code],
+    );
+    const waypointsSolved = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM coin_transactions WHERE code=$1 AND reason='waypoint_solved'",
+      [code],
+    );
+
+    res.json({
+      coins,
+      routes_completed: completions.rows[0].n,
+      waypoints_solved: waypointsSolved.rows[0].n,
+    });
+  } catch (e) {
+    console.error("GET /api/wp/stats/:code:", e.message);
     res.status(500).json({ error: "Datenbankfehler" });
   }
 });
