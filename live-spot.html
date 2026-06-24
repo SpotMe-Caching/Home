@@ -182,6 +182,18 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
   cursor: pointer; transition: all 0.18s;
 }
 .navi-stop-btn:active { transform: scale(0.97); }
+#imgFullscreen {
+  position: fixed; inset: 0; z-index: 970;
+  background: rgba(0,0,0,0.95);
+  display: none; align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#imgFullscreen.show { display: flex; }
+#imgFullscreen img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
 </style>
 </head>
 <body>
@@ -375,6 +387,10 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+function openImg(src) {
+  document.getElementById('imgFullscreenSrc').src = src;
+  document.getElementById('imgFullscreen').classList.add('show');
+}
 
 function initMap(lat, lng) {
   if (spotMap) spotMap.remove();
@@ -431,7 +447,7 @@ async function loadSpot(id) {
 
   content.innerHTML = `
     <div class="profile-head">
-      <div class="avatar">${spot.avatar?`<img src="${spot.avatar}" alt="">`:`${catIcon}`}</div>
+      <div class="avatar" ${spot.avatar ? `onclick="openImg('${spot.avatar}')" style="cursor:zoom-in;"` : ''}>${spot.avatar?`<img src="${spot.avatar}" alt="">`:`${catIcon}`}</div>
       <div class="profile-info">
         <div class="profile-name">${esc(spot.name)}</div>
         <div class="profile-cat">${spot.category||'Live Spot'}</div>
@@ -707,5 +723,8 @@ const params = new URLSearchParams(window.location.search);
 const id = params.get('id') || params.get('token');
 if (id) loadSpot(id);
 </script>
+<div id="imgFullscreen" onclick="this.classList.remove('show')">
+  <img id="imgFullscreenSrc" src="" alt="">
+</div>
 </body>
 </html>
