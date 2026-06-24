@@ -433,7 +433,7 @@ const i18n = {
 // Sprache initialisieren & laden
 async init() {
   const browserLang = (navigator.language || 'de-DE').split('-')[0];
-  this.locale = ['de', 'en', 'es'].includes(browserLang) ? browserLang : 'de';
+  this.locale = ['de', 'en'].includes(browserLang) ? browserLang : 'de';
 
   try {
     const res = await fetch(`/locales/${this.locale}.json`);
