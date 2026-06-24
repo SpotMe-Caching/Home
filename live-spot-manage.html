@@ -500,7 +500,7 @@ function bindAvatarUpload() {
     console.log('Datei:', file.name, file.type, file.size);
 
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 400;
+    canvas.width = canvas.height = 200;
     const ctx = canvas.getContext('2d');
     const img = new Image();
 
@@ -513,7 +513,7 @@ function bindAvatarUpload() {
       console.log('Bild geladen:', img.width, img.height);
       const s = Math.min(img.width, img.height);
       const ox = (img.width - s) / 2, oy = (img.height - s) / 2;
-      ctx.drawImage(img, ox, oy, s, s, 0, 0, 400, 400);
+      ctx.drawImage(img, ox, oy, s, s, 0, 0, 200, 200);
       avatarB64 = canvas.toDataURL('image/jpeg', 0.72);
       console.log('avatarB64 gesetzt, Länge:', avatarB64.length);
 
