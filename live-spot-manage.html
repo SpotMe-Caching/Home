@@ -347,6 +347,7 @@ function initCreateMap() {
 // ── AKTIONEN ─────────────────────────────────────────────────────────────────
 function selectSpot(id) {
   activeSpot = mySpots.find(s => s.id === id) || null;
+  avatarB64  = activeSpot?.avatar || null;
   renderPage();
   // Map nach dem Render initialisieren
   if (activeSpot) setTimeout(() => initLiveMap(activeSpot.lat, activeSpot.lng), 80);
@@ -449,11 +450,10 @@ async function createLiveSpot() {
 }
 
 async function confirmDelete(id) {
-  if (!confirm('Live Spot wirklich löschen? Alle Follower werden benachrichtigt.')) return;
+  if (!confirm('Live Spot wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
   try {
-    // Zuerst offline setzen
-    await fetch(`${API}/live-spots/${id}/gooffline`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    await fetch(`${API}/live-spots/${id}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: CODE, token: TOK })
     });
     toast('🗑️ Live Spot gelöscht');
