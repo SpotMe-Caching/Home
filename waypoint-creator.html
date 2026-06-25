@@ -93,6 +93,13 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
       <button class="btn-secondary" id="exportBtn">📥 Export JSON</button>
       <button class="btn-danger" id="resetBtn">🗑️ Zurücksetzen</button>
     </div>
+<div class="gpx-import-area" style="padding:0.5rem 1rem; background:var(--bg); border-bottom:1px solid var(--bord); display:flex; gap:0.5rem; align-items:center;">
+  <label for="gpxFileInput" class="btn-secondary" style="padding:0.5rem 1rem; border-radius:10px; font-size:0.8rem; cursor:pointer; display:inline-block; flex:1; text-align:center;">
+    📂 GPX importieren
+  </label>
+  <input type="file" id="gpxFileInput" accept=".gpx" style="display:none;" onchange="importGPX(this)">
+  <span id="gpxStatus" style="font-size:0.75rem; color:var(--muted2);">Keine Datei geladen</span>
+</div>
   </div>
 </div>
 
@@ -109,7 +116,104 @@ let watchId = null;
 let wpMarkers = [];
 let toastTimer;
 
-// ── KARTE INIT ──────────────────────────────────────────────────────────────
+// ── GPX IMPORT FUNKTION ──────────────────────────────────────────────────────
+function importGPX(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const xmlText = e.target.result;
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+    // 1. WPTs (WayPoints) extrahieren
+    const wptElements = xmlDoc.getElementsByTagName('wpt');
+    if (wptElements.length === 0) {
+      toast('⚠️ Keine WayPoints (<wpt>) in der GPX-Datei gefunden!');
+      return;
+    }
+
+    // Vorhandene Punkte nicht löschen, sondern anhängen. Oder Frager: "Soll ich sie ersetzen?"
+    // In diesem Beispiel ersetzen wir die aktuelle Route, damit es sauber bleibt.
+    waypoints = [];
+    wpMarkers.forEach(m => m.remove());
+    wpMarkers = [];
+    document.getElementById('wpCount').textContent = '0';
+
+    let index = 1;
+    for (let wpt of wptElements) {
+      const lat = parseFloat(wpt.getAttribute('lat'));
+      const lng = parseFloat(wpt.getAttribute('lon'));
+      
+      // Name und Beschreibung auslesen (Fallback, falls leer)
+      let name = wpt.getElementsByTagName('name')[0]?.textContent || `WayPoint ${index}`;
+      // Alternativ könnten wir die desc als Frage nutzen
+      
+      const newWp = { 
+        lat: lat, 
+        lng: lng, 
+        name: name // Wird in der JSON-Struktur später zu "question"
+      };
+      waypoints.push(newWp);
+      addWpMarker(newWp, index);
+      index++;
+    }
+
+    // Status anzeigen
+    document.getElementById('wpCount').textContent = waypoints.length;
+    document.getElementById('gpxStatus').textContent = `✅ ${waypoints.length} WayPoints importiert`;
+    toast(`📍 ${waypoints.length} WayPoints aus GPX geladen!`);
+
+    // 2. (Optional) TRK (Routen-Linie) zeichnen
+    // Wenn die GPX-Datei einen Track hat, können wir diesen als Linie auf der Karte anzeigen
+    const trkSegments = xmlDoc.getElementsByTagName('trkseg');
+    if (trkSegments.length > 0) {
+      const routeCoords = [];
+      const points = trkSegments[0].getElementsByTagName('trkpt');
+      for (let p of points) {
+        const lat = parseFloat(p.getAttribute('lat'));
+        const lng = parseFloat(p.getAttribute('lon'));
+        routeCoords.push([lng, lat]);
+      }
+
+      // Entferne alte Track-Linie, falls vorhanden
+      if (map.getSource('gpxTrack')) map.removeSource('gpxTrack');
+      if (map.getLayer('gpxTrackLine')) map.removeLayer('gpxTrackLine');
+
+      map.addSource('gpxTrack', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: routeCoords
+          }
+        }
+      });
+      map.addLayer({
+        id: 'gpxTrackLine',
+        type: 'line',
+        source: 'gpxTrack',
+        paint: {
+          'line-color': '#22d3ee',
+          'line-width': 3,
+          'line-dasharray': [5, 3]
+        }
+      });
+
+      // Auf die ersten Punkte der Route zoomen
+      if (routeCoords.length > 0) {
+        map.fitBounds(new maplibregl.LngLatBounds(routeCoords), { padding: 50 });
+      }
+    }
+
+    // Datei-Input zurücksetzen, damit man gleiche Datei nochmal laden kann
+    input.value = '';
+  };
+  reader.readAsText(file);
+  }
+
 // ── KARTE INIT ──────────────────────────────────────────────────────────────
 function initMap() {
   map = new maplibregl.Map({
