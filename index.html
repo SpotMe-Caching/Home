@@ -48,19 +48,23 @@
       SPOT<span style="color:var(--text);font-weight:300;">ME</span>
       <span class="logo-sub">· CACHING</span>
     </div>
-    <div style="display:flex;align-items:center;gap:5px;margin-left:auto;">
-      <button class="topbar-btn" id="filterTopBtn" onclick="toggleFilterStrip()" title="Kategorien">
-        <i data-lucide="layers" class="nav-icon"></i>
-      </button>
-      <button class="topbar-btn" id="radiusTopBtn" onclick="openRadiusSearch()" title="Radius-Suche">
-        <i data-lucide="scan" class="nav-icon"></i>
-      </button>
-      <button class="topbar-btn" id="newsTopBtn" onclick="loadNewsTeaser(true)" title="News">
-      <i data-lucide="newspaper" class="nav-icon"></i>
-      </button>
-      <button class="topbar-btn" onclick="donate(7)">❤️</button>
-    </div>
-  </div>
+
+  <div style="display:flex;align-items:center;gap:5px;margin-left:auto;overflow-x:auto;">
+    <button class="topbar-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Hell/Dunkel">
+    <i data-lucide="sun" class="nav-icon" id="themeIcon"></i>
+    </button>
+    <button class="topbar-btn" id="filterTopBtn" onclick="toggleFilterStrip()" title="Kategorien">
+    <i data-lucide="layers" class="nav-icon"></i>
+    </button>
+    <button class="topbar-btn" id="radiusTopBtn" onclick="openRadiusSearch()" title="Radius-Suche">
+    <i data-lucide="scan" class="nav-icon"></i>
+    </button>
+    <button class="topbar-btn" id="newsTopBtn" onclick="loadNewsTeaser(true)" title="News">
+    <i data-lucide="newspaper" class="nav-icon"></i>
+    </button>
+    <button class="topbar-btn" onclick="donate(7)">❤️</button>
+   </div>
+ </div>
 
   <!-- Nav-Rail (links, scrollbar) -->
   <div id="navRail">
@@ -524,6 +528,19 @@ function openDB() {
   });
 }
 
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('sm_theme', theme);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.setAttribute('data-lucide', theme === 'light' ? 'moon' : 'sun');
+  if (window.lucide) lucide.createIcons();
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  applyTheme(current === 'light' ? 'dark' : 'light');
+}
+applyTheme(localStorage.getItem('sm_theme') || 'dark');
+  
 async function saveSpotsOffline(spots) {
   const db = await openDB();
   const tx = db.transaction('spots', 'readwrite');
