@@ -110,6 +110,7 @@ let wpMarkers = [];
 let toastTimer;
 
 // ── KARTE INIT ──────────────────────────────────────────────────────────────
+// ── KARTE INIT ──────────────────────────────────────────────────────────────
 function initMap() {
   map = new maplibregl.Map({
     container: 'map',
@@ -120,11 +121,57 @@ function initMap() {
   });
 
   map.on('load', () => {
-    // GPS starten
+    // GPS starten, sobald die Karte geladen ist
     startGPS();
   });
 }
 
+// ── GPS / STANDORT ──────────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) { 
+    document.getElementById('gpsStatus').textContent = '❌ Kein GPS'; 
+    return; 
+  }
+
+  const statusEl = document.getElementById('gpsStatus');
+  const saveBtn = document.getElementById('saveBtn');
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      userPos = { 
+        lat: pos.coords.latitude, 
+        lng: pos.coords.longitude 
+      };
+      
+      // Status aktualisieren
+      statusEl.textContent = '✅ Aktiv';
+      statusEl.style.color = 'var(--green)';
+      saveBtn.disabled = false;
+
+      // 👉 1. Nutzer-Marker setzen/aktualisieren
+      if (userMarker) {
+        userMarker.setLngLat([userPos.lng, userPos.lat]);
+      } else {
+        addUserMarker(); 
+        // 👉 2. Erstes Mal auf den Nutzer zentrieren (damit man sich sieht!)
+        if (waypoints.length === 0 && map) {
+          map.flyTo({ 
+            center: [userPos.lng, userPos.lat], 
+            zoom: 17, 
+            duration: 1500 
+          });
+        }
+      }
+    },
+    (err) => {
+      statusEl.textContent = '⚠️ Signal verloren';
+      statusEl.style.color = 'var(--red)';
+      saveBtn.disabled = true;
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+  }
+  
 // ── GPS / STANDORT ──────────────────────────────────────────────────────────
 function startGPS() {
   if (!navigator.geolocation) { 

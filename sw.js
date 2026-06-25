@@ -5,7 +5,7 @@
 // Der Browser erkennt den neuen SW, löscht den alten Cache
 // und installiert die neuen Dateien automatisch.
 // ════════════════════════════════════════════════════════════
-const CACHE_VERSION = "v139.0"; // Erhöht für SW-Update
+const CACHE_VERSION = "v140.0"; // Erhöht für SW-Update
 const CACHE_STATIC = `spotme-caching-${CACHE_VERSION}`;
 const CACHE_API = `spotme-api-${CACHE_VERSION}`;
 const CACHE_TILES = `spotme-map-tiles-${CACHE_VERSION}`;
@@ -38,6 +38,7 @@ const STATIC_ASSETS = [
   "/help/einladungen.html",
   "/help/wochen-spots.html",
   "/waypoints.html",
+  "/waypoint-creator.html",
   "/profil-caching.html",
   "/landing.html",
   "/404.html",
