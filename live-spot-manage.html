@@ -1,48 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>
-eruda.init(); 
-
-// ── SICHERER FETCH-PATCH (API-Logger) ──
-const originalFetch = window.fetch;
-window.fetch = function(...args) {
-  // 1. Request loggen
-  const method = args[1]?.method || 'GET';
-  console.log(`📤 API SEND: [${method}] ${args[0]}`);
-
-  // 2. Original Fetch ausführen und sicher abfangen
-  return originalFetch.apply(this, args)
-    .then(response => {
-      // Wir klonen die Antwort, um sie im Hintergrund auszulesen, OHNE das Original zu zerstören
-      const clone = response.clone();
-      
-      // Asynchron den Body auslesen (stürzt niemals ab, auch wenn kein Text da ist)
-      clone.text().then(body => {
-        try {
-          // Versuche, es als hübsches JSON zu formatieren
-          console.log(`✅ API RESPONSE [${response.status}]:`, JSON.parse(body));
-        } catch {
-          // Wenn es kein JSON ist, gib den reinen Text aus
-          if (body) console.log(`✅ API RESPONSE [${response.status}]:`, body);
-          else console.log(`✅ API RESPONSE [${response.status}] (Leerer Body)`);
-        }
-      }).catch(() => {
-        console.log(`✅ API RESPONSE [${response.status}] (Kein Text-Body lesbar)`);
-      });
-
-      // 3. WICHTIG: Das originale Response-Objekt immer sofort zurückgeben!
-      return response;
-    })
-    .catch(error => {
-      // 4. Netzwerkfehler loggen, aber den Fehler trotzdem an die App weiterleiten
-      console.error('❌ FETCH Netzwerkfehler:', error);
-      throw error; 
-    });
-};
-</script>
   
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
