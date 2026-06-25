@@ -116,7 +116,23 @@ let watchId = null;
 let wpMarkers = [];
 let toastTimer;
 
-// ── GPX IMPORT FUNKTION ──────────────────────────────────────────────────────
+
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [-0.38, 39.47], 
+    zoom: 15,
+    attributionControl: false
+  });
+
+  map.on('load', () => {
+    // GPS starten, sobald die Karte geladen ist
+    startGPS();
+  });
+}
+
+// ── GPX IMPORT FUNKTION (OPTIMIERT für Fragen) ──────────────────────────────
 function importGPX(input) {
   const file = input.files[0];
   if (!file) return;
@@ -134,8 +150,7 @@ function importGPX(input) {
       return;
     }
 
-    // Vorhandene Punkte nicht löschen, sondern anhängen. Oder Frager: "Soll ich sie ersetzen?"
-    // In diesem Beispiel ersetzen wir die aktuelle Route, damit es sauber bleibt.
+    // Route zurücksetzen
     waypoints = [];
     wpMarkers.forEach(m => m.remove());
     wpMarkers = [];
@@ -146,15 +161,25 @@ function importGPX(input) {
       const lat = parseFloat(wpt.getAttribute('lat'));
       const lng = parseFloat(wpt.getAttribute('lon'));
       
-      // Name und Beschreibung auslesen (Fallback, falls leer)
-      let name = wpt.getElementsByTagName('name')[0]?.textContent || `WayPoint ${index}`;
-      // Alternativ könnten wir die desc als Frage nutzen
+      // ═══════════════════════════════════════════════════
+      // NEU: Name und Desc aus der GPX-Datei auslesen
+      // ═══════════════════════════════════════════════════
+      const rawName = wpt.getElementsByTagName('name')[0]?.textContent || '';
+      const rawDesc = wpt.getElementsByTagName('desc')[0]?.textContent || '';
       
+      // Aufbereitung für SpotMe:
+      // name = Die Frage, desc = Die Zusatzbeschreibung
+      const question = rawName.trim() || `WayPoint ${index}`;
+      const description = rawDesc.trim() || '';
+      // ═══════════════════════════════════════════════════
+
       const newWp = { 
         lat: lat, 
         lng: lng, 
-        name: name // Wird in der JSON-Struktur später zu "question"
+        question: question,
+        description: description 
       };
+      
       waypoints.push(newWp);
       addWpMarker(newWp, index);
       index++;
@@ -165,8 +190,7 @@ function importGPX(input) {
     document.getElementById('gpxStatus').textContent = `✅ ${waypoints.length} WayPoints importiert`;
     toast(`📍 ${waypoints.length} WayPoints aus GPX geladen!`);
 
-    // 2. (Optional) TRK (Routen-Linie) zeichnen
-    // Wenn die GPX-Datei einen Track hat, können wir diesen als Linie auf der Karte anzeigen
+    // 2. Track-Linie zeichnen (optional, aber sehr cool)
     const trkSegments = xmlDoc.getElementsByTagName('trkseg');
     if (trkSegments.length > 0) {
       const routeCoords = [];
@@ -177,7 +201,6 @@ function importGPX(input) {
         routeCoords.push([lng, lat]);
       }
 
-      // Entferne alte Track-Linie, falls vorhanden
       if (map.getSource('gpxTrack')) map.removeSource('gpxTrack');
       if (map.getLayer('gpxTrackLine')) map.removeLayer('gpxTrackLine');
 
@@ -185,50 +208,26 @@ function importGPX(input) {
         type: 'geojson',
         data: {
           type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: routeCoords
-          }
+          geometry: { type: 'LineString', coordinates: routeCoords }
         }
       });
       map.addLayer({
         id: 'gpxTrackLine',
         type: 'line',
         source: 'gpxTrack',
-        paint: {
-          'line-color': '#22d3ee',
-          'line-width': 3,
-          'line-dasharray': [5, 3]
-        }
+        paint: { 'line-color': '#22d3ee', 'line-width': 3, 'line-dasharray': [5, 3] }
       });
 
-      // Auf die ersten Punkte der Route zoomen
       if (routeCoords.length > 0) {
         map.fitBounds(new maplibregl.LngLatBounds(routeCoords), { padding: 50 });
       }
     }
 
-    // Datei-Input zurücksetzen, damit man gleiche Datei nochmal laden kann
+    // Datei-Input zurücksetzen
     input.value = '';
   };
   reader.readAsText(file);
   }
-
-// ── KARTE INIT ──────────────────────────────────────────────────────────────
-function initMap() {
-  map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
-    center: [-0.38, 39.47], 
-    zoom: 15,
-    attributionControl: false
-  });
-
-  map.on('load', () => {
-    // GPS starten, sobald die Karte geladen ist
-    startGPS();
-  });
-}
 
 // ── GPS / STANDORT ──────────────────────────────────────────────────────────
 function startGPS() {
