@@ -173,6 +173,8 @@ select.finp{appearance:none;cursor:pointer}
 .btn-primary{width:100%;padding:0.75rem;border-radius:12px;background:var(--acc);color:#0a0d12;font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;border:none;cursor:pointer;transition:opacity 0.18s;margin-top:0.75rem}
 .btn-primary:disabled{opacity:0.45;cursor:not-allowed}
 .btn-primary:active:not(:disabled){opacity:0.8}
+.btn-secondary{width:100%;padding:0.75rem;border-radius:12px;background:var(--cyan-dim);border:1px solid var(--cyan-glow);color:var(--cyan);font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;border:none;cursor:pointer;transition:opacity 0.18s;margin-top:0.75rem}
+.btn-secondary:active{opacity:0.8}
 .btn-ghost{width:100%;padding:0.65rem;border-radius:12px;background:none;border:1px solid var(--bord2);color:var(--muted);font-family:'Outfit',sans-serif;font-size:0.85rem;cursor:pointer;margin-top:0.4rem}
 .btn-success{width:100%;padding:0.75rem;border-radius:12px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);color:var(--green);font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;margin-top:0.75rem}
 
@@ -376,7 +378,12 @@ select.finp{appearance:none;cursor:pointer}
   <div style="font-size:0.72rem;color:var(--muted2);margin-top:0.3rem;">Groß-/Kleinschreibung und Leerzeichen am Rand spielen keine Rolle.</div>
 </div>
 
-        <button class="btn-primary" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
+        <!-- Erweiterung: JSON Import Button -->
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn-secondary" style="flex:1;font-size:0.85rem;" onclick="document.getElementById('jsonFileInput').click()">📂 JSON importieren</button>
+          <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="handleJSONImport(this)">
+          <button class="btn-primary" style="flex:1;font-size:0.85rem;" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
+        </div>
 
         <!-- Liste der bereits hinzugefügten WayPoints -->
         <div id="wpDraftList" class="wp-draft-list"></div>
@@ -999,6 +1006,107 @@ function setCorrect(v) {
   draftCorrect = v;
   document.querySelectorAll('.correct-opt-btn').forEach(b=>b.classList.toggle('sel',b.dataset.v===v));
 }
+
+// ── NEUE JSON IMPORT LOGIK ───────────────────────────────────────────────────
+async function handleJSONImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.waypoints || data.waypoints.length === 0) {
+        toast('⚠️ JSON enthält keine WayPoints.');
+        return;
+      }
+
+      // 1. Route erstellen (falls noch nicht vorhanden)
+      if (!draftRouteId) {
+        document.getElementById('crName').value = data.name || 'Importierte Route';
+        document.getElementById('crDesc').value = data.description || '';
+        if (data.difficulty && data.difficulty >= 1 && data.difficulty <= 5) {
+          setDiff(data.difficulty);
+        }
+        // Rufe createRoute auf und warte auf die ID
+        await createRoute();
+      }
+
+      if (!draftRouteId) {
+        toast('❌ Konnte Route nicht anlegen. Bitte Schritt 1 manuell ausführen.');
+        return;
+      }
+
+      // 2. WayPoints importieren (einzelne API-Aufrufe)
+      let imported = 0;
+      for (let i = 0; i < data.waypoints.length; i++) {
+        const wp = data.waypoints[i];
+        let payload = {
+          code: CODE, token: TOKEN,
+          lat: wp.lat, lng: wp.lng,
+          question: wp.question,
+          question_type: 'multiple_choice'
+        };
+
+        if (wp.correct_text) {
+          payload.question_type = 'freitext';
+          payload.correct_text = wp.correct_text;
+        } else {
+          payload.option_a = wp.option_a || 'Option A';
+          payload.option_b = wp.option_b || 'Option B';
+          payload.option_c = wp.option_c || 'Option C';
+          payload.correct_option = wp.correct_option || 'a';
+        }
+
+        try {
+          const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          const dataWp = await r.json();
+          if (!r.ok || !dataWp.success) throw new Error(dataWp.error || `Fehler bei WP ${i+1}`);
+
+          // UI Liste füllen
+          draftWpCount++;
+          sessionStorage.setItem('wp_draft_count', String(draftWpCount));
+          const item = document.createElement('div');
+          item.className = 'wp-draft-item';
+          let summaryHtml = '';
+          if (payload.question_type === 'freitext') {
+            summaryHtml = `Freitext-Antwort: <b style="color:var(--cyan);">${esc(payload.correct_text)}</b>`;
+          } else {
+            summaryHtml = `A:${esc(payload.option_a)} · B:${esc(payload.option_b)} · C:${esc(payload.option_c)} → <b style="color:var(--cyan);">${payload.correct_option.toUpperCase()}</b>`;
+          }
+          item.innerHTML = `<div class="wp-draft-num">${i+1}</div><div class="wp-draft-q">${esc(wp.question)}<br><span style="font-size:0.7rem;color:var(--muted2);">${summaryHtml}</span></div>`;
+          document.getElementById('wpDraftList').appendChild(item);
+          imported++;
+        } catch (e) {
+          console.error('Fehler bei WP', i+1, e);
+          toast(`⚠️ Fehler bei WP ${i+1}: ${e.message}`);
+        }
+      }
+
+      // 3. UI finalisieren
+      if (draftWpCount >= 2) {
+        document.getElementById('publishSection').style.display = '';
+        document.getElementById('finaleNum').textContent = draftWpCount;
+      }
+
+      // 4. Auf den ersten Punkt zoomen
+      if (data.waypoints.length > 0 && createMap) {
+        createMap.flyTo({ center: [data.waypoints[0].lng, data.waypoints[0].lat], zoom: 15 });
+      }
+
+      toast(`✅ ${imported} von ${data.waypoints.length} WayPoints importiert!`);
+
+    } catch (e) {
+      toast('❌ Fehler beim Lesen der JSON: ' + e.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+// ── ENDE JSON IMPORT LOGIK ──────────────────────────────────────────────────
 
 async function addWaypoint() {
   if (!createCoords) { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
