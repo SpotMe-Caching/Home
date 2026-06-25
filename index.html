@@ -2,45 +2,48 @@
 <html lang="de">
 <head>
 
-
 <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>
 eruda.init(); 
 
-// ── PATCH: Alle API-Aufrufe in die Konsole loggen ──
+// ── SICHERER FETCH-PATCH (API-Logger) ──
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
-  // Request ausgeben
-  console.log(`📤 API SEND: [${args[1]?.method || 'GET'}] ${args[0]}`);
+  // 1. Request loggen
+  const method = args[1]?.method || 'GET';
+  console.log(`📤 API SEND: [${method}] ${args[0]}`);
 
-  // Original-Fetch ausführen und Antwort abfangen
-  return originalFetch.apply(this, args).then(async response => {
-    // Wir klonen die Antwort, um sie auszulesen, ohne das Original zu zerstören
-    const clone = response.clone();
-    
-    try {
-      const bodyText = await clone.text();
-      // Wenn es JSON ist, formatieren wir es schöner
-      let bodyOutput = bodyText;
-      try { bodyOutput = JSON.stringify(JSON.parse(bodyText), null, 2); } catch {}
+  // 2. Original Fetch ausführen und sicher abfangen
+  return originalFetch.apply(this, args)
+    .then(response => {
+      // Wir klonen die Antwort, um sie im Hintergrund auszulesen, OHNE das Original zu zerstören
+      const clone = response.clone();
       
-      if (response.ok) {
-        console.log(`✅ API RESPONSE [${response.status}]:`, bodyOutput);
-      } else {
-        console.error(`❌ API ERROR [${response.status}]:`, bodyOutput);
-      }
-    } catch (error) {
-      console.log(`✅ API RESPONSE [${response.status}] (Kein Text-Body)`);
-    }
-    
-    return response;
-  }).catch(error => {
-    console.error('❌ FETCH Netzwerkfehler:', error);
-    throw error;
-  });
+      // Asynchron den Body auslesen (stürzt niemals ab, auch wenn kein Text da ist)
+      clone.text().then(body => {
+        try {
+          // Versuche, es als hübsches JSON zu formatieren
+          console.log(`✅ API RESPONSE [${response.status}]:`, JSON.parse(body));
+        } catch {
+          // Wenn es kein JSON ist, gib den reinen Text aus
+          if (body) console.log(`✅ API RESPONSE [${response.status}]:`, body);
+          else console.log(`✅ API RESPONSE [${response.status}] (Leerer Body)`);
+        }
+      }).catch(() => {
+        console.log(`✅ API RESPONSE [${response.status}] (Kein Text-Body lesbar)`);
+      });
+
+      // 3. WICHTIG: Das originale Response-Objekt immer sofort zurückgeben!
+      return response;
+    })
+    .catch(error => {
+      // 4. Netzwerkfehler loggen, aber den Fehler trotzdem an die App weiterleiten
+      console.error('❌ FETCH Netzwerkfehler:', error);
+      throw error; 
+    });
 };
 </script>
-    
+
 <meta charset="UTF-8">
 
 <link rel="stylesheet" href="spotme.css">
