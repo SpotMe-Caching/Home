@@ -2,8 +2,43 @@
 <html lang="de">
 <head>
 
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>
+eruda.init(); 
+
+// ── PATCH: Alle API-Aufrufe in die Konsole loggen ──
+const originalFetch = window.fetch;
+window.fetch = function(...args) {
+  // Request ausgeben
+  console.log(`📤 API SEND: [${args[1]?.method || 'GET'}] ${args[0]}`);
+
+  // Original-Fetch ausführen und Antwort abfangen
+  return originalFetch.apply(this, args).then(async response => {
+    // Wir klonen die Antwort, um sie auszulesen, ohne das Original zu zerstören
+    const clone = response.clone();
+    
+    try {
+      const bodyText = await clone.text();
+      // Wenn es JSON ist, formatieren wir es schöner
+      let bodyOutput = bodyText;
+      try { bodyOutput = JSON.stringify(JSON.parse(bodyText), null, 2); } catch {}
+      
+      if (response.ok) {
+        console.log(`✅ API RESPONSE [${response.status}]:`, bodyOutput);
+      } else {
+        console.error(`❌ API ERROR [${response.status}]:`, bodyOutput);
+      }
+    } catch (error) {
+      console.log(`✅ API RESPONSE [${response.status}] (Kein Text-Body)`);
+    }
+    
+    return response;
+  }).catch(error => {
+    console.error('❌ FETCH Netzwerkfehler:', error);
+    throw error;
+  });
+};
+</script>
   
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
