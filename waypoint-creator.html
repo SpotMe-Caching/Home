@@ -17,7 +17,7 @@
 html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit',sans-serif;overflow:hidden}
 .maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none!important}
 
-/* ── LAYOUT ...── */
+/* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100%;height:100dvh}
 
 /* ── HEADER ── */
@@ -30,6 +30,14 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
 .wp-logo-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);}
 .wp-back-btn{padding:6px 12px;border-radius:40px;background:var(--card2);border:1px solid var(--bord2);color:var(--muted);font-size:0.78rem;font-family:'Outfit',sans-serif;cursor:pointer;margin-left:auto}
 
+/* ── GPX IMPORT BAR ── */
+.gpx-import-area{
+  padding:0.5rem 1rem; background:var(--card2);
+  border-bottom:1px solid var(--bord); display:flex; gap:0.5rem; align-items:center; flex-shrink:0;
+}
+.gpx-import-area label{flex:1;text-align:center;padding:0.45rem 0.8rem;border-radius:10px;background:var(--cyan-dim);border:1px solid var(--cyan-glow);color:var(--cyan);font-size:0.8rem;font-weight:700;cursor:pointer;}
+.gpx-import-area span{font-size:0.7rem;color:var(--muted2);flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
 /* ── KARTE ── */
 #map{flex:1;position:relative}
 
@@ -39,7 +47,6 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
   padding:0.85rem 1rem; padding-bottom:max(0.85rem, env(safe-area-inset-bottom));
   flex-shrink:0;
 }
-
 .status-row{display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted2);font-family:'Space Mono',monospace;margin-bottom:0.75rem}
 .status-row span strong{color:var(--cyan)}
 
@@ -73,6 +80,13 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
     <button class="wp-back-btn" onclick="location.href='/'">← App</button>
   </div>
 
+  <!-- GPX Import Bar -->
+  <div class="gpx-import-area">
+    <label for="gpxFileInput">📂 GPX importieren</label>
+    <input type="file" id="gpxFileInput" accept=".gpx" style="display:none;" onchange="importGPX(this)">
+    <span id="gpxStatus">Keine Datei geladen</span>
+  </div>
+
   <!-- Karte -->
   <div id="map"></div>
 
@@ -80,7 +94,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
   <div class="control-panel">
     <div class="status-row">
       <span>📍 Gespeichert: <strong id="wpCount">0</strong></span>
-      <span>🛰️ GPS: <strong id="gpsStatus">Suchte...</strong></span>
+      <span>🛰️ GPS: <strong id="gpsStatus">Suche...</strong></span>
     </div>
 
     <div class="input-group">
@@ -93,13 +107,6 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
       <button class="btn-secondary" id="exportBtn">📥 Export JSON</button>
       <button class="btn-danger" id="resetBtn">🗑️ Zurücksetzen</button>
     </div>
-<div class="gpx-import-area" style="padding:0.5rem 1rem; background:var(--bg); border-bottom:1px solid var(--bord); display:flex; gap:0.5rem; align-items:center;">
-  <label for="gpxFileInput" class="btn-secondary" style="padding:0.5rem 1rem; border-radius:10px; font-size:0.8rem; cursor:pointer; display:inline-block; flex:1; text-align:center;">
-    📂 GPX importieren
-  </label>
-  <input type="file" id="gpxFileInput" accept=".gpx" style="display:none;" onchange="importGPX(this)">
-  <span id="gpxStatus" style="font-size:0.75rem; color:var(--muted2);">Keine Datei geladen</span>
-</div>
   </div>
 </div>
 
@@ -111,12 +118,17 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit'
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let map, userMarker, userPos = null;
-let waypoints = []; // Speichert { lat, lng, name }
+let waypoints = []; // Speichert { lat, lng, question, description }
 let watchId = null;
 let wpMarkers = [];
+
+// GPX Metadaten
+let trackName = 'Aufgenommene Route';
+let trackDesc = 'Per GPS erstellte Route';
+
 let toastTimer;
 
-
+// ── KARTE INIT ──────────────────────────────────────────────────────────────
 function initMap() {
   map = new maplibregl.Map({
     container: 'map',
@@ -127,12 +139,97 @@ function initMap() {
   });
 
   map.on('load', () => {
-    // GPS starten, sobald die Karte geladen ist
     startGPS();
   });
 }
 
-// ── GPX IMPORT FUNKTION (OPTIMIERT für Fragen) ──────────────────────────────
+// ── GPS / STANDORT ──────────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) { 
+    document.getElementById('gpsStatus').textContent = '❌ Kein GPS'; 
+    return; 
+  }
+
+  const statusEl = document.getElementById('gpsStatus');
+  const saveBtn = document.getElementById('saveBtn');
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      userPos = { 
+        lat: pos.coords.latitude, 
+        lng: pos.coords.longitude 
+      };
+
+      statusEl.textContent = '✅ Aktiv';
+      statusEl.style.color = 'var(--green)';
+      saveBtn.disabled = false;
+
+      if (userMarker) {
+        userMarker.setLngLat([userPos.lng, userPos.lat]);
+      } else {
+        addUserMarker(); 
+        // Erstes Mal auf Nutzer zentrieren
+        if (waypoints.length === 0 && map) {
+          map.flyTo({ 
+            center: [userPos.lng, userPos.lat], 
+            zoom: 17, 
+            duration: 1500 
+          });
+        }
+      }
+    },
+    (err) => {
+      statusEl.textContent = '⚠️ Signal verloren';
+      statusEl.style.color = 'var(--red)';
+      saveBtn.disabled = true;
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function addUserMarker() {
+  const el = document.createElement('div');
+  el.className = 'user-dot';
+  userMarker = new maplibregl.Marker({ element: el })
+    .setLngLat([userPos.lng, userPos.lat])
+    .addTo(map);
+}
+
+// ── WAYPOINT SPEICHERN ───────────────────────────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click', () => {
+  if (!userPos) { toast('❌ Kein GPS-Signal'); return; }
+
+  const nameInput = document.getElementById('wpName');
+  const name = nameInput.value.trim() || `WayPoint ${waypoints.length + 1}`;
+
+  const newWp = { 
+    lat: userPos.lat, 
+    lng: userPos.lng, 
+    question: name,
+    description: '' // Manuell hinzugefügte Punkte haben erstmal keine Beschreibung
+  };
+  waypoints.push(newWp);
+
+  document.getElementById('wpCount').textContent = waypoints.length;
+  nameInput.value = '';
+  toast(`📍 WayPoint ${waypoints.length} gespeichert!`);
+  addWpMarker(newWp, waypoints.length);
+});
+
+function addWpMarker(wp, index) {
+  const el = document.createElement('div');
+  el.className = 'wp-dot';
+  el.textContent = index;
+  
+  const marker = new maplibregl.Marker({ element: el })
+    .setLngLat([wp.lng, wp.lat])
+    .addTo(map);
+  wpMarkers.push(marker);
+
+  map.flyTo({ center: [wp.lng, wp.lat], zoom: 17, duration: 1000 });
+}
+
+// ── GPX IMPORT ──────────────────────────────────────────────────────────────
 function importGPX(input) {
   const file = input.files[0];
   if (!file) return;
@@ -143,54 +240,50 @@ function importGPX(input) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-    // 1. WPTs (WayPoints) extrahieren
-    const wptElements = xmlDoc.getElementsByTagName('wpt');
-    if (wptElements.length === 0) {
-      toast('⚠️ Keine WayPoints (<wpt>) in der GPX-Datei gefunden!');
-      return;
-    }
-
     // Route zurücksetzen
     waypoints = [];
     wpMarkers.forEach(m => m.remove());
     wpMarkers = [];
     document.getElementById('wpCount').textContent = '0';
 
+    // GPX Header (Track-Name und Beschreibung) auslesen
+    const trkEl = xmlDoc.getElementsByTagName('trk')[0];
+    if (trkEl) {
+      const trkName = trkEl.getElementsByTagName('name')[0]?.textContent;
+      const trkDesc = trkEl.getElementsByTagName('desc')[0]?.textContent;
+      if (trkName) trackName = trkName.trim();
+      if (trkDesc) trackDesc = trkDesc.trim();
+    }
+
+    // WayPoints (WPT) auslesen
+    const wptElements = xmlDoc.getElementsByTagName('wpt');
+    if (wptElements.length === 0) {
+      toast('⚠️ Keine WayPoints (<wpt>) in der GPX-Datei gefunden!');
+      return;
+    }
+
     let index = 1;
     for (let wpt of wptElements) {
       const lat = parseFloat(wpt.getAttribute('lat'));
       const lng = parseFloat(wpt.getAttribute('lon'));
       
-      // ═══════════════════════════════════════════════════
-      // NEU: Name und Desc aus der GPX-Datei auslesen
-      // ═══════════════════════════════════════════════════
       const rawName = wpt.getElementsByTagName('name')[0]?.textContent || '';
       const rawDesc = wpt.getElementsByTagName('desc')[0]?.textContent || '';
       
-      // Aufbereitung für SpotMe:
-      // name = Die Frage, desc = Die Zusatzbeschreibung
       const question = rawName.trim() || `WayPoint ${index}`;
       const description = rawDesc.trim() || '';
-      // ═══════════════════════════════════════════════════
-
-      const newWp = { 
-        lat: lat, 
-        lng: lng, 
-        question: question,
-        description: description 
-      };
       
+      const newWp = { lat, lng, question, description };
       waypoints.push(newWp);
       addWpMarker(newWp, index);
       index++;
     }
 
-    // Status anzeigen
     document.getElementById('wpCount').textContent = waypoints.length;
     document.getElementById('gpxStatus').textContent = `✅ ${waypoints.length} WayPoints importiert`;
     toast(`📍 ${waypoints.length} WayPoints aus GPX geladen!`);
 
-    // 2. Track-Linie zeichnen (optional, aber sehr cool)
+    // Track-Linie zeichnen
     const trkSegments = xmlDoc.getElementsByTagName('trkseg');
     if (trkSegments.length > 0) {
       const routeCoords = [];
@@ -223,152 +316,28 @@ function importGPX(input) {
       }
     }
 
-    // Datei-Input zurücksetzen
     input.value = '';
   };
   reader.readAsText(file);
-  }
-
-// ── GPS / STANDORT ──────────────────────────────────────────────────────────
-function startGPS() {
-  if (!navigator.geolocation) { 
-    document.getElementById('gpsStatus').textContent = '❌ Kein GPS'; 
-    return; 
-  }
-
-  const statusEl = document.getElementById('gpsStatus');
-  const saveBtn = document.getElementById('saveBtn');
-
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      userPos = { 
-        lat: pos.coords.latitude, 
-        lng: pos.coords.longitude 
-      };
-      
-      // Status aktualisieren
-      statusEl.textContent = '✅ Aktiv';
-      statusEl.style.color = 'var(--green)';
-      saveBtn.disabled = false;
-
-      // 👉 1. Nutzer-Marker setzen/aktualisieren
-      if (userMarker) {
-        userMarker.setLngLat([userPos.lng, userPos.lat]);
-      } else {
-        addUserMarker(); 
-        // 👉 2. Erstes Mal auf den Nutzer zentrieren (damit man sich sieht!)
-        if (waypoints.length === 0 && map) {
-          map.flyTo({ 
-            center: [userPos.lng, userPos.lat], 
-            zoom: 17, 
-            duration: 1500 
-          });
-        }
-      }
-    },
-    (err) => {
-      statusEl.textContent = '⚠️ Signal verloren';
-      statusEl.style.color = 'var(--red)';
-      saveBtn.disabled = true;
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-  );
-  }
-  
-// ── GPS / STANDORT ──────────────────────────────────────────────────────────
-function startGPS() {
-  if (!navigator.geolocation) { 
-    document.getElementById('gpsStatus').textContent = '❌ Kein GPS'; 
-    return; 
-  }
-
-  const statusEl = document.getElementById('gpsStatus');
-  const saveBtn = document.getElementById('saveBtn');
-
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      userPos = { 
-        lat: pos.coords.latitude, 
-        lng: pos.coords.longitude 
-      };
-      statusEl.textContent = '✅ Aktiv';
-      statusEl.style.color = 'var(--green)';
-      saveBtn.disabled = false;
-
-      // Nutzer-Marker auf Karte aktualisieren
-      if (userMarker) userMarker.setLngLat([userPos.lng, userPos.lat]);
-      else addUserMarker();
-    },
-    (err) => {
-      statusEl.textContent = '⚠️ Signal verloren';
-      statusEl.style.color = 'var(--red)';
-      saveBtn.disabled = true;
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-  );
-}
-
-function addUserMarker() {
-  const el = document.createElement('div');
-  el.className = 'user-dot';
-  userMarker = new maplibregl.Marker({ element: el })
-    .setLngLat([userPos.lng, userPos.lat])
-    .addTo(map);
-}
-
-// ── WAYPOINT SPEICHERN ───────────────────────────────────────────────────────
-document.getElementById('saveBtn').addEventListener('click', () => {
-  if (!userPos) { toast('❌ Kein GPS-Signal'); return; }
-
-  const nameInput = document.getElementById('wpName');
-  const name = nameInput.value.trim() || `WayPoint ${waypoints.length + 1}`;
-
-  // Speichern
-  const newWp = { 
-    lat: userPos.lat, 
-    lng: userPos.lng, 
-    name: name 
-  };
-  waypoints.push(newWp);
-
-  // UI aktualisieren
-  document.getElementById('wpCount').textContent = waypoints.length;
-  nameInput.value = '';
-  toast(`📍 WayPoint ${waypoints.length} gespeichert!`);
-  addWpMarker(newWp, waypoints.length);
-});
-
-function addWpMarker(wp, index) {
-  const el = document.createElement('div');
-  el.className = 'wp-dot';
-  el.textContent = index;
-  
-  const marker = new maplibregl.Marker({ element: el })
-    .setLngLat([wp.lng, wp.lat])
-    .addTo(map);
-  wpMarkers.push(marker);
-
-  // Auf den neuen Punkt fliegen
-  map.flyTo({ center: [wp.lng, wp.lat], zoom: 17, duration: 1000 });
 }
 
 // ── EXPORT JSON ──────────────────────────────────────────────────────────────
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (waypoints.length === 0) { toast('⚠️ Noch keine WayPoints gespeichert'); return; }
 
-  // JSON-Struktur für Ihren Server (ähnlich wie in der App)
   const data = {
-    name: "Aufgenommene Route",
-    description: "Per GPS erstellte Route",
-    difficulty: 1, // Standardwert, kann später manuell angepasst werden
+    name: trackName,
+    description: trackDesc,
+    difficulty: 1,
     waypoints: waypoints.map((wp, i) => ({
       order_index: i,
       lat: wp.lat,
       lng: wp.lng,
-      question: wp.name, // Der Name dient als Frage/Bezeichnung
-      option_a: "Option A (Editierbar)",
-      option_b: "Option B (Editierbar)",
-      option_c: "Option C (Editierbar)",
+      question: wp.question,      // Jetzt korrekt übernommen
+      description: wp.description, // Jetzt korrekt übernommen
+      option_a: "Option A",
+      option_b: "Option B",
+      option_c: "Option C",
       correct_option: "a"
     }))
   };
@@ -377,7 +346,6 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   
-  // Download auslösen
   const a = document.createElement('a');
   a.href = url;
   a.download = `spotme_route_${Date.now()}.json`;
