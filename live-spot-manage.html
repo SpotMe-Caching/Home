@@ -153,10 +153,16 @@ select.finp{appearance:none;cursor:pointer}
 <script>
 'use strict';
 
-// ── Theme aus LocalStorage laden ──────────────────────────────────────────────
+// ── Theme (Hell/Dunkel) – gleicher Key wie index.html, daher konsistent ──────
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('sm_theme', theme);
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  applyTheme(current === 'light' ? 'dark' : 'light');
 }
 applyTheme(localStorage.getItem('sm_theme') || 'dark');
 
