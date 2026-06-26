@@ -410,6 +410,20 @@ select.finp{appearance:none;cursor:pointer}
           <button class="btn-primary" style="flex:1;font-size:0.85rem;" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
         </div>
 
+        <!-- Import-Draft-Container -->
+        <div id="importDraftSection" style="display:none;margin-top:0.75rem;">
+          <div style="font-size:0.78rem;color:var(--muted2);margin-bottom:0.5rem;">
+            📥 Importierte Punkte — jeder muss eine Frage + Antwort bekommen, bevor du veröffentlichst.
+          </div>
+          <div id="importDraftList"></div>
+          <button class="btn-primary" id="importPublishBtn" onclick="publishImportedRoute()" style="margin-top:0.75rem;width:100%;" disabled>
+            🚀 Importierte Route veröffentlichen (0/0 fertig)
+          </button>
+          <button class="btn-secondary" onclick="discardImportDraft()" style="margin-top:0.5rem;width:100%;font-size:0.8rem;">
+            🗑️ Import verwerfen
+          </button>
+        </div>
+
         <!-- Liste der bereits hinzugefügten WayPoints -->
         <div id="wpDraftList" class="wp-draft-list"></div>
 
@@ -556,6 +570,47 @@ function setQType(t) {
   });
   document.getElementById('mcFields').style.display = t === 'multiple_choice' ? '' : 'none';
   document.getElementById('freitextFields').style.display = t === 'freitext' ? '' : 'none';
+}
+
+// ── IMPORT STATE ──────────────────────────────────────────────────────────────
+let importDraft = null;
+let editingImportIndex = null;
+
+// ── INDEXEDDB FÜR IMPORT-DRAFTS ──────────────────────────────────────────────
+const IMPORT_DB_NAME = 'wp_import_db';
+function openImportDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IMPORT_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('drafts', { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveImportDraftToDB() {
+  const db = await openImportDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('drafts', 'readwrite');
+    tx.objectStore('drafts').put({ id: 'current', ...importDraft });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function loadImportDraftFromDB() {
+  const db = await openImportDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('drafts', 'readonly');
+    const req = tx.objectStore('drafts').get('current');
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => resolve(null);
+  });
+}
+async function clearImportDraftFromDB() {
+  const db = await openImportDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('drafts', 'readwrite');
+    tx.objectStore('drafts').delete('current');
+    tx.oncomplete = () => resolve();
+  });
 }
 
 // ── UTILS ────────────────────────────────────────────────────────────────────
@@ -1045,7 +1100,8 @@ function setCorrect(v) {
   document.querySelectorAll('.correct-opt-btn').forEach(b=>b.classList.toggle('sel',b.dataset.v===v));
 }
 
-// ── NEUE JSON IMPORT LOGIK ───────────────────────────────────────────────────
+// ── NEUE IMPORT-LOGIK (handleJSONImport, Render, Edit, Publish) ───────────────
+
 async function handleJSONImport(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1058,85 +1114,24 @@ async function handleJSONImport(input) {
         toast('⚠️ JSON enthält keine WayPoints.');
         return;
       }
-
-      // 1. Route erstellen (falls noch nicht vorhanden)
-      if (!draftRouteId) {
-        document.getElementById('crName').value = data.name || 'Importierte Route';
-        document.getElementById('crDesc').value = data.description || '';
-        if (data.difficulty && data.difficulty >= 1 && data.difficulty <= 5) {
-          setDiff(data.difficulty);
-        }
-        // Rufe createRoute auf und warte auf die ID
-        await createRoute();
-      }
-
-      if (!draftRouteId) {
-        toast('❌ Konnte Route nicht anlegen. Bitte Schritt 1 manuell ausführen.');
-        return;
-      }
-
-      // 2. WayPoints importieren (einzelne API-Aufrufe)
-      let imported = 0;
-      for (let i = 0; i < data.waypoints.length; i++) {
-        const wp = data.waypoints[i];
-        let payload = {
-          code: CODE, token: TOKEN,
+      importDraft = {
+        name: data.name || 'Importierte Route',
+        description: data.description || '',
+        difficulty: (data.difficulty >= 1 && data.difficulty <= 5) ? data.difficulty : 1,
+        waypoints: data.waypoints.map(wp => ({
           lat: wp.lat, lng: wp.lng,
-          question: wp.question,
-          question_type: 'multiple_choice'
-        };
-
-        if (wp.correct_text) {
-          payload.question_type = 'freitext';
-          payload.correct_text = wp.correct_text;
-        } else {
-          payload.option_a = wp.option_a || 'Option A';
-          payload.option_b = wp.option_b || 'Option B';
-          payload.option_c = wp.option_c || 'Option C';
-          payload.correct_option = wp.correct_option || 'a';
-        }
-
-        try {
-          const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-          });
-          const dataWp = await r.json();
-          if (!r.ok || !dataWp.success) throw new Error(dataWp.error || `Fehler bei WP ${i+1}`);
-
-          // UI Liste füllen
-          draftWpCount++;
-          sessionStorage.setItem('wp_draft_count', String(draftWpCount));
-          const item = document.createElement('div');
-          item.className = 'wp-draft-item';
-          let summaryHtml = '';
-          if (payload.question_type === 'freitext') {
-            summaryHtml = `Freitext-Antwort: <b style="color:var(--cyan);">${esc(payload.correct_text)}</b>`;
-          } else {
-            summaryHtml = `A:${esc(payload.option_a)} · B:${esc(payload.option_b)} · C:${esc(payload.option_c)} → <b style="color:var(--cyan);">${payload.correct_option.toUpperCase()}</b>`;
-          }
-          item.innerHTML = `<div class="wp-draft-num">${i+1}</div><div class="wp-draft-q">${esc(wp.question)}<br><span style="font-size:0.7rem;color:var(--muted2);">${summaryHtml}</span></div>`;
-          document.getElementById('wpDraftList').appendChild(item);
-          imported++;
-        } catch (e) {
-          console.error('Fehler bei WP', i+1, e);
-          toast(`⚠️ Fehler bei WP ${i+1}: ${e.message}`);
-        }
-      }
-
-      // 3. UI finalisieren
-      if (draftWpCount >= 2) {
-        document.getElementById('publishSection').style.display = '';
-        document.getElementById('finaleNum').textContent = draftWpCount;
-      }
-
-      // 4. Auf den ersten Punkt zoomen
-      if (data.waypoints.length > 0 && createMap) {
-        createMap.flyTo({ center: [data.waypoints[0].lng, data.waypoints[0].lat], zoom: 15 });
-      }
-
-      toast(`✅ ${imported} von ${data.waypoints.length} WayPoints importiert!`);
-
+          importName: wp.name || wp.question || '',
+          importDescription: wp.description || '',
+          question: wp.question || wp.name || '',
+          question_type: wp.correct_text ? 'freitext' : 'multiple_choice',
+          option_a: wp.option_a || '', option_b: wp.option_b || '', option_c: wp.option_c || '',
+          correct_option: wp.correct_option || '',
+          correct_text: wp.correct_text || ''
+        }))
+      };
+      await saveImportDraftToDB();
+      renderImportDraftList();
+      toast(`📥 ${importDraft.waypoints.length} Punkte importiert — jetzt bearbeiten`);
     } catch (e) {
       toast('❌ Fehler beim Lesen der JSON: ' + e.message);
     }
@@ -1144,7 +1139,165 @@ async function handleJSONImport(input) {
   };
   reader.readAsText(file);
 }
-// ── ENDE JSON IMPORT LOGIK ──────────────────────────────────────────────────
+
+function isWpComplete(wp) {
+  if (!wp.question?.trim()) return false;
+  if (wp.question_type === 'freitext') return !!wp.correct_text?.trim();
+  return !!(wp.option_a?.trim() && wp.option_b?.trim() && wp.option_c?.trim() && wp.correct_option);
+}
+
+function renderImportDraftList() {
+  const section = document.getElementById('importDraftSection');
+  const list = document.getElementById('importDraftList');
+  if (!importDraft) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  list.innerHTML = importDraft.waypoints.map((wp, i) => {
+    const complete = isWpComplete(wp);
+    const summary = complete
+      ? (wp.question_type === 'freitext'
+          ? `Freitext: <b style="color:var(--cyan);">${esc(wp.correct_text)}</b>`
+          : `A:${esc(wp.option_a)} · B:${esc(wp.option_b)} · C:${esc(wp.option_c)} → <b style="color:var(--cyan);">${wp.correct_option.toUpperCase()}</b>`)
+      : '<span style="color:var(--acc);">⚠️ Noch nicht ausgefüllt</span>';
+
+    return `<div class="wp-draft-item" style="cursor:pointer;${complete?'':'border-color:var(--acc-glow);'}" onclick="editImportWaypoint(${i})">
+      <div class="wp-draft-num">${complete ? '✓' : i+1}</div>
+      <div class="wp-draft-q">
+        <div style="font-weight:600;">${esc(wp.importName || wp.question || 'Punkt ' + (i+1))}</div>
+        ${wp.importDescription ? `<div style="font-size:0.72rem;color:var(--muted2);margin:2px 0;">📝 ${esc(wp.importDescription)}</div>` : ''}
+        <div style="font-size:0.72rem;margin-top:3px;">${summary}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const doneCount = importDraft.waypoints.filter(isWpComplete).length;
+  const total = importDraft.waypoints.length;
+  const pubBtn = document.getElementById('importPublishBtn');
+  pubBtn.textContent = `🚀 Importierte Route veröffentlichen (${doneCount}/${total} fertig)`;
+  pubBtn.disabled = doneCount < total || total < 2;
+}
+
+function editImportWaypoint(i) {
+  editingImportIndex = i;
+  const wp = importDraft.waypoints[i];
+
+  document.getElementById('wpQuestion').value = wp.question || '';
+  setQType(wp.question_type);
+
+  if (wp.question_type === 'multiple_choice') {
+    document.getElementById('wpOptA').value = wp.option_a || '';
+    document.getElementById('wpOptB').value = wp.option_b || '';
+    document.getElementById('wpOptC').value = wp.option_c || '';
+    draftCorrect = wp.correct_option || null;
+    document.querySelectorAll('.correct-opt-btn').forEach(b =>
+      b.classList.toggle('sel', b.dataset.v === draftCorrect));
+  } else {
+    document.getElementById('wpCorrectText').value = wp.correct_text || '';
+  }
+
+  // Hinweis-Box mit Original-Kontext einblenden
+  let hint = document.getElementById('importEditHint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'importEditHint';
+    hint.style.cssText = 'background:var(--acc-dim);border:1px solid var(--acc-glow);border-radius:10px;padding:0.6rem 0.75rem;margin-bottom:0.6rem;font-size:0.78rem;';
+    document.getElementById('wpQuestion').parentNode.insertBefore(hint, document.getElementById('wpQuestion'));
+  }
+  hint.innerHTML = `📍 Original aus OpenTracks: <b>${esc(wp.importName)}</b>${wp.importDescription ? ' — ' + esc(wp.importDescription) : ''}`;
+
+  const btn = document.getElementById('wpAddBtn');
+  btn.textContent = '💾 Übernehmen';
+  btn.onclick = saveImportWaypointEdit;
+
+  document.getElementById('createMap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function saveImportWaypointEdit() {
+  if (editingImportIndex === null) return;
+  const wp = importDraft.waypoints[editingImportIndex];
+  const q = document.getElementById('wpQuestion').value.trim();
+  if (!q) { toast('⚠️ Bitte eine Frage eingeben'); return; }
+
+  wp.question = q;
+  wp.question_type = selectedQType;
+  if (selectedQType === 'multiple_choice') {
+    wp.option_a = document.getElementById('wpOptA').value.trim();
+    wp.option_b = document.getElementById('wpOptB').value.trim();
+    wp.option_c = document.getElementById('wpOptC').value.trim();
+    wp.correct_option = draftCorrect || '';
+  } else {
+    wp.correct_text = document.getElementById('wpCorrectText').value.trim();
+  }
+
+  saveImportDraftToDB();
+  exitImportEditMode();
+  renderImportDraftList();
+  toast('✅ Übernommen');
+}
+
+function exitImportEditMode() {
+  editingImportIndex = null;
+  document.getElementById('importEditHint')?.remove();
+  ['wpQuestion','wpOptA','wpOptB','wpOptC','wpCorrectText'].forEach(id => document.getElementById(id).value = '');
+  draftCorrect = null;
+  document.querySelectorAll('.correct-opt-btn').forEach(b => b.classList.remove('sel'));
+  setQType('multiple_choice');
+  const btn = document.getElementById('wpAddBtn');
+  btn.textContent = '＋ WayPoint hinzufügen';
+  btn.onclick = addWaypoint;
+}
+
+async function publishImportedRoute() {
+  if (!importDraft) return;
+  const btn = document.getElementById('importPublishBtn');
+  btn.disabled = true; btn.textContent = '⏳ Wird veröffentlicht…';
+
+  document.getElementById('crName').value = importDraft.name;
+  document.getElementById('crDesc').value = importDraft.description;
+  setDiff(importDraft.difficulty);
+  await createRoute();
+
+  if (!draftRouteId) {
+    toast('❌ Route konnte nicht angelegt werden');
+    btn.disabled = false;
+    return;
+  }
+
+  let ok = 0;
+  for (const wp of importDraft.waypoints) {
+    const payload = {
+      code: CODE, token: TOKEN, lat: wp.lat, lng: wp.lng,
+      question: wp.question, question_type: wp.question_type
+    };
+    if (wp.question_type === 'freitext') payload.correct_text = wp.correct_text;
+    else Object.assign(payload, {
+      option_a: wp.option_a, option_b: wp.option_b, option_c: wp.option_c,
+      correct_option: wp.correct_option
+    });
+    try {
+      const r = await fetch(`${API}/wp/routes/${draftRouteId}/waypoints`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if ((await r.json()).success) { ok++; draftWpCount++; }
+    } catch {}
+  }
+
+  await clearImportDraftFromDB();
+  importDraft = null;
+  document.getElementById('importDraftSection').style.display = 'none';
+  toast(`✅ ${ok} WayPoints angelegt`);
+  await publishRoute();
+}
+
+function discardImportDraft() {
+  if (!confirm('Import wirklich verwerfen? Alle Bearbeitungen gehen verloren.')) return;
+  clearImportDraftFromDB();
+  importDraft = null;
+  document.getElementById('importDraftSection').style.display = 'none';
+}
+
+// ── ENDE IMPORT-LOGIK ─────────────────────────────────────────────────────────
 
 async function addWaypoint() {
   if (!createCoords) { toast('⚠️ Bitte Position auf der Karte tippen'); return; }
@@ -1423,6 +1576,16 @@ if (savedDraftId) {
   // Karte initialisieren sobald Erstellen-Tab aktiv
   setTimeout(() => { if (document.getElementById('sec-create').classList.contains('active')) initCreateMap(); }, 80);
 }
+
+// ── WIEDERHERSTELLUNG VON UNFERTIGEM IMPORT ──────────────────────────────────
+(async () => {
+  const saved = await loadImportDraftFromDB();
+  if (saved) {
+    importDraft = saved;
+    renderImportDraftList();
+    toast('📥 Unfertiger Import wiederhergestellt');
+  }
+})();
 
 loadRoutes();
 </script>
