@@ -10,6 +10,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>SpotMe · WayPoint Caching</title>
 <meta name="theme-color" content="#0a0d12">
+<link href="theme-vars.css" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -20,15 +21,38 @@ body {
 .logo, .mono-text, .tag, .status-pill, .countdown-value, .navi-stat-val {
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
 }
-:root{
-  --bg:#0a0d12; --card:#111720; --card2:#141e2a;
-  --bord:rgba(255,255,255,0.07); --bord2:rgba(255,255,255,0.12);
-  --txt:#e2e8f0; --muted:#94a3b8; --muted2:#64748b;
-  --acc:#f59e0b; --acc-dim:rgba(245,158,11,0.12); --acc-glow:rgba(245,158,11,0.35);
-  --cyan:#22d3ee; --cyan-dim:rgba(34,211,238,0.1); --cyan-glow:rgba(34,211,238,0.3);
-  --green:#10b981; --red:#ef4444;
-  --glass:rgba(10,13,18,0.85);
+/* ── Kartenfilter (Dark Mode Standard) ── */
+:root {
+  --map-filter-dark: invert(0.88) hue-rotate(180deg) brightness(0.82) saturate(0.85);
 }
+
+#playMap, #createMap, #naviMap {
+  width: 100%;
+  /* Nutzt die Variable aus theme-vars.css. Falls sie nicht gesetzt ist, nutze den Dark-Fallback */
+  filter: var(--map-filter, var(--map-filter-dark));
+  
+  /* ── MAP GRID (Raster-Overlay für Tiefe) ── */
+  background-image: 
+    linear-gradient(rgba(255, 159, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 159, 0, 0.035) 1px, transparent 1px);
+  background-size: 50px 50px;
+  background-repeat: repeat;
+  background-attachment: local;
+  position: relative;
+}
+
+/* ── Light Mode Kartenfilter & Grid (nutzt Ihre Variablen) ── */
+:root[data-theme="light"] #playMap,
+:root[data-theme="light"] #createMap,
+:root[data-theme="light"] #naviMap {
+  filter: var(--map-filter-light);
+  background-image: var(--map-grid-light);
+}
+
+/* Kleinere Korrektur für die CreateMap (sie hat bereits eine feste Höhe, wir überschreiben nichts) */
+#createMap {
+  height: 25vh !important; /* Höhe bleibt wie vorher, das Grid und der Filter kommen jetzt durch das #createMap oben dazu */
+  }
 html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Outfit',sans-serif;overflow:hidden}
 .maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none!important}
 
@@ -482,6 +506,14 @@ select.finp{appearance:none;cursor:pointer}
 <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script>
 'use strict';
+
+// ── Theme aus LocalStorage laden (Hell/Dunkel) ──────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('sm_theme', theme);
+}
+// Den gespeicherten Theme anwenden, oder auf 'dark' (Standard) zurückfallen
+applyTheme(localStorage.getItem('sm_theme') || 'dark');
 
 const API   = 'https://spotme-chat-obom.onrender.com/api';
 const CODE  = localStorage.getItem('sm_code') || '';
