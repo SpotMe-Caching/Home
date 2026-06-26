@@ -78,4 +78,16 @@
   --shadow-acc:  0 0 18px rgba(255, 159, 0, 0.18);
   --shadow-cyan: 0 0 14px rgba(14, 165, 196, 0.15);
   --inset:       inset 0 1px 0 rgba(0, 0, 0, 0.03);
+
+  /* ── NEU: Karten- und Marker-Darstellung Light Mode ── */
+  --map-filter-light: brightness(1.04) saturate(0.92);
+  --map-grid-light: linear-gradient(rgba(180,100,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(180,100,0,0.06) 1px, transparent 1px);
+  
+  --my-spot-box-shadow-light: 0 0 0 3px rgba(255,255,255,0.85), 0 0 18px rgba(255,159,0,1), 0 0 36px rgba(255,159,0,0.4);
+  --other-spot-box-shadow-light: 0 0 0 2px rgba(255,255,255,0.9), 0 0 8px rgba(60,80,100,0.35);
+  
+  --user-marker-border-light: rgba(255,255,255,0.95);
+  --user-marker-shadow-light: 0 0 0 3px rgba(255,255,255,0.9), 0 0 16px rgba(0,168,84,0.6);
+  --user-ring-color-light: rgba(0,168,84,0.45);
+  --user-ring2-color-light: rgba(0,168,84,0.2);
 }
