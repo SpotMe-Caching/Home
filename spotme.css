@@ -86,6 +86,36 @@ body {
 .maplibregl-canvas-container {
   filter: invert(0.88) hue-rotate(180deg) brightness(0.8) saturate(0.85);
 }
+
+/* ── LIGHT MODE: Map ohne Invert, leicht aufgehellt ── */
+:root[data-theme="light"] .maplibregl-canvas-container {
+  filter: brightness(1.04) saturate(0.92);
+}
+
+/* Light Mode: Grid-Overlay in dunklem Amber statt hellem */
+:root[data-theme="light"] #mapGrid {
+  background-image:
+    linear-gradient(rgba(180,100,0,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180,100,0,0.06) 1px, transparent 1px);
+}
+
+/* Light Mode: Marker-Halos anpassen (dunkler Rand statt dunklem Halo) */
+:root[data-theme="light"] .my-spot-marker::before {
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,0.85),
+    0 0 18px rgba(255,159,0,1),
+    0 0 36px rgba(255,159,0,0.4);
+}
+:root[data-theme="light"] .other-spot-marker {
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,0.9),
+    0 0 8px rgba(60,80,100,0.35);
+}
+:root[data-theme="light"] .user-marker {
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,0.95),
+    0 0 16px rgba(30,30,30,0.25);
+}
 .maplibregl-ctrl-attrib,
 .maplibregl-ctrl-logo {
   display: none !important;
