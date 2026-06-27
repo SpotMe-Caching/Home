@@ -1140,6 +1140,62 @@ async function handleJSONImport(input) {
   reader.readAsText(file);
 }
 
+async function handleGPXImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(e.target.result, "text/xml");
+
+      const wptElements = xmlDoc.getElementsByTagName('wpt');
+      if (wptElements.length === 0) {
+        toast('⚠️ Keine Markierungen (<wpt>) in der GPX-Datei gefunden.');
+        return;
+      }
+
+      const trkEl = xmlDoc.getElementsByTagName('trk')[0];
+      const routeName = trkEl?.getElementsByTagName('name')[0]?.textContent?.trim() || 'Importierte Route';
+      const routeDesc = trkEl?.getElementsByTagName('desc')[0]?.textContent?.trim() || '';
+
+      const wps = [];
+      let i = 1;
+      for (const wpt of wptElements) {
+        const lat = parseFloat(wpt.getAttribute('lat'));
+        const lng = parseFloat(wpt.getAttribute('lon'));
+        const name = wpt.getElementsByTagName('name')[0]?.textContent?.trim() || `WayPoint ${i}`;
+        const desc = wpt.getElementsByTagName('desc')[0]?.textContent?.trim() || '';
+        wps.push({ lat, lng, name, description: desc });
+        i++;
+      }
+
+      importDraft = {
+        name: routeName,
+        description: routeDesc,
+        difficulty: 1,
+        waypoints: wps.map(wp => ({
+          lat: wp.lat, lng: wp.lng,
+          importName: wp.name,
+          importDescription: wp.description,
+          question: wp.name,
+          question_type: 'multiple_choice',
+          option_a: '', option_b: '', option_c: '',
+          correct_option: '',
+          correct_text: ''
+        }))
+      };
+      await saveImportDraftToDB();
+      renderImportDraftList();
+      toast(`📥 ${importDraft.waypoints.length} Markierungen aus GPX importiert — jetzt bearbeiten`);
+    } catch (err) {
+      toast('❌ Fehler beim Lesen der GPX: ' + err.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+          }
+
 function isWpComplete(wp) {
   if (!wp.question?.trim()) return false;
   if (wp.question_type === 'freitext') return !!wp.correct_text?.trim();
