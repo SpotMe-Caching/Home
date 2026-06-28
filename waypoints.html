@@ -404,12 +404,14 @@ select.finp{appearance:none;cursor:pointer}
 </div>
 
         <!-- Erweiterung: JSON Import Button -->
-        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
-          <button class="btn-secondary" style="flex:1;font-size:0.85rem;" onclick="document.getElementById('jsonFileInput').click()">📂 JSON importieren</button>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+         <button class="btn-secondary" style="flex:1;font-size:0.85rem;" onclick="document.getElementById('jsonFileInput').click()">📂 JSON importieren</button>
           <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="handleJSONImport(this)">
-          <button class="btn-primary" style="flex:1;font-size:0.85rem;" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
+         <button class="btn-secondary" style="flex:1;font-size:0.85rem;" onclick="document.getElementById('gpxFileInput').click()">🗺️ GPX importieren</button>
+          <input type="file" id="gpxFileInput" accept=".gpx" style="display:none" onchange="handleGPXImport(this)">
+       <button class="btn-primary" style="flex:1;font-size:0.85rem;" id="wpAddBtn" onclick="addWaypoint()">＋ WayPoint hinzufügen</button>
         </div>
-
+    
         <!-- Import-Draft-Container -->
         <div id="importDraftSection" style="display:none;margin-top:0.75rem;">
           <div style="font-size:0.78rem;color:var(--muted2);margin-bottom:0.5rem;">
