@@ -264,7 +264,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
     </div>
     <div class="navi-legend">
       <span><span class="navi-legend-dot" style="background:#22d3ee;"></span>Fußweg</span>
-      <span><span class="navi-legend-dot" style="background:#f59e0b;"></span>Auto</span>
+      <span><span class="navi-legend-dot" style="background:#f59e0b;"></span>Fahrrad</span>
     </div>
     <button class="navi-stop-btn" onclick="closeNavOverlay()">■ Navigation beenden</button>
   </div>
@@ -382,7 +382,7 @@ function startChatPolling() {
     if (!chatPartnerCode || !CODE) return;
     try {
       const r = await fetch(`${API}/messages/${CODE}?spot_type=caching_chat`);
-      if (!r.ok) return;
+      if (!r.ok) return; 
       const newMsgs = await r.json();
       const fromPartner = newMsgs.filter(m => m.sender_code === chatPartnerCode);
       if (!fromPartner.length) return;
