@@ -411,7 +411,7 @@ async function loadSpot(id) {
         onclick="toggleFollow(${spot.id})">
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
-      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
+      ${online && spot.lat ? `<button class="btn btn-nav" onclick="openNavOverlay(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
       ${CODE && spot.creator_code && spot.creator_code !== CODE ? `<button class="btn btn-nav" onclick="openChatOverlay('${spot.creator_code}','${esc(spot.name).replace(/'/g,"\\'")}')">💬 Chat</button>` : ''}
     </div>
 
