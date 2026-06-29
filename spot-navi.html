@@ -160,7 +160,7 @@
       if(!map) return;
       clearRoutes();
       const base=`${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
-      const url=`https://router.project-osrm.org/route/v1/driving/${base}`;
+      const url=`https://router.project-osrm.org/route/v1/bike/${base}`;
       try {
         const res=await fetch(url);
         const data=await res.json();

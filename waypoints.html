@@ -1577,7 +1577,7 @@ async function naviFetchRoute(){
   const start=`${userPos.lng},${userPos.lat}`,end=`${naviTarget.lng},${naviTarget.lat}`;
   const base=`${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
   const [carData,footRaw]=await Promise.all([
-    fetch(`https://router.project-osrm.org/route/v1/driving/${base}`).then(r=>r.json()).catch(()=>null),
+    fetch(`https://router.project-osrm.org/route/v1/bike/${base}`).then(r=>r.json()).catch(()=>null),
     ORS_KEY
       ?fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`).then(r=>r.json()).catch(()=>null)
       :fetch(`https://router.project-osrm.org/route/v1/foot/${base}`).then(r=>r.json()).catch(()=>null)

@@ -346,7 +346,7 @@ async function naviDoRoute(uPos,lat,lng){
   const start=`${uPos.lng},${uPos.lat}`,end=`${lng},${lat}`;
   const base=`${uPos.lng},${uPos.lat};${lng},${lat}?overview=full&geometries=geojson`;
   const[carData,footRaw]=await Promise.all([
-    fetch(`https://router.project-osrm.org/route/v1/driving/${base}`).then(r=>r.json()).catch(()=>null),
+    fetch(`https://router.project-osrm.org/route/v1/bike/${base}`).then(r=>r.json()).catch(()=>null),
     ORS_KEY?fetch(`https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=${ORS_KEY}&start=${start}&end=${end}`).then(r=>r.json()).catch(()=>null):fetch(`https://router.project-osrm.org/route/v1/foot/${base}`).then(r=>r.json()).catch(()=>null)
   ]);
   naviRouting=false;
