@@ -260,7 +260,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
     <div class="navi-stats">
       <div class="navi-stat"><div class="navi-stat-val" id="naviDistVal">…</div><div class="navi-stat-label">Entfernung</div></div>
       <div class="navi-stat"><div class="navi-stat-val" id="naviFootVal">…</div><div class="navi-stat-label">🚶 zu Fuß</div></div>
-      <div class="navi-stat"><div class="navi-stat-val amber" id="naviCarVal">…</div><div class="navi-stat-label">🚗 Auto</div></div>
+      <div class="navi-stat"><div class="navi-stat-val amber" id="naviCarVal">…</div><div class="navi-stat-label">🚲 Fahrrad</div></div>
     </div>
     <div class="navi-legend">
       <span><span class="navi-legend-dot" style="background:#22d3ee;"></span>Fußweg</span>
@@ -708,7 +708,7 @@ async function naviFetchRoute() {
   const end   = `${naviTarget.lng},${naviTarget.lat}`;
 
   const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
-  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
+  const carPromise = fetch(`https://router.project-osrm.org/route/v1/bike/${osrmBase}`)
     .then(r => r.json()).catch(() => null);
 
   const footPromise = ORS_KEY

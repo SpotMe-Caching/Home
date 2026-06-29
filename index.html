@@ -377,7 +377,7 @@
       </div>
       <div class="navi-stat">
         <div class="navi-stat-val amber" id="naviCarVal">…</div>
-        <div class="navi-stat-label">🚗 Auto</div>
+        <div class="navi-stat-label">🚲 Fahrrad</div>
       </div>
     </div>
     <div class="navi-legend">
@@ -1294,7 +1294,7 @@ async function naviFetchRoute() {
 
   // Auto-Route: OSRM (kein Key nötig)
   const osrmBase = `${userPos.lng},${userPos.lat};${naviTarget.lng},${naviTarget.lat}?overview=full&geometries=geojson`;
-  const carPromise = fetch(`https://router.project-osrm.org/route/v1/driving/${osrmBase}`)
+  const carPromise = fetch(`https://router.project-osrm.org/route/v1/bike/${osrmBase}`)
     .then(r => r.json()).catch(() => null);
 
   // Fußweg: ORS foot-hiking – Fallback auf OSRM foot wenn kein Key
