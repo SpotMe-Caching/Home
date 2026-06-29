@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>SpotMe · Live Spot</title>
 <meta name="theme-color" content="#080b10">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
-<link href="theme-vars.css" rel="stylesheet">
-<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
-<script src="nav.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#080b10;--sur:#0d1117;--card:#111820;--card2:#141e2a;
+  --bord:rgba(255,255,255,0.07);--bord2:rgba(255,255,255,0.12);
+  --acc:#ff9f00;--acc-dim:rgba(255,159,0,0.10);--acc-glow:rgba(255,159,0,0.28);
+  --cyan:#00e5ff;--cyan-dim:rgba(0,229,255,0.08);
+  --green:#00e676;--red:#ff1744;--text:#dce8f0;--muted:#4a6070;--muted2:#7a98aa;
+}
 html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif}
 .maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none!important}
 
@@ -26,51 +29,9 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
 .logo-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pdot 2s ease infinite}
 @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 .back-link{font-size:0.8rem;background:var(--card);backdrop-filter:blur(16px);border:1px solid var(--bord2);border-radius:40px;padding:6px 14px;color:var(--muted2);text-decoration:none}
-.theme-toggle-btn{width:34px;height:34px;border-radius:50%;background:var(--card);backdrop-filter:blur(16px);border:1px solid var(--bord2);color:var(--muted2);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
-/* ── Kartenfilter (Dark Mode Standard) ── */
-:root {
-  /* Fallback für den Dark Mode Filter, falls er nicht in theme-vars.css steht */
-  --map-filter-dark: invert(0.88) hue-rotate(180deg) brightness(0.82) saturate(0.85);
-}
-
-#map {
-  width: 100%;
-  height: 48vmax;
-  max-height: 280px;
-  /* Nutzt die Variable aus theme-vars.css. Falls sie nicht gesetzt ist, nutze den Dark-Fallback */
-  filter: var(--map-filter, var(--map-filter-dark));
-}
-
-/* ── Light Mode Kartenfilter (nutzt Ihre definierte Variable) ── */
-:root[data-theme="light"] #map {
-  filter: var(--map-filter-light);
-}
-
-/* ── Das fehlende MapGrid (Raster-Overlay für Tiefe) ── */
-#mapGrid {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background-image: 
-    linear-gradient(rgba(255, 159, 0, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 159, 0, 0.035) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-
-/* ── Light Mode MapGrid (nutzt Ihre Variable) ── */
-:root[data-theme="light"] #mapGrid {
-  background-image: var(--map-grid-light);
-}
-
-/* ── Light Mode Marker-Halos (optional, falls Sie später Marker hinzufügen) ── */
-:root[data-theme="light"] .my-spot-marker::before {
-  box-shadow: var(--my-spot-box-shadow-light);
-}
-:root[data-theme="light"] .other-spot-marker {
-  box-shadow: var(--other-spot-box-shadow-light);
-  }
+#map{width:100%;height:48vmax;max-height:280px;filter:invert(0.88) hue-rotate(180deg) brightness(0.82) saturate(0.85)}
+.content{padding:1.1rem;max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:0.85rem;padding-bottom:2rem}
 
 /* Avatar */
 .profile-head{display:flex;align-items:center;gap:0.85rem}
@@ -116,54 +77,22 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
 /* Loading */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;gap:0.75rem;color:var(--muted2);font-size:0.88rem}
 .loading-icon{font-size:2.5rem;opacity:0.4}
-
-#imgFullscreen {
-  position: fixed; inset: 0; z-index: 970;
-  background: rgba(0,0,0,0.95);
-  display: none; align-items: center; justify-content: center;
-  cursor: zoom-out;
-}
-#imgFullscreen.show { display: flex; }
-#imgFullscreen img {
-  max-width: 100%; max-height: 100%;
-  object-fit: contain;
-  border-radius: 4px;
-}
 </style>
 </head>
 <body>
 
-<!-- Chat Overlay -->
-<div id="chatOverlay">
-  <div class="chat-overlay-header">
-    <button class="navi-close-btn" onclick="closeChatOverlay()" title="Schließen">✕</button>
-    <div class="navi-spot-label">
-      <div class="navi-spot-label-name" id="chatPartnerLabel">—</div>
-      <div class="navi-spot-label-sub">CHAT</div>
-    </div>
-  </div>
-  <div class="chat-msgs" id="chatMsgs"></div>
-  <div class="chat-input-row">
-    <input class="chat-input" id="chatInput" placeholder="Nachricht..." maxlength="500" onkeydown="if(event.key==='Enter')sendChatMsg()">
-    <button class="chat-send-btn" onclick="sendChatMsg()">➤</button>
-  </div>
-</div>
-
 <div class="page-header">
   <div class="logo"><div class="logo-dot"></div>SPOT<span style="font-weight:300">ME</span></div>
-  <div style="display:flex;align-items:center;gap:0.5rem;">
-    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Hell/Dunkel">🌙</button>
-    <a href="/" class="back-link">← App</a>
-  </div>
+  <a href="/" class="back-link">← App</a>
 </div>
 
 <div id="map"></div>
-<div id="mapGrid"></div>
 <div class="content" id="content">
   <div class="loading"><div class="loading-icon">📡</div>Lädt Live Spot…</div>
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script>
 'use strict';
 const API  = 'https://spotme-chat-obom.onrender.com/api';
@@ -171,147 +100,12 @@ const CODE = localStorage.getItem('sm_code') || '';
 const TOK  = localStorage.getItem('sm_token') || '';
 let spotMap = null;
 
-// ── Theme (Hell/Dunkel) – gleicher Key wie index.html, daher konsistent ──────
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('sm_theme', theme);
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
-}
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  applyTheme(current === 'light' ? 'dark' : 'light');
-}
-applyTheme(localStorage.getItem('sm_theme') || 'dark');
-
-// ── Globals, die das Chat-Overlay braucht ────────────────────────────────────
-let userPos = null;
-
-const CHAT_PREFIX = 'sm_local_msg_';
-let chatPartnerCode = null;
-let chatPartnerName = null;
-let chatRoom        = null;
-let chatPollTimer   = null;
-
-function buildChatRoom(a, b) { return [a, b].sort().join('-'); }
-
-function getChatMessages() {
-  if (!chatRoom) return [];
-  try { return JSON.parse(localStorage.getItem(CHAT_PREFIX + chatRoom) || '[]'); }
-  catch { return []; }
-}
-function saveChatMessages(msgs) {
-  if (!chatRoom) return;
-  localStorage.setItem(CHAT_PREFIX + chatRoom, JSON.stringify(msgs));
-}
-
-function renderChatMessages() {
-  const container = document.getElementById('chatMsgs');
-  if (!container) return;
-  const msgs = getChatMessages();
-  if (!msgs.length) {
-    container.innerHTML = `<div style="text-align:center;color:#64748b;font-size:0.85rem;padding:2rem 0;">💬 Noch keine Nachrichten.</div>`;
-    return;
-  }
-  container.innerHTML = msgs.map(m => {
-    const isMine = m.from === CODE;
-    const time = new Date(m.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    return `<div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">
-      ${!isMine ? `<span class="chat-bubble-author">${esc(m.fromName || chatPartnerName)}</span>` : ''}
-      ${esc(m.text)}
-      <div class="chat-bubble-time">${time}</div>
-    </div>`;
-  }).join('');
-  container.scrollTop = container.scrollHeight;
-}
-
-async function sendChatMsg() {
-  const input = document.getElementById('chatInput');
-  if (!input) return;
-  const text = input.value.trim();
-  if (!text || !chatPartnerCode) return;
-
-  const myName = JSON.parse(localStorage.getItem('sm_profile_caching') || '{}').name || CODE;
-
-  const msgs = getChatMessages();
-  msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
-  saveChatMessages(msgs);
-  input.value = '';
-  renderChatMessages();
-
-  try {
-    await fetch(`${API}/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipient: chatPartnerCode,
-        sender_code: CODE,
-        sender_name: myName,
-        message: text,
-        spot_type: 'caching_chat'
-      })
-    });
-  } catch {}
-}
-
-function startChatPolling() {
-  stopChatPolling();
-  chatPollTimer = setInterval(async () => {
-    if (!chatPartnerCode || !CODE) return;
-    try {
-      const r = await fetch(`${API}/messages/${CODE}?spot_type=caching_chat`);
-      if (!r.ok) return; 
-      const newMsgs = await r.json();
-      const fromPartner = newMsgs.filter(m => m.sender_code === chatPartnerCode);
-      if (!fromPartner.length) return;
-
-      const existing = getChatMessages();
-      let hasNew = false;
-      fromPartner.forEach(m => {
-        const isDuplicate = existing.some(e =>
-          e.from === m.sender_code && e.text === m.message &&
-          Math.abs(e.ts - new Date(m.created_at).getTime()) < 5000
-        );
-        if (!isDuplicate) {
-          existing.push({ from: m.sender_code, fromName: m.sender_name, text: m.message, ts: new Date(m.created_at).getTime() });
-          hasNew = true;
-        }
-      });
-      if (hasNew) { saveChatMessages(existing); renderChatMessages(); }
-    } catch {}
-  }, 4000);
-}
-function stopChatPolling() {
-  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
-}
-
-function openChatOverlay(partnerCode, partnerName) {
-  if (!CODE) { showToast('⚠️ Bitte in der App anmelden'); return; }
-  chatPartnerCode = partnerCode;
-  chatPartnerName = partnerName || partnerCode;
-  chatRoom        = buildChatRoom(CODE, partnerCode);
-
-  document.getElementById('chatPartnerLabel').textContent = chatPartnerName;
-  document.getElementById('chatOverlay').classList.add('active');
-  renderChatMessages();
-  startChatPolling();
-}
-
-function closeChatOverlay() {
-  stopChatPolling();
-  document.getElementById('chatOverlay').classList.remove('active');
-}
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
-function openImg(src) {
-  document.getElementById('imgFullscreenSrc').src = src;
-  document.getElementById('imgFullscreen').classList.add('show');
-}
 
 function initMap(lat, lng) {
   if (spotMap) spotMap.remove();
@@ -368,7 +162,7 @@ async function loadSpot(id) {
 
   content.innerHTML = `
     <div class="profile-head">
-      <div class="avatar" ${spot.avatar ? `onclick="openImg('${spot.avatar}')" style="cursor:zoom-in;"` : ''}>${spot.avatar?`<img src="${spot.avatar}" alt="">`:`${catIcon}`}</div>
+      <div class="avatar">${spot.avatar?`<img src="${spot.avatar}" alt="">`:`${catIcon}`}</div>
       <div class="profile-info">
         <div class="profile-name">${esc(spot.name)}</div>
         <div class="profile-cat">${spot.category||'Live Spot'}</div>
@@ -411,9 +205,8 @@ async function loadSpot(id) {
         onclick="toggleFollow(${spot.id})">
         ${isFollowing ? '✓ Gefolgt' : '+ Folgen'}
       </button>` : ''}
-      ${online && spot.lat ? `<button class="btn btn-nav" onclick="openNavOverlay(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
-      ${CODE && spot.creator_code && spot.creator_code !== CODE ? `<button class="btn btn-nav" onclick="openChatOverlay('${spot.creator_code}','${esc(spot.name).replace(/'/g,"\\'")}')">💬 Chat</button>` : ''}
-    </div>
+      ${online && spot.lat ? `<button class="btn btn-nav" onclick="navigate(${spot.lat},${spot.lng},'${esc(spot.name).replace(/'/g,"\\'")}')">🧭 Route</button>` : ''}
+      </div>
 
     ${!CODE ? `<div style="font-size:0.78rem;color:var(--muted2);text-align:center;">
       <a href="/" style="color:var(--acc);">App öffnen</a> um zu folgen und Benachrichtigungen zu erhalten.
@@ -442,12 +235,13 @@ async function toggleFollow(id) {
   btn.disabled = false;
 }
 
+function navigate(lat, lng, name) {
+  window.location.href = `index.html?navlat=${lat}&navlng=${lng}&navname=${encodeURIComponent(name || 'Spot')}`;
+}
+
 const params = new URLSearchParams(window.location.search);
 const id = params.get('id') || params.get('token');
 if (id) loadSpot(id);
 </script>
-<div id="imgFullscreen" onclick="this.classList.remove('show')">
-  <img id="imgFullscreenSrc" src="" alt="">
-</div>
 </body>
 </html>
