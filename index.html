@@ -371,6 +371,31 @@
   </div>
 </div>
 
+<!-- ── Navigation Overlay ── -->
+<div id="naviOverlay">
+  <div id="naviMap"></div>
+  <div class="navi-topbar">
+    <button class="navi-close-btn" onclick="closeNavOverlay()" title="Schließen">✕</button>
+    <div class="navi-spot-label">
+      <div class="navi-spot-label-name" id="naviSpotName">—</div>
+      <div class="navi-spot-label-sub" id="naviSpotSub">NAVIGATION</div>
+    </div>
+    <button class="navi-recenter-btn" id="naviRecenterBtn" title="Neu zentrieren">⊕</button>
+  </div>
+  <div class="navi-bottom">
+    <div class="navi-stats">
+      <div class="navi-stat"><div class="navi-stat-val" id="naviDistVal">…</div><div class="navi-stat-label">Entfernung</div></div>
+      <div class="navi-stat"><div class="navi-stat-val" id="naviFootVal">…</div><div class="navi-stat-label">🚶 zu Fuß</div></div>
+      <div class="navi-stat"><div class="navi-stat-val amber" id="naviCarVal">…</div><div class="navi-stat-label">🚲 Fahrrad</div></div>
+    </div>
+    <div class="navi-legend">
+      <span><span class="navi-legend-dot" style="background:#22d3ee;"></span>Fußweg</span>
+      <span><span class="navi-legend-dot" style="background:#f59e0b;"></span>Fahrrad</span>
+    </div>
+    <button class="navi-stop-btn" onclick="closeNavOverlay()">■ Navigation beenden</button>
+  </div>
+</div>
+
 <script>
 'use strict';
 
