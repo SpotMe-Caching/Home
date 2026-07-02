@@ -60,6 +60,9 @@
     <button class="topbar-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Hell/Dunkel">
     <i data-lucide="sun" class="nav-icon" id="themeIcon"></i>
     </button>
+    <button class="topbar-btn" id="outdoorMapBtn" onclick="toggleOutdoorMap()" title="Wanderkarte">
+    <i data-lucide="mountain" class="nav-icon"></i>
+    </button>
     <button class="topbar-btn" id="filterTopBtn" onclick="toggleFilterStrip()" title="Kategorien">
     <i data-lucide="layers" class="nav-icon"></i>
     </button>
@@ -534,6 +537,43 @@ function toggleTheme() {
   applyTheme(current === 'light' ? 'dark' : 'light');
 }
 applyTheme(localStorage.getItem('sm_theme') || 'dark');
+
+// ── MAP STYLE: Outdoor / Wanderkarte ────────────────────────────────────────
+const MAP_STYLES = {
+  default:  'https://tiles.openfreemap.org/styles/liberty',
+  outdoor:  'https://tiles.stadiamaps.com/styles/outdoors.json'
+};
+
+let currentMapStyle = localStorage.getItem('sm_map_style') || 'default';
+
+function applyMapStyle(style, silent) {
+  currentMapStyle = style;
+  localStorage.setItem('sm_map_style', style);
+  document.documentElement.setAttribute('data-map-style', style);
+
+  const btn = document.getElementById('outdoorMapBtn');
+  if (btn) btn.classList.toggle('active', style === 'outdoor');
+
+  // Karte nur wechseln wenn sie bereits initialisiert ist
+  if (window.map) {
+    window.map.setStyle(MAP_STYLES[style]);
+    // Marker + Layer nach Style-Wechsel neu rendern
+    window.map.once('styledata', () => {
+      if (typeof renderMarkers === 'function') renderMarkers();
+      if (typeof renderLiveSpotMarkers === 'function') renderLiveSpotMarkers();
+    });
+  }
+
+  if (!silent) toast(style === 'outdoor' ? '🏔️ Wanderkarte aktiv' : '🗺️ Standard-Karte');
+}
+
+function toggleOutdoorMap() {
+  applyMapStyle(currentMapStyle === 'outdoor' ? 'default' : 'outdoor');
+}
+
+// Beim Start den gespeicherten Map-Style wiederherstellen
+// (wird nach initMap() aufgerufen, daher verzögert)
+setTimeout(() => applyMapStyle(currentMapStyle, true), 1200);
   
 async function saveSpotsOffline(spots) {
   const db = await openDB();
@@ -640,9 +680,10 @@ function openImg(src) {
 
 // ── MAP ──────────────────────────────────────────────────────────────────────
 function initMap() {
+  const savedStyle = localStorage.getItem('sm_map_style') || 'default';
   map = new maplibregl.Map({
     container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
+    style: MAP_STYLES[savedStyle] || MAP_STYLES.default,
     center: [-0.38, 39.47],
     zoom: 14,
     attributionControl: false

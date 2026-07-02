@@ -252,6 +252,15 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Ou
 
 <script>
 'use strict';
+
+// Gespeicherten Map-Style aus localStorage laden (sync mit index.html)
+function getMapStyle() {
+  const s = localStorage.getItem('sm_map_style') || 'default';
+  return s === 'outdoor'
+    ? 'https://tiles.stadiamaps.com/styles/outdoors.json'
+    : 'https://tiles.openfreemap.org/styles/liberty';
+}
+
 const API  = 'https://spotme-chat-obom.onrender.com/api';
 const CODE = localStorage.getItem('sm_code') || '';
 const TOK  = localStorage.getItem('sm_token') || '';
@@ -288,7 +297,7 @@ function initMap(lat, lng) {
   if (spotMap) spotMap.remove();
   spotMap = new maplibregl.Map({
     container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
+    style: getMapStyle(),
     center: [lng, lat], zoom: 14,
     interactive: false, attributionControl: false
   });
