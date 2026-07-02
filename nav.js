@@ -9,7 +9,7 @@
 //   - HTML-Markup mit den IDs: naviOverlay, naviMap, naviSpotName,
 //     naviDistVal, naviFootVal, naviCarVal, naviRecenterBtn
 //
-// Routing: Fußweg über OpenRouteService (falls ORS_KEY gesetzt) oder OSRM-Fallback.
+// Routing:: Fußweg über OpenRouteService (falls ORS_KEY gesetzt) oder OSRM-Fallback.
 // Fahrrad über OSRM (öffentlicher Demo-Server, Profile car/foot/bike).
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -78,7 +78,7 @@ function openNavOverlay(lat, lng, name) {
 
     naviMap = new maplibregl.Map({
       container: 'naviMap',
-      style: 'https://tiles.openfreemap.org/styles/outdoors',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
       center, zoom: 14,
       attributionControl: false
     });
