@@ -78,7 +78,7 @@ function openNavOverlay(lat, lng, name) {
 
     naviMap = new maplibregl.Map({
       container: 'naviMap',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/outdoors',
       center, zoom: 14,
       attributionControl: false
     });
