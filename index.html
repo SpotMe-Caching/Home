@@ -386,7 +386,41 @@ let radiusCatFilter = null;
 let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null;
 let urlSpotChecked = false; // Verhindert mehrfaches Fliegen zum Spot beim Laden
 
-// Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
+let hikingLayerActive = false;
+
+function toggleHikingLayer() {
+  const btn = document.getElementById('hikingToggleBtn');
+  if (!map) return;
+
+  if (!hikingLayerActive) {
+    if (!map.getSource('hiking-overlay')) {
+      map.addSource('hiking-overlay', {
+        type: 'raster',
+        tiles: ['https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a>'
+      });
+    }
+    if (!map.getLayer('hiking-layer')) {
+      map.addLayer({
+        id: 'hiking-layer',
+        type: 'raster',
+        source: 'hiking-overlay',
+        paint: { 'raster-opacity': 0.75 }
+      });
+    }
+    hikingLayerActive = true;
+    btn?.classList.add('active');
+    toast('🥾 Wanderwege eingeblendet');
+  } else {
+    if (map.getLayer('hiking-layer')) map.removeLayer('hiking-layer');
+    hikingLayerActive = false;
+    btn?.classList.remove('active');
+    toast('🥾 Wanderwege ausgeblendet');
+  }
+}
+  
+  // Baut die Kategorie-Pills im Radius-Modal aus den vorhandenen Spots.
 function buildRadiusCatPills() {
   const strip = document.getElementById('rsCatStrip');
   if (!strip) return;
