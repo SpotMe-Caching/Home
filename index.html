@@ -69,6 +69,7 @@
     <button class="topbar-btn" id="newsTopBtn" onclick="loadNewsTeaser(true)" title="News">
     <i data-lucide="newspaper" class="nav-icon"></i>
     </button>
+    <button class="topbar-btn" id="hikingToggleBtn" onclick="toggleHikingLayer()" title="Wanderwege">🥾</button>
     <button class="topbar-btn" onclick="donate(7)">❤️</button>
    </div>
  </div>
@@ -416,6 +417,41 @@ let activeRadius = null, detailSpot = null, detailMiniMap = null;
 let radiusCatFilter = null;
 let weeklyMiniMap = null, weeklyMarker = null, weeklyCoords = null;
 let urlSpotChecked = false; // Verhindert mehrfaches Fliegen zum Spot beim Laden
+
+// Wanderwege einblenden //
+let hikingLayerActive = false;
+
+function toggleHikingLayer() {
+  const btn = document.getElementById('hikingToggleBtn');
+  if (!map) return;
+
+  if (!hikingLayerActive) {
+    if (!map.getSource('hiking-overlay')) {
+      map.addSource('hiking-overlay', {
+        type: 'raster',
+        tiles: ['https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a>'
+      });
+    }
+    if (!map.getLayer('hiking-layer')) {
+      map.addLayer({
+        id: 'hiking-layer',
+        type: 'raster',
+        source: 'hiking-overlay',
+        paint: { 'raster-opacity': 0.75 }
+      });
+    }
+    hikingLayerActive = true;
+    btn?.classList.add('active');
+    toast('🥾 Wanderwege eingeblendet');
+  } else {
+    if (map.getLayer('hiking-layer')) map.removeLayer('hiking-layer');
+    hikingLayerActive = false;
+    btn?.classList.remove('active');
+    toast('🥾 Wanderwege ausgeblendet');
+  }
+}
 
 // ═══════════════════════════════════════════════
 // SIMPLE JSON i18n TRANSLATION HELPER
