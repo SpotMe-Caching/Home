@@ -8,6 +8,9 @@
   "orientation": "portrait-primary",
   "background_color": "#0a0d12",
   "theme_color": "#0a0d12",
+  
+  "categories": ["navigation", "travel", "outdoors"],
+
   "icons": [
     {
       "src": "https://spotme-caching.github.io/icons/pwa_72.png",
@@ -49,6 +52,23 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+
+  "shortcuts": [
+    {
+      "name": "WayPoint Caching",
+      "short_name": "WayPoint",
+      "description": "Starte direkt die Geocaching-Routen-Suche",
+      "url": "/waypoints.html",
+      "icons": [{ "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Neuen Spot anlegen",
+      "short_name": "Spot",
+      "description": "Lege sofort einen neuen Treffpunkt auf der Karte an",
+      "url": "/index.html?create=true",
+      "icons": [{ "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192" }]
     }
   ]
 }
