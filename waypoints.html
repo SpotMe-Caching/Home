@@ -482,15 +482,6 @@ select.finp{appearance:none;cursor:pointer}
 <script>
 'use strict';
 
-// Gespeicherten Map-Style aus localStorage laden (sync mit index.html)
-function getMapStyle() {
-  const s = localStorage.getItem('sm_map_style') || 'default';
-  return s === 'outdoor'
-    ? 'https://tiles.stadiamaps.com/styles/outdoors.json'
-    : 'https://tiles.openfreemap.org/styles/liberty';
-}
-
-
 // ── Theme (Hell/Dunkel) – gleicher Key wie index.html, daher konsistent ──────
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -694,7 +685,7 @@ function initPlayMap() {
   const center = [activeWaypoint.lng, activeWaypoint.lat];
   playMap = new maplibregl.Map({
     container: 'playMap',
-    style: getMapStyle(),
+    style: 'https://tiles.openfreemap.org/styles/liberty',
     center, zoom: 14, attributionControl: false
   });
   playMap.on('load', () => {
@@ -1045,7 +1036,7 @@ function initCreateMap() {
   const center = userPos ? [userPos.lng,userPos.lat] : [0,20];
   createMap = new maplibregl.Map({
     container:'createMap',
-    style:getMapStyle(),
+    style:'https://tiles.openfreemap.org/styles/liberty',
     center, zoom:13, attributionControl:false
   });
   if (userPos) {
