@@ -24,40 +24,6 @@ let naviRouting      = false;
 let naviTarget       = null;
 let naviCentered     = true;
 
-let hikingLayerActive = false;
-
-function toggleHikingLayer() {
-  const btn = document.getElementById('hikingToggleBtn');
-  if (!map) return;
-
-  if (!hikingLayerActive) {
-    if (!map.getSource('hiking-overlay')) {
-      map.addSource('hiking-overlay', {
-        type: 'raster',
-        tiles: ['https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        attribution: '© <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a>'
-      });
-    }
-    if (!map.getLayer('hiking-layer')) {
-      map.addLayer({
-        id: 'hiking-layer',
-        type: 'raster',
-        source: 'hiking-overlay',
-        paint: { 'raster-opacity': 0.75 }
-      });
-    }
-    hikingLayerActive = true;
-    btn?.classList.add('active');
-    toast('🥾 Wanderwege eingeblendet');
-  } else {
-    if (map.getLayer('hiking-layer')) map.removeLayer('hiking-layer');
-    hikingLayerActive = false;
-    btn?.classList.remove('active');
-    toast('🥾 Wanderwege ausgeblendet');
-  }
-}
-
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
