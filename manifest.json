@@ -4,10 +4,11 @@
   "description": "Geocaching für Dates – entdecke geheime Treffpunkte",
   "start_url": "/index.html",
   "scope": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0a0d12",
   "theme_color": "#0a0d12",
+  "id": "spotme-caching-v4",
   
   "categories": ["navigation", "travel", "outdoors"],
 
@@ -69,6 +70,21 @@
       "description": "Lege sofort einen neuen Treffpunkt auf der Karte an",
       "url": "/index.html?create=true",
       "icons": [{ "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192" }]
+    }
+  ],
+
+  "screenshots": [
+    {
+      "src": "screenshots/screenshot_1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Kartenansicht mit Spots"
+    },
+    {
+      "src": "screenshots/screenshot_2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Treffpunkt-Details"
     }
   ]
 }
