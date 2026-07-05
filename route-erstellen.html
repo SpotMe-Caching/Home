@@ -129,7 +129,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-
 .route-stat-label{font-size:0.6rem;color:var(--muted2);margin-top:2px}
 
 /* ── SCREEN 3: WALK-MODUS ── */
-#walkMap{width:100%;flex:1;min-height:0}
+#walkMap{width:100%;flex:1;min-height:100%}
 .walk-panel{
   position:absolute;bottom:0;left:0;right:0;
   background:rgba(8,11,16,0.94);backdrop-filter:blur(20px);
@@ -627,12 +627,13 @@ function drawPreviewRoute(idx) {
 function switchVariant(idx) { drawPreviewRoute(idx); }
 
 // ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
-function startWalk(){
-  // Sicherheitscheck: GPS muss verfügbar sein
+// ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
+function startWalk() {
+  // Sicherheitschecks
   if (!routes || routes.length === 0) {
-  toast('⚠️ Keine Route generiert. Bitte zuerst "Route generieren" starten.');
-  return;
-}
+    toast('⚠️ Keine Route generiert. Bitte zuerst "Route generieren" starten.');
+    return;
+  }
   if (!userPos) {
     toast('⚠️ GPS-Standort nicht verfügbar. Bitte Seite neu laden und GPS erlauben.');
     return;
@@ -647,35 +648,46 @@ function startWalk(){
   // Timer starten
   if (walkTimerInt) clearInterval(walkTimerInt);
   walkTimerInt = setInterval(() => {
-    document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now()-walkStartTime)/1000));
+    document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now() - walkStartTime) / 1000));
   }, 1000);
 
   // Karte initialisieren
   if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
-  
+
   walkMap = new maplibregl.Map({
     container: 'walkMap',
     style: getMapStyle(),
-    center: [userPos.lng, userPos.lat], 
+    center: [userPos.lng, userPos.lat],
     zoom: 15,
     attributionControl: false
   });
 
-  // 🔥 WICHTIG: Map zwingen, die richtige Größe zu berechnen, sobald sie sichtbar ist
-  setTimeout(() => {
-    if (walkMap) walkMap.resize();
-  }, 150);
-
   walkMap.on('load', () => {
+    // 1. Zwingt die Karte, die aktuelle Größe des Containers sofort zu übernehmen
+    walkMap.resize();
+
+    // 2. Sicherheitshalber nochmal nach 300ms (falls der Übergang noch nicht ganz abgeschlossen war)
+    setTimeout(() => {
+      if (walkMap) walkMap.resize();
+    }, 300);
+
     // Route anzeigen
     const route = routes[activeRouteIdx];
     if (route) {
-      walkMap.addSource('walk-route', { type:'geojson', data:{ type:'Feature', geometry:route.geometry }});
-      walkMap.addLayer({ id:'walk-route-casing', type:'line', source:'walk-route',
-        paint:{'line-color':'#080b10','line-width':7,'line-opacity':0.5}});
-      walkMap.addLayer({ id:'walk-route', type:'line', source:'walk-route',
-        layout:{'line-join':'round','line-cap':'round'},
-        paint:{'line-color':'#ff9f00','line-width':3,'line-opacity':0.7,'line-dasharray':[2,2]}});
+      walkMap.addSource('walk-route', { type: 'geojson', data: { type: 'Feature', geometry: route.geometry } });
+      walkMap.addLayer({
+        id: 'walk-route-casing',
+        type: 'line',
+        source: 'walk-route',
+        paint: { 'line-color': '#080b10', 'line-width': 7, 'line-opacity': 0.5 }
+      });
+      walkMap.addLayer({
+        id: 'walk-route',
+        type: 'line',
+        source: 'walk-route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#ff9f00', 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }
+      });
     }
     addWalkUserMarker();
   });
@@ -686,14 +698,17 @@ function startWalk(){
     userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     if (walkUserMarker) walkUserMarker.setLngLat([userPos.lng, userPos.lat]);
     else addWalkUserMarker();
-    walkMap?.easeTo({ center:[userPos.lng, userPos.lat], duration:600 });
+    walkMap?.easeTo({ center: [userPos.lng, userPos.lat], duration: 600 });
 
-    // Distanz zum Start
-    const d = haversineM(userPos.lat, userPos.lng,
-      routes[activeRouteIdx]?.geometry.coordinates[0][1],
-      routes[activeRouteIdx]?.geometry.coordinates[0][0]);
-    document.getElementById('walkDist').textContent = fmtDist(d);
-  }, null, { enableHighAccuracy:true, maximumAge:5000 });
+    // Distanz zum Start (Sicherheitscheck, damit die App nicht abstürzt, falls Route kaputt ist)
+    const route = routes[activeRouteIdx];
+    if (route && route.geometry && route.geometry.coordinates && route.geometry.coordinates.length > 0) {
+      const d = haversineM(userPos.lat, userPos.lng,
+        route.geometry.coordinates[0][1],
+        route.geometry.coordinates[0][0]);
+      document.getElementById('walkDist').textContent = fmtDist(d);
+    }
+  }, null, { enableHighAccuracy: true, maximumAge: 5000 });
 }
 
 function addWalkUserMarker() {
