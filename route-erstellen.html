@@ -134,7 +134,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-
 .route-stat-label{font-size:0.6rem;color:var(--muted2);margin-top:2px}
 
 /* ── SCREEN 3: WALK-MODUS ── */
-#walkMap{width:100%;flex:1;min-height:100%}
+#walkMap {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: #080b10;
+}
 .walk-panel{
   position:absolute;bottom:0;left:0;right:0;
   background:rgba(8,11,16,0.94);backdrop-filter:blur(20px);
