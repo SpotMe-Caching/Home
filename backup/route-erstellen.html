@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+
+    <!-- Eruda – Mobile Console (nur für Debugging) -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>SpotMe · Route erstellen</title>
@@ -38,10 +43,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-
 .back-btn{padding:6px 13px;border-radius:40px;background:var(--card);border:1px solid var(--bord2);color:var(--muted2);font-size:0.78rem;cursor:pointer}
 
 /* ── SCREENS ── */
-.screen{display:none;position:fixed;inset:0;top:56px}
+.screen{display:none;position:fixed;inset:0;top:56px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .screen.active{display:flex;flex-direction:column}
-/* Scroll nur auf nicht-Karten-Screens */
-#screen1,#screen4{overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 /* ── SCREEN 1: INTRO ── */
 .intro-wrap{
@@ -131,9 +134,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-
 .route-stat-label{font-size:0.6rem;color:var(--muted2);margin-top:2px}
 
 /* ── SCREEN 3: WALK-MODUS ── */
-#walkMap{width:100%;flex:1;min-height:0}
+#walkMap {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: #080b10;
+  display: block !important;
+}
 .walk-panel{
-  flex-shrink:0;
+  position:absolute;bottom:0;left:0;right:0;
   background:rgba(8,11,16,0.94);backdrop-filter:blur(20px);
   border-top:1px solid var(--bord2);border-radius:20px 20px 0 0;
   padding:0.85rem 1rem;padding-bottom:max(0.85rem,env(safe-area-inset-bottom));
@@ -270,7 +280,7 @@ textarea.finp{resize:none;min-height:65px;line-height:1.4}
 </div>
 
 <!-- ══ SCREEN 2: ROUTEN-VORSCHAU ══ -->
-<div class="screen" id="screen2">
+<div class="screen" id="screen2" style="position:relative;">
   <div id="previewMap"></div>
   <div class="preview-panel">
     <div class="preview-title">Deine Route – passt die?</div>
@@ -298,7 +308,7 @@ textarea.finp{resize:none;min-height:65px;line-height:1.4}
 </div>
 
 <!-- ══ SCREEN 3: WALK-MODUS ══ -->
-<div class="screen" id="screen3">
+<div class="screen" id="screen3" style="position:relative;">
   <div id="walkMap"></div>
   <div class="walk-panel">
     <div class="walk-progress">
@@ -511,11 +521,19 @@ async function generateRoute() {
 
 function getGPS() {
   return new Promise((res, rej) => {
+    // Falls bereits ein frischer Standort vorhanden ist (jünger als 1 Minute)
+    if (userPos && Date.now() - (userPos._ts || 0) < 60000) {
+      return res(userPos);
+    }
     if (!navigator.geolocation) { rej('no GPS'); return; }
     navigator.geolocation.getCurrentPosition(
-      p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      p => {
+        const pos = { lat: p.coords.latitude, lng: p.coords.longitude, _ts: Date.now() };
+        userPos = pos;
+        res(pos);
+      },
       () => rej('GPS error'),
-      { enableHighAccuracy: true, timeout: 12000 }
+      { enableHighAccuracy: true, timeout: 10000 } // ⬅️ 10 Sekunden sind realistisch
     );
   });
 }
@@ -622,6 +640,16 @@ function switchVariant(idx) { drawPreviewRoute(idx); }
 
 // ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
 function startWalk() {
+  // Sicherheitschecks
+  if (!routes || routes.length === 0) {
+    toast('⚠️ Keine Route generiert. Bitte zuerst "Route generieren" starten.');
+    return;
+  }
+  if (!userPos) {
+    toast('⚠️ GPS-Standort nicht verfügbar. Bitte Seite neu laden und GPS erlauben.');
+    return;
+  }
+
   showScreen(3);
   walkStartTime = Date.now();
   document.getElementById('wpCount').textContent = '0';
@@ -631,45 +659,60 @@ function startWalk() {
   // Timer starten
   if (walkTimerInt) clearInterval(walkTimerInt);
   walkTimerInt = setInterval(() => {
-    document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now()-walkStartTime)/1000));
+    document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now() - walkStartTime) / 1000));
   }, 1000);
 
-  // Karte initialisieren
+  // Alte Karte entfernen
   if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
-  walkMap = new maplibregl.Map({
-    container: 'walkMap',
-    style: getMapStyle(),
-    center: [userPos.lng, userPos.lat], zoom: 15,
-    attributionControl: false
-  });
-  walkMap.on('load', () => {
-    // Route anzeigen
-    const route = routes[activeRouteIdx];
-    if (route) {
-      walkMap.addSource('walk-route', { type:'geojson', data:{ type:'Feature', geometry:route.geometry }});
-      walkMap.addLayer({ id:'walk-route-casing', type:'line', source:'walk-route',
-        paint:{'line-color':'#080b10','line-width':7,'line-opacity':0.5}});
-      walkMap.addLayer({ id:'walk-route', type:'line', source:'walk-route',
-        layout:{'line-join':'round','line-cap':'round'},
-        paint:{'line-color':'#ff9f00','line-width':3,'line-opacity':0.7,'line-dasharray':[2,2]}});
-    }
-    addWalkUserMarker();
-  });
 
-  // GPS Watch
-  if (walkWatchId) navigator.geolocation.clearWatch(walkWatchId);
-  walkWatchId = navigator.geolocation.watchPosition(pos => {
-    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    if (walkUserMarker) walkUserMarker.setLngLat([userPos.lng, userPos.lat]);
-    else addWalkUserMarker();
-    walkMap?.easeTo({ center:[userPos.lng, userPos.lat], duration:600 });
+  // ⚠️ WICHTIG: Map-Initialisierung um 50ms verzögern, damit der Browser den Container (#walkMap) fertig rendern kann
+  setTimeout(() => {
+    walkMap = new maplibregl.Map({
+      container: 'walkMap',
+      style: getMapStyle(),
+      center: [userPos.lng, userPos.lat],
+      zoom: 15,
+      attributionControl: false
+    });
 
-    // Distanz zum Start
-    const d = haversineM(userPos.lat, userPos.lng,
-      routes[activeRouteIdx]?.geometry.coordinates[0][1],
-      routes[activeRouteIdx]?.geometry.coordinates[0][0]);
-    document.getElementById('walkDist').textContent = fmtDist(d);
-  }, null, { enableHighAccuracy:true, maximumAge:5000 });
+    walkMap.on('load', () => {
+      // 1. Zwingt die Karte, sofort die neue Größe zu übernehmen (weil Flexbox jetzt fertig berechnet wurde)
+      walkMap.resize();
+
+      // 2. Sicherheitshalber nochmal nach 300ms (für den Fall eines Rendering-Lags)
+      setTimeout(() => {
+        if (walkMap) walkMap.resize();
+      }, 300);
+
+      // Route anzeigen
+      const route = routes[activeRouteIdx];
+      if (route) {
+        try {
+          walkMap.addSource('walk-route', { 
+            type: 'geojson', 
+            data: { type: 'Feature', geometry: route.geometry } 
+          });
+          walkMap.addLayer({
+            id: 'walk-route-casing',
+            type: 'line',
+            source: 'walk-route',
+            paint: { 'line-color': '#080b10', 'line-width': 7, 'line-opacity': 0.5 }
+          });
+          walkMap.addLayer({
+            id: 'walk-route',
+            type: 'line',
+            source: 'walk-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#ff9f00', 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }
+          });
+        } catch (e) {
+          console.error("Fehler beim Hinzufügen der Route:", e);
+          toast("⚠️ Fehler beim Laden der Routen-Geometrie");
+        }
+      }
+      addWalkUserMarker();
+    });
+  }, 50);
 }
 
 function addWalkUserMarker() {
