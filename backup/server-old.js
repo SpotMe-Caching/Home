@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v10.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v8.4 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -190,6 +190,33 @@ async function initDB() {
     );
   `);
 
+  // ── WayPoint-Erweiterung: Fragetypen + Coins ──────────────────────
+  await pool.query(`
+  ALTER TABLE wp_waypoints ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'multiple_choice'
+    CHECK (question_type IN ('multiple_choice','freitext','foto'));
+  ALTER TABLE wp_waypoints ALTER COLUMN option_a DROP NOT NULL;
+  ALTER TABLE wp_waypoints ALTER COLUMN option_b DROP NOT NULL;
+  ALTER TABLE wp_waypoints ALTER COLUMN option_c DROP NOT NULL;
+  ALTER TABLE wp_waypoints ALTER COLUMN correct_option DROP NOT NULL;
+  ALTER TABLE wp_waypoints ADD COLUMN IF NOT EXISTS correct_text TEXT;
+`);
+
+  await pool.query(`
+  ALTER TABLE profiles ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0;
+`);
+
+  await pool.query(`
+  CREATE TABLE IF NOT EXISTS coin_transactions (
+    id         SERIAL PRIMARY KEY,
+    code       TEXT NOT NULL,
+    amount     INTEGER NOT NULL,
+    reason     TEXT NOT NULL,
+    route_id   INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_ctx_code ON coin_transactions(code);
+`);
+
   // Verifikationen
   await pool.query(`
     CREATE TABLE IF NOT EXISTS verifications (
@@ -283,17 +310,6 @@ async function initDB() {
   CREATE INDEX IF NOT EXISTS idx_user_spots_wish ON user_spots(wish_tag);
 `);
 
-  // Donate (SumUp) Datenbank
-  await pool.query(`
-  CREATE TABLE IF NOT EXISTS donations (
-    id          SERIAL PRIMARY KEY,
-    reference   TEXT UNIQUE NOT NULL,
-    amount      DECIMAL(10,2) NOT NULL,
-    status      TEXT NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-  );
-`);
-
   // SpotCache v2 – Einladungen mit Zeitfenster
   await pool.query(`
   CREATE TABLE IF NOT EXISTS spot_cache_invites (
@@ -358,7 +374,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v10.0 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v8.4 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
@@ -473,7 +489,6 @@ async function initDB() {
       lat            DOUBLE PRECISION,
       lng            DOUBLE PRECISION,
       location_note  TEXT,
-      stream_url     TEXT,                    -- HLS .m3u8 URL wenn Creator streamt
       follower_count INTEGER NOT NULL DEFAULT 0,
       created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -502,25 +517,6 @@ async function initDB() {
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_lat  DOUBLE PRECISION;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_lng  DOUBLE PRECISION;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
-  `,
-    )
-    .catch(() => {});
-
-  await pool.query(`
-  ALTER TABLE wp_waypoints ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'multiple_choice'
-    CHECK (question_type IN ('multiple_choice','freitext','foto'));
-  ALTER TABLE wp_waypoints ALTER COLUMN option_a DROP NOT NULL;
-  ALTER TABLE wp_waypoints ALTER COLUMN option_b DROP NOT NULL;
-  ALTER TABLE wp_waypoints ALTER COLUMN option_c DROP NOT NULL;
-  ALTER TABLE wp_waypoints ALTER COLUMN correct_option DROP NOT NULL;
-  ALTER TABLE wp_waypoints ADD COLUMN IF NOT EXISTS correct_text TEXT;
-`);
-
-  // stream_url für bestehende live_spots Tabellen
-  await pool
-    .query(
-      `
-    ALTER TABLE live_spots ADD COLUMN IF NOT EXISTS stream_url TEXT;
   `,
     )
     .catch(() => {});
@@ -2230,6 +2226,7 @@ app.get("/api/userspots/:code", async (req, res) => {
               image,           -- immer zurückgeben, nicht nach Status filtern
               image_status,    -- Frontend kann den Status selbst anzeigen
               active,
+              area_type, time_pref, crowd_level, intimacy_level,
               created_at
        FROM user_spots
        WHERE code = $1
@@ -2389,7 +2386,7 @@ app.delete("/api/checkins/public/:id", async (req, res) => {
 // 🟠 Spot bearbeiten
 app.put("/api/userspots/:id", async (req, res) => {
   const { id } = req.params;
-  const { code, name, description, wishTag, image } = req.body;
+  const { code, name, description, wishTag, image, area_type } = req.body;
   if (!code || !name || !wishTag) {
     return res.status(400).json({ error: "code, name, wishTag erforderlich" });
   }
@@ -2409,21 +2406,21 @@ app.put("/api/userspots/:id", async (req, res) => {
       // Das neue Bild muss vom Admin erneut freigegeben werden
       await pool.query(
         `UPDATE user_spots
-         SET name=$1, description=$2, wish_tag=$3, image=$4, image_status='pending'
-         WHERE id=$5`,
-        [name, description || null, wishTag, image, id],
+         SET name=$1, description=$2, wish_tag=$3, image=$4, image_status='pending', area_type=$5
+         WHERE id=$6`,
+        [name, description || null, wishTag, image, area_type || null, id],
       );
     } else {
-      // Kein neues Bild → name/description/wishTag aktualisieren,
+      // Kein neues Bild → name/description/wishTag/area_type aktualisieren,
       // aber image und image_status NICHT anfassen.
       // Das ist der Schutz vor dem "versehentlichen Löschen" –
       // wenn das Frontend beim Bearbeiten image=null schickt weil es
       // das pending-Bild nicht kennt, bleibt das Bild trotzdem erhalten.
       await pool.query(
         `UPDATE user_spots
-         SET name=$1, description=$2, wish_tag=$3
-         WHERE id=$4`,
-        [name, description || null, wishTag, id],
+         SET name=$1, description=$2, wish_tag=$3, area_type=$4
+         WHERE id=$5`,
+        [name, description || null, wishTag, area_type || null, id],
       );
     }
     res.json({ success: true });
@@ -2591,75 +2588,46 @@ app.post("/api/spotcache/invite", async (req, res) => {
   }
 });
 
-// ── Einladung beantworten (POST, erwartet action: 'accept' | 'decline') ──
+// 📨 Einladung beantworten
 app.post("/api/spotcache/invite/respond", async (req, res) => {
   const { id, code, action } = req.body;
-
-  // Parameterprüfung
   if (!id || !code || !["accept", "decline"].includes(action)) {
-    return res.status(400).json({
-      error: "Ungültige Parameter. Erwartet: id, code, action (accept/decline)",
-    });
+    return res.status(400).json({ error: "Ungültige Parameter" });
   }
-
   try {
-    // Einladung aus der Datenbank laden
     const invite = await pool.query(
       "SELECT * FROM spot_cache_invites WHERE id = $1",
       [id],
     );
-    if (!invite.rows.length) {
-      return res.status(404).json({ error: "Einladung nicht gefunden" });
-    }
-
+    if (!invite.rows.length)
+      return res.status(404).json({ error: "Nicht gefunden" });
     const inv = invite.rows[0];
+    if (inv.to_code !== code)
+      return res.status(403).json({ error: "Keine Berechtigung" });
 
-    // Nur der Empfänger (to_code) darf antworten
-    if (inv.to_code !== code) {
-      return res.status(403).json({
-        error: "Keine Berechtigung – nur der Empfänger kann antworten",
-      });
+    if (action === "decline") {
+      await pool.query(
+        `UPDATE spot_cache_invites SET status = 'declined' WHERE id = $1`,
+        [id],
+      );
+      return res.json({ success: true, status: "declined" });
     }
 
-    const status = action === "accept" ? "accepted" : "declined";
-
-    // Status aktualisieren
     await pool.query(
-      "UPDATE spot_cache_invites SET status = $1 WHERE id = $2",
-      [status, id],
+      `UPDATE spot_cache_invites SET status = 'accepted' WHERE id = $1`,
+      [id],
     );
-
-    // Falls akzeptiert: RAM‑Einladung für den Sender anlegen (für sofortigen Chat)
-    if (status === "accepted") {
-      const room = [inv.from_code, inv.to_code].sort().join("-");
-      if (!invites[inv.from_code]) invites[inv.from_code] = [];
-      invites[inv.from_code].push({
-        from: inv.to_code,
-        to: inv.from_code,
-        ts: Date.now(),
-        room,
-      });
-    }
-
-    // Push‑Benachrichtigung an den Einladungs‑Sender (fire‑and‑forget)
+    // Push an Einladungs-Sender (fire-and-forget)
     sendPushToCode(
       inv.from_code,
-      status === "accepted"
-        ? "✅ Einladung angenommen"
-        : "❌ Einladung abgelehnt",
-      status === "accepted"
-        ? `${code} hat deine Einladung angenommen`
-        : `${code} hat deine Einladung abgelehnt`,
+      "✅ Einladung angenommen",
+      `${code} hat deine Einladung angenommen`,
       "/",
     );
-
-    console.log(`📨 Einladung ${id} wurde von ${code} ${status}`);
-    res.json({ success: true, status });
+    res.json({ success: true, status: "accepted" });
   } catch (e) {
-    console.error("POST /api/spotcache/invite/respond:", e.message);
-    res
-      .status(500)
-      .json({ error: "Datenbankfehler beim Beantworten der Einladung" });
+    console.error(e);
+    res.status(500).json({ error: "Fehler" });
   }
 });
 
@@ -3395,8 +3363,8 @@ app.post("/api/wp/routes/:id/start", async (req, res) => {
 
     // Ersten noch offenen WayPoint liefern
     const wp = await pool.query(
-      `SELECT id, order_index, lat, lng, question, option_a, option_b, option_c
-       FROM wp_waypoints WHERE route_id=$1 AND order_index=$2`,
+      `SELECT id, order_index, lat, lng, question, question_type, option_a, option_b, option_c
+       FROM wp_waypoints WHERE route_id=\$1 AND order_index=\$2`,
       [routeId, prog.rows[0].current_index],
     );
     if (!wp.rows.length)
@@ -3428,77 +3396,142 @@ app.post("/api/wp/routes/:id/start", async (req, res) => {
   }
 });
 
+app.get("/api/coins/:code", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT coins FROM profiles WHERE code=\$1 LIMIT 1",
+      [req.params.code],
+    );
+    res.json({ coins: rows[0]?.coins || 0 });
+  } catch (e) {
+    console.error("GET /api/coins/:code:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
 // ── Antwort einreichen → gibt nächsten WayPoint oder Completion zurück ────────
+
 app.post("/api/wp/routes/:id/answer", async (req, res) => {
   const { player_code, waypoint_index, answer } = req.body;
   const routeId = +req.params.id;
-  if (!player_code || waypoint_index == null || !answer) {
-    return res.status(400).json({ error: "player_code, waypoint_index, answer erforderlich" });
+  if (
+    !player_code ||
+    waypoint_index == null ||
+    answer == null ||
+    answer === ""
+  ) {
+    return res
+      .status(400)
+      .json({ error: "player_code, waypoint_index, answer erforderlich" });
   }
 
   try {
     const prog = await pool.query(
-      "SELECT * FROM wp_progress WHERE route_id=$1 AND player_code=$2",
-      [routeId, player_code]
+      "SELECT * FROM wp_progress WHERE route_id=\$1 AND player_code=\$2",
+      [routeId, player_code],
     );
-    if (!prog.rows.length) return res.status(403).json({ error: "Route nicht gestartet" });
+    if (!prog.rows.length)
+      return res.status(403).json({ error: "Route nicht gestartet" });
     if (prog.rows[0].current_index !== +waypoint_index) {
       return res.status(409).json({ error: "Falscher WayPoint-Index" });
     }
 
     const wp = await pool.query(
-      "SELECT * FROM wp_waypoints WHERE route_id=$1 AND order_index=$2",
-      [routeId, +waypoint_index]
+      "SELECT * FROM wp_waypoints WHERE route_id=\$1 AND order_index=\$2",
+      [routeId, +waypoint_index],
     );
-    if (!wp.rows.length) return res.status(404).json({ error: "WayPoint nicht gefunden" });
+    if (!wp.rows.length)
+      return res.status(404).json({ error: "WayPoint nicht gefunden" });
 
     const waypoint = wp.rows[0];
     let isCorrect;
     if (waypoint.question_type === "freitext") {
-      isCorrect = answer.trim().toLowerCase() === (waypoint.correct_text || "").trim().toLowerCase();
+      isCorrect =
+        answer.trim().toLowerCase() ===
+        (waypoint.correct_text || "").trim().toLowerCase();
     } else {
       isCorrect = answer.toLowerCase() === waypoint.correct_option;
     }
 
-    if (!isCorrect) return res.json({ correct: false });
+    if (!isCorrect) {
+      return res.json({ correct: false });
+    }
+
+    const routeRow = await pool.query(
+      "SELECT difficulty FROM wp_routes WHERE id=\$1",
+      [routeId],
+    );
+    const difficulty = routeRow.rows[0]?.difficulty || 1;
+
+    const wpCoins = difficulty * 10;
+    await pool.query(
+      "UPDATE profiles SET coins = coins + \$1 WHERE code = \$2",
+      [wpCoins, player_code],
+    );
+    await pool.query(
+      "INSERT INTO coin_transactions (code, amount, reason, route_id) VALUES (\$1,\$2,\$3,\$4)",
+      [player_code, wpCoins, "waypoint_solved", routeId],
+    );
 
     const nextIndex = +waypoint_index + 1;
     const total = await pool.query(
-      "SELECT COUNT(*)::int AS cnt FROM wp_waypoints WHERE route_id=$1", [routeId]
+      "SELECT COUNT(*)::int AS cnt FROM wp_waypoints WHERE route_id=\$1",
+      [routeId],
     );
     const isLast = nextIndex >= total.rows[0].cnt;
 
     if (isLast) {
       const timeSec = Math.round((Date.now() - prog.rows[0].started_at) / 1000);
-      await pool.query(`
-        INSERT INTO wp_completions (route_id, player_code, time_seconds)
-        VALUES ($1,$2,$3)
-        ON CONFLICT (route_id, player_code) DO UPDATE SET
-          time_seconds = LEAST(EXCLUDED.time_seconds, wp_completions.time_seconds),
-          completed_at = NOW()
-      `, [routeId, player_code, timeSec]);
       await pool.query(
-        "DELETE FROM wp_progress WHERE route_id=$1 AND player_code=$2",
-        [routeId, player_code]
+        `INSERT INTO wp_completions (route_id, player_code, time_seconds)
+         VALUES (\$1,\$2,\$3)
+         ON CONFLICT (route_id, player_code) DO UPDATE SET
+           time_seconds = LEAST(EXCLUDED.time_seconds, wp_completions.time_seconds),
+           completed_at = NOW()`,
+        [routeId, player_code, timeSec],
+      );
+      await pool.query(
+        "DELETE FROM wp_progress WHERE route_id=\$1 AND player_code=\$2",
+        [routeId, player_code],
+      );
+
+      const bonusCoins = difficulty * 50;
+      await pool.query(
+        "UPDATE profiles SET coins = coins + \$1 WHERE code = \$2",
+        [bonusCoins, player_code],
+      );
+      await pool.query(
+        "INSERT INTO coin_transactions (code, amount, reason, route_id) VALUES (\$1,\$2,\$3,\$4)",
+        [player_code, bonusCoins, "route_completed", routeId],
       );
 
       const rank = await pool.query(
         `SELECT COUNT(*)::int + 1 AS rank FROM wp_completions
-         WHERE route_id=$1 AND time_seconds < $2`,
-        [routeId, timeSec]
+         WHERE route_id=\$1 AND time_seconds < \$2`,
+        [routeId, timeSec],
       );
-      return res.json({ correct: true, completed: true, time_seconds: timeSec, rank: rank.rows[0].rank });
+
+      console.log(
+        `🏆 WayPoint abgeschlossen: \${player_code} Route \${routeId} in \${timeSec}s (+\${wpCoins + bonusCoins} Coins)`,
+      );
+      return res.json({
+        correct: true,
+        completed: true,
+        time_seconds: timeSec,
+        rank: rank.rows[0].rank,
+        coins_earned: wpCoins + bonusCoins,
+      });
     }
 
     await pool.query(
-      `UPDATE wp_progress SET current_index=$1, last_activity_at=$2
-       WHERE route_id=$3 AND player_code=$4`,
-      [nextIndex, Date.now(), routeId, player_code]
+      `UPDATE wp_progress SET current_index=\$1, last_activity_at=\$2
+       WHERE route_id=\$3 AND player_code=\$4`,
+      [nextIndex, Date.now(), routeId, player_code],
     );
     const nextWp = await pool.query(
-      `SELECT id, order_index, lat, lng, question, option_a, option_b, option_c
-       FROM wp_waypoints WHERE route_id=$1 AND order_index=$2`,
-      [routeId, nextIndex]
+      `SELECT id, order_index, lat, lng, question, question_type, option_a, option_b, option_c
+       FROM wp_waypoints WHERE route_id=\$1 AND order_index=\$2`,
+      [routeId, nextIndex],
     );
 
     res.json({
@@ -3506,7 +3539,8 @@ app.post("/api/wp/routes/:id/answer", async (req, res) => {
       completed: false,
       next_waypoint: nextWp.rows[0],
       current_index: nextIndex,
-      total: total.rows[0].cnt
+      total: total.rows[0].cnt,
+      coins_earned: wpCoins,
     });
   } catch (e) {
     console.error("POST /api/wp/routes/:id/answer:", e.message);
@@ -3531,6 +3565,35 @@ app.get("/api/wp/routes/:id/score", async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error("GET /api/wp/routes/:id/score:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
+app.get("/api/wp/stats/:code", async (req, res) => {
+  const { code } = req.params;
+  try {
+    const coinsRow = await pool.query(
+      "SELECT coins FROM profiles WHERE code=$1",
+      [code],
+    );
+    const coins = coinsRow.rows[0]?.coins || 0;
+
+    const completions = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM wp_completions WHERE player_code=$1",
+      [code],
+    );
+    const waypointsSolved = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM coin_transactions WHERE code=$1 AND reason='waypoint_solved'",
+      [code],
+    );
+
+    res.json({
+      coins,
+      routes_completed: completions.rows[0].n,
+      waypoints_solved: waypointsSolved.rows[0].n,
+    });
+  } catch (e) {
+    console.error("GET /api/wp/stats/:code:", e.message);
     res.status(500).json({ error: "Datenbankfehler" });
   }
 });
@@ -3602,6 +3665,7 @@ app.post("/api/wp/routes", async (req, res) => {
 });
 
 // ── WayPoint hinzufügen ──────────────────────────────────────────────────────
+
 app.post("/api/wp/routes/:id/waypoints", async (req, res) => {
   const {
     code,
@@ -3645,31 +3709,29 @@ app.post("/api/wp/routes/:id/waypoints", async (req, res) => {
 
   try {
     const auth = await pool.query(
-      "SELECT token FROM profiles WHERE code=$1 AND token IS NOT NULL",
+      "SELECT token FROM profiles WHERE code=\$1 AND token IS NOT NULL",
       [code],
     );
     if (!auth.rows.length || !auth.rows.some((r) => r.token === token)) {
       return res.status(403).json({ error: "Ungültiger Token" });
     }
-
     const owns = await pool.query(
-      "SELECT id FROM wp_routes WHERE id=$1 AND code=$2 AND published=false",
+      "SELECT id FROM wp_routes WHERE id=\$1 AND code=\$2 AND published=false",
       [routeId, code],
     );
-    if (!owns.rows.length) {
+    if (!owns.rows.length)
       return res
         .status(403)
         .json({ error: "Route nicht gefunden oder bereits veröffentlicht" });
-    }
 
     const cnt = await pool.query(
-      "SELECT COUNT(*)::int AS n FROM wp_waypoints WHERE route_id=$1",
+      "SELECT COUNT(*)::int AS n FROM wp_waypoints WHERE route_id=\$1",
       [routeId],
     );
     const { rows } = await pool.query(
       `INSERT INTO wp_waypoints
          (route_id, order_index, lat, lng, question, question_type, option_a, option_b, option_c, correct_option, correct_text)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, order_index`,
+       VALUES (\$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$9,\$10,\$11) RETURNING id, order_index`,
       [
         routeId,
         cnt.rows[0].n,
@@ -3803,12 +3865,40 @@ app.post("/api/live-spots", async (req, res) => {
   }
 });
 
+// Neue Route in server.js, neben den anderen live-spots Routen
+app.delete("/api/live-spots/:id", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token)
+    return res.status(400).json({ error: "code + token erforderlich" });
+  try {
+    if (!(await authCheck(code, token)))
+      return res.status(403).json({ error: "Ungültiger Token" });
+    const check = await pool.query(
+      "SELECT id FROM live_spots WHERE id=$1 AND creator_code=$2",
+      [req.params.id, code],
+    );
+    if (!check.rows.length)
+      return res
+        .status(404)
+        .json({ error: "Nicht gefunden oder keine Berechtigung" });
+
+    await pool.query("DELETE FROM live_followers WHERE live_spot_id=$1", [
+      req.params.id,
+    ]);
+    await pool.query("DELETE FROM live_spots WHERE id=$1", [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
 // ── Alle online Live Spots (für Karte) ──────────────────────────────────────
 app.get("/api/live-spots", async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, token, name, description, category, avatar,
-              status, lat, lng, location_note, stream_url, follower_count, updated_at
+      `SELECT id, token, creator_code, name, description, category, avatar,
+              status, lat, lng, location_note, follower_count, updated_at
        FROM live_spots WHERE status = 'online' ORDER BY updated_at DESC`,
     );
     res.json(rows);
@@ -3862,8 +3952,8 @@ app.get("/api/live-spots/:id", async (req, res) => {
   try {
     const col = isNaN(req.params.id) ? "token" : "id";
     const { rows } = await pool.query(
-      `SELECT id, token, name, description, category, avatar,
-              status, lat, lng, location_note, stream_url, follower_count, updated_at
+      `SELECT id, token, creator_code, name, description, category, avatar,
+              status, lat, lng, location_note, follower_count, updated_at
        FROM live_spots WHERE ${col}=$1`,
       [req.params.id],
     );
@@ -3877,7 +3967,7 @@ app.get("/api/live-spots/:id", async (req, res) => {
 
 // ── Live gehen (Standort setzen + online schalten) ───────────────────────────
 app.post("/api/live-spots/:id/golive", async (req, res) => {
-  const { code, token, lat, lng, location_note, stream_url } = req.body;
+  const { code, token, lat, lng, location_note } = req.body;
   if (!code || !token || lat == null || lng == null)
     return res
       .status(400)
@@ -3885,24 +3975,11 @@ app.post("/api/live-spots/:id/golive", async (req, res) => {
   try {
     if (!(await authCheck(code, token)))
       return res.status(403).json({ error: "Ungültiger Token" });
-
-    // stream_url validieren wenn angegeben (muss .m3u8 sein)
-    let cleanStreamUrl = null;
-    if (stream_url && stream_url.trim()) {
-      const url = stream_url.trim();
-      if (!url.includes(".m3u8") && !url.includes("m3u8")) {
-        return res
-          .status(400)
-          .json({ error: "Stream-URL muss eine HLS .m3u8 URL sein" });
-      }
-      cleanStreamUrl = url;
-    }
-
     const result = await pool.query(
       `UPDATE live_spots SET status='online', lat=$1, lng=$2,
-       location_note=$3, stream_url=$4, updated_at=NOW()
-       WHERE id=$5 AND creator_code=$6 RETURNING *`,
-      [lat, lng, location_note || null, cleanStreamUrl, req.params.id, code],
+       location_note=$3, updated_at=NOW()
+       WHERE id=$4 AND creator_code=$5 RETURNING *`,
+      [lat, lng, location_note || null, req.params.id, code],
     );
     if (!result.rowCount)
       return res.status(404).json({ error: "Live Spot nicht gefunden" });
@@ -3931,7 +4008,7 @@ app.post("/api/live-spots/:id/gooffline", async (req, res) => {
     if (!(await authCheck(code, token)))
       return res.status(403).json({ error: "Ungültiger Token" });
     await pool.query(
-      `UPDATE live_spots SET status='offline', stream_url=NULL, updated_at=NOW()
+      `UPDATE live_spots SET status='offline', updated_at=NOW()
        WHERE id=$1 AND creator_code=$2`,
       [req.params.id, code],
     );
@@ -4128,17 +4205,6 @@ app.post("/api/donate/checkout", async (req, res) => {
     console.error("Checkout-Fehler:", err.message, err.stack); // ← erweitert
     res.status(500).json({ error: "Server-Fehler" });
   }
-});
-
-app.post("/api/donate/callback", async (req, res) => {
-  const { checkout_reference, status } = req.body;
-  if (checkout_reference && status) {
-    await pool.query("UPDATE donations SET status = $1 WHERE reference = $2", [
-      status === "PAID" ? "completed" : "failed",
-      checkout_reference,
-    ]);
-  }
-  res.sendStatus(200);
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
