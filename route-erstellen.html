@@ -501,7 +501,8 @@ async function generateRoute() {
     if (!routes.length) throw new Error('Keine Route gefunden');
     activeRouteIdx = 0;
     showScreen(2);
-    initPreviewMap();
+    // Double rAF stellt sicher dass Browser den Screen gerendert hat
+    requestAnimationFrame(() => requestAnimationFrame(() => initPreviewMap()));
   } catch(e) {
     hideLoading();
     toast('❌ Route konnte nicht generiert werden');
@@ -566,7 +567,10 @@ function initPreviewMap() {
     center: [userPos.lng, userPos.lat], zoom: 14,
     attributionControl: false
   });
-  previewMap.on('load', () => drawPreviewRoute(0));
+  previewMap.on('load', () => {
+    previewMap.resize();
+    drawPreviewRoute(0);
+  });
 
   // Varianten-Tabs
   const tabs = document.getElementById('variantTabs');
@@ -634,8 +638,9 @@ function startWalk() {
     document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now()-walkStartTime)/1000));
   }, 1000);
 
-  // Karte initialisieren
+  // Karte verzögert starten damit der Screen gerendert ist
   if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
+  requestAnimationFrame(() => requestAnimationFrame(() => {
   walkMap = new maplibregl.Map({
     container: 'walkMap',
     style: getMapStyle(),
@@ -643,7 +648,7 @@ function startWalk() {
     attributionControl: false
   });
   walkMap.on('load', () => {
-    // Route anzeigen
+    walkMap.resize(); // Größe nach DOM-Paint neu berechnen
     const route = routes[activeRouteIdx];
     if (route) {
       walkMap.addSource('walk-route', { type:'geojson', data:{ type:'Feature', geometry:route.geometry }});
@@ -655,6 +660,8 @@ function startWalk() {
     }
     addWalkUserMarker();
   });
+
+  })); // end requestAnimationFrame
 
   // GPS Watch
   if (walkWatchId) navigator.geolocation.clearWatch(walkWatchId);
