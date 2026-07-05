@@ -140,6 +140,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-
   min-height: 0;
   height: 100%;
   background: #080b10;
+  display: block !important;
 }
 .walk-panel{
   position:absolute;bottom:0;left:0;right:0;
@@ -638,7 +639,6 @@ function drawPreviewRoute(idx) {
 function switchVariant(idx) { drawPreviewRoute(idx); }
 
 // ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
-// ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
 function startWalk() {
   // Sicherheitschecks
   if (!routes || routes.length === 0) {
@@ -662,64 +662,57 @@ function startWalk() {
     document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now() - walkStartTime) / 1000));
   }, 1000);
 
-  // Karte initialisieren
+  // Alte Karte entfernen
   if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
 
-  walkMap = new maplibregl.Map({
-    container: 'walkMap',
-    style: getMapStyle(),
-    center: [userPos.lng, userPos.lat],
-    zoom: 15,
-    attributionControl: false
-  });
+  // ⚠️ WICHTIG: Map-Initialisierung um 50ms verzögern, damit der Browser den Container (#walkMap) fertig rendern kann
+  setTimeout(() => {
+    walkMap = new maplibregl.Map({
+      container: 'walkMap',
+      style: getMapStyle(),
+      center: [userPos.lng, userPos.lat],
+      zoom: 15,
+      attributionControl: false
+    });
 
-  walkMap.on('load', () => {
-    // 1. Zwingt die Karte, die aktuelle Größe des Containers sofort zu übernehmen
-    walkMap.resize();
+    walkMap.on('load', () => {
+      // 1. Zwingt die Karte, sofort die neue Größe zu übernehmen (weil Flexbox jetzt fertig berechnet wurde)
+      walkMap.resize();
 
-    // 2. Sicherheitshalber nochmal nach 300ms (falls der Übergang noch nicht ganz abgeschlossen war)
-    setTimeout(() => {
-      if (walkMap) walkMap.resize();
-    }, 300);
+      // 2. Sicherheitshalber nochmal nach 300ms (für den Fall eines Rendering-Lags)
+      setTimeout(() => {
+        if (walkMap) walkMap.resize();
+      }, 300);
 
-    // Route anzeigen
-    const route = routes[activeRouteIdx];
-    if (route) {
-      walkMap.addSource('walk-route', { type: 'geojson', data: { type: 'Feature', geometry: route.geometry } });
-      walkMap.addLayer({
-        id: 'walk-route-casing',
-        type: 'line',
-        source: 'walk-route',
-        paint: { 'line-color': '#080b10', 'line-width': 7, 'line-opacity': 0.5 }
-      });
-      walkMap.addLayer({
-        id: 'walk-route',
-        type: 'line',
-        source: 'walk-route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ff9f00', 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }
-      });
-    }
-    addWalkUserMarker();
-  });
-
-  // GPS Watch
-  if (walkWatchId) navigator.geolocation.clearWatch(walkWatchId);
-  walkWatchId = navigator.geolocation.watchPosition(pos => {
-    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    if (walkUserMarker) walkUserMarker.setLngLat([userPos.lng, userPos.lat]);
-    else addWalkUserMarker();
-    walkMap?.easeTo({ center: [userPos.lng, userPos.lat], duration: 600 });
-
-    // Distanz zum Start (Sicherheitscheck, damit die App nicht abstürzt, falls Route kaputt ist)
-    const route = routes[activeRouteIdx];
-    if (route && route.geometry && route.geometry.coordinates && route.geometry.coordinates.length > 0) {
-      const d = haversineM(userPos.lat, userPos.lng,
-        route.geometry.coordinates[0][1],
-        route.geometry.coordinates[0][0]);
-      document.getElementById('walkDist').textContent = fmtDist(d);
-    }
-  }, null, { enableHighAccuracy: true, maximumAge: 5000 });
+      // Route anzeigen
+      const route = routes[activeRouteIdx];
+      if (route) {
+        try {
+          walkMap.addSource('walk-route', { 
+            type: 'geojson', 
+            data: { type: 'Feature', geometry: route.geometry } 
+          });
+          walkMap.addLayer({
+            id: 'walk-route-casing',
+            type: 'line',
+            source: 'walk-route',
+            paint: { 'line-color': '#080b10', 'line-width': 7, 'line-opacity': 0.5 }
+          });
+          walkMap.addLayer({
+            id: 'walk-route',
+            type: 'line',
+            source: 'walk-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#ff9f00', 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 2] }
+          });
+        } catch (e) {
+          console.error("Fehler beim Hinzufügen der Route:", e);
+          toast("⚠️ Fehler beim Laden der Routen-Geometrie");
+        }
+      }
+      addWalkUserMarker();
+    });
+  }, 50);
 }
 
 function addWalkUserMarker() {
