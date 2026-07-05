@@ -620,6 +620,12 @@ function switchVariant(idx) { drawPreviewRoute(idx); }
 
 // ── SCREEN 3: WALK-MODUS ─────────────────────────────────────────────────────
 function startWalk() {
+  // Sicherheitscheck: GPS muss verfügbar sein
+  if (!userPos) {
+    toast('⚠️ GPS-Standort nicht verfügbar. Bitte Seite neu laden und GPS erlauben.');
+    return;
+  }
+
   showScreen(3);
   walkStartTime = Date.now();
   document.getElementById('wpCount').textContent = '0';
@@ -634,12 +640,20 @@ function startWalk() {
 
   // Karte initialisieren
   if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
+  
   walkMap = new maplibregl.Map({
     container: 'walkMap',
     style: getMapStyle(),
-    center: [userPos.lng, userPos.lat], zoom: 15,
+    center: [userPos.lng, userPos.lat], 
+    zoom: 15,
     attributionControl: false
   });
+
+  // 🔥 WICHTIG: Map zwingen, die richtige Größe zu berechnen, sobald sie sichtbar ist
+  setTimeout(() => {
+    if (walkMap) walkMap.resize();
+  }, 150);
+
   walkMap.on('load', () => {
     // Route anzeigen
     const route = routes[activeRouteIdx];
