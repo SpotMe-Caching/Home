@@ -13,47 +13,14 @@
   "categories": ["navigation", "travel", "outdoors"],
 
   "icons": [
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_72.png",
-      "sizes": "72x72",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_96.png",
-      "sizes": "96x96",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_128.png",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_144.png",
-      "sizes": "144x144",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_152.png",
-      "sizes": "152x152",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_384.png",
-      "sizes": "384x384",
-      "type": "image/png"
-    },
-    {
-      "src": "https://spotme-caching.github.io/icons/pwa_512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "https://spotme-caching.github.io/icons/pwa_72.png",  "sizes": "72x72",   "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_96.png",  "sizes": "96x96",   "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_384.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "https://spotme-caching.github.io/icons/pwa_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
 
   "shortcuts": [
@@ -62,6 +29,13 @@
       "short_name": "WayPoint",
       "description": "Starte direkt die Geocaching-Routen-Suche",
       "url": "/waypoints.html",
+      "icons": [{ "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Route erstellen",
+      "short_name": "Route",
+      "description": "Erstelle eine neue WayPoint-Route in deiner Umgebung",
+      "url": "/route-erstellen.html",
       "icons": [{ "src": "https://spotme-caching.github.io/icons/pwa_192.png", "sizes": "192x192" }]
     },
     {
