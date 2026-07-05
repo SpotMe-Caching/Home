@@ -682,7 +682,7 @@ function startWalk() {
 function addWalkUserMarker() {
   if (!walkMap) return;
   const el = document.createElement('div');
-  el.style.cssText='width:16px;height:16px;background:#fff;border-radius:50%;border:2.5px solid white;box-shadow:0 0 0 3px rgba(255,255,255,0.15),0 0 18px rgba(255,255,255,0.6);';
+  el.style.cssText='width:18px;height:18px;background:#00e5ff;border-radius:50%;border:2.5px solid white;box-shadow:0 0 0 3px rgba(0,229,255,0.2),0 0 16px rgba(0,229,255,0.85);';
   walkUserMarker = new maplibregl.Marker({element:el}).setLngLat([userPos.lng,userPos.lat]).addTo(walkMap);
 }
 
