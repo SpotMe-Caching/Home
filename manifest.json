@@ -1,5 +1,5 @@
 {
-  "name": "SpotMe Caching V4",
+  "name": "SpotMe Caching V1",
   "short_name": "SpotMe",
   "description": "Geocaching für Dates – entdecke geheime Treffpunkte",
   "start_url": "/index.html",
@@ -8,7 +8,7 @@
   "orientation": "portrait-primary",
   "background_color": "#0a0d12",
   "theme_color": "#0a0d12",
-  "id": "spotme-caching-v4",
+  "id": "spotme-caching-v1",
   
   "categories": ["navigation", "travel", "outdoors"],
 
@@ -75,13 +75,13 @@
 
   "screenshots": [
     {
-      "src": "screenshots/screenshot_1.png",
+      "src": "https://spotme-caching.github.io/screenshots/screenshot_1.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "label": "Kartenansicht mit Spots"
     },
     {
-      "src": "screenshots/screenshot_2.png",
+      "src": "https://spotme-caching.github.io/screenshots/screenshot_2.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "label": "Treffpunkt-Details"
