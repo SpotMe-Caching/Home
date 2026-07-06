@@ -118,24 +118,66 @@
     .fab-main svg { width: 28px; height: 28px; stroke-width: 2.5; }
 
     /* ── BOTTOM DOCK ── */
-    .bottom-dock {
-      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-      display: flex; align-items: center;
-      padding: 0.4rem 0.6rem; border-radius: 28px;
-      gap: 0.25rem; width: auto; min-width: 60%; max-width: 320px;
-      justify-content: space-around;
-    }
-    .dock-item {
-      flex: 1; background: transparent; border: none;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      padding: 0.5rem 0.2rem; border-radius: 12px;
-      color: var(--muted2); font-size: 0.6rem; font-weight: 600;
-      font-family: 'Outfit', sans-serif; transition: color 0.2s;
-    }
-    .dock-item.active { color: #fff; }
-    .dock-item svg { width: 22px; height: 22px; stroke-width: 1.8; }
-    :root[data-theme="light"] .dock-item.active { color: #1a2530; }
+.bottom-dock {
+  position: absolute;
+  bottom: max(1.2rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 0.55rem 0.8rem;  /* Etwas mehr Polsterung innen */
+  border-radius: 28px;
+  gap: 0.15rem; /* Die Lücken zwischen den Buttons minimieren */
+  pointer-events: auto;
+  width: auto;
+  min-width: 60%;
+  max-width: 340px;
+  justify-content: space-around;
+}
 
+.dock-item {
+  flex: 1;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px; /* Weniger Abstand zwischen Icon und Text */
+  padding: 0.4rem 0.2rem;
+  color: var(--muted2);
+  font-size: 0.65rem; /* Schrift etwas kompakter */
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  transition: color 0.2s, transform 0.2s;
+  border-radius: 12px;
+}
+
+/* Das Icon selbst verkleinern */
+.dock-item svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.8;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+/* ── AKTIVER ZUSTAND (Highlight) ── */
+.dock-item.active {
+  color: #fff;
+}
+.dock-item.active svg {
+  transform: scale(1.05);
+  /* Der subtile Cyan-Glow um das aktive Icon (wie im KI-Bild) */
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.4)); 
+}
+
+/* Light Mode Anpassungen für den aktiven Zustand */
+:root[data-theme="light"] .dock-item.active {
+  color: #1a2530;
+}
+:root[data-theme="light"] .dock-item.active svg {
+  filter: drop-shadow(0 0 6px rgba(14, 165, 196, 0.4));
+}
+    
     /* ── THEME SWITCH ZUM TESTEN ── */
     .test-controls {
       position: absolute; bottom: 120px; left: 20px; z-index: 20;
