@@ -542,7 +542,7 @@ async function buildRoutes(origin, km, count) {
     const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
     try {
       const r = await fetch(
-        `https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`
+        `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson`
       );
       const data = await r.json();
       if (data.routes?.length) {
