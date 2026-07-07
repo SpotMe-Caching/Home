@@ -508,8 +508,9 @@ async function generateRoute() {
     requestAnimationFrame(() => requestAnimationFrame(() => initPreviewMap()));
   } catch(e) {
     hideLoading();
-    toast('❌ Route konnte nicht generiert werden');
-    console.error(e);
+    console.error('generateRoute error:', e);
+    toast('❌ Route konnte nicht generiert werden – GPS oder Netz prüfen');
+    return;
   }
 }
 
@@ -552,20 +553,37 @@ async function buildRoutes(origin, km, count) {
     // OSRM trip endpoint: roundtrip=true verhindert Sackgassen
     const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
     try {
-      const r = await fetch(
+      // Erst trip versuchen, dann route als Fallback
+      let geometry = null, distance = null, duration = null;
+
+      const tripRes = await fetch(
         `https://router.project-osrm.org/trip/v1/foot/${coords}` +
-        `?source=first&destination=first&roundtrip=true&overview=full&geometries=geojson`
-      );
-      const data = await r.json();
-      if (data.trips?.length) {
-        results.push({
-          geometry: data.trips[0].geometry,
-          distance: data.trips[0].distance,
-          duration: data.trips[0].duration,
-          label:    labels[v % 3]
-        });
+        `?source=first&destination=last&roundtrip=true&overview=full&geometries=geojson`
+      ).then(r => r.json()).catch(() => null);
+
+      if (tripRes?.trips?.length) {
+        geometry = tripRes.trips[0].geometry;
+        distance = tripRes.trips[0].distance;
+        duration = tripRes.trips[0].duration;
+      } else {
+        // Fallback: route Endpoint mit Rückweg zum Start
+        const routeCoords = [...pts, origin].map(p => `${p.lng},${p.lat}`).join(';');
+        const routeRes = await fetch(
+          `https://router.project-osrm.org/route/v1/foot/${routeCoords}` +
+          `?overview=full&geometries=geojson`
+        ).then(r => r.json()).catch(() => null);
+
+        if (routeRes?.routes?.length) {
+          geometry = routeRes.routes[0].geometry;
+          distance = routeRes.routes[0].distance;
+          duration = routeRes.routes[0].duration;
+        }
       }
-    } catch {}
+
+      if (geometry) {
+        results.push({ geometry, distance, duration, label: labels[v % 3] });
+      }
+    } catch(e) { console.warn('Route generation error:', e); }
   }
   return results;
 }
