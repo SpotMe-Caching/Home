@@ -355,6 +355,9 @@ textarea.finp{resize:none;min-height:65px;line-height:1.4}
         <button style="width:100%;margin-top:0.65rem;padding:0.7rem;border-radius:12px;background:none;border:1px solid var(--bord2);color:var(--muted2);font-size:0.82rem;cursor:pointer;" onclick="shareNative()">
           📤 Teilen…
         </button>
+        <button style="width:100%;margin-top:0.5rem;padding:0.7rem;border-radius:12px;background:rgba(0,229,255,0.06);border:1px solid var(--cyan-glow);color:var(--cyan);font-size:0.82rem;cursor:pointer;" onclick="exportGPX()">
+          📥 Als GPX exportieren
+        </button>
       </div>
       <button class="btn-primary" onclick="location.href='waypoints.html'">
         Alle Routen ansehen →
@@ -521,11 +524,18 @@ function getGPS() {
   });
 }
 
-// Generiert Dreieck-Punkte im gewünschten Abstand und holt OSRM-Route
+// Generiert Rundrouten via OSRM trip endpoint (verhindert Sackgassen)
 async function buildRoutes(origin, km, count) {
   const R = 6371000;
-  const d = (km * 1000) / 3; // ~Abstand zwischen Punkten für Dreieck
-  const baseAngles = [[0, 120, 240], [60, 180, 300], [30, 150, 270]];
+  // 4 Zwischenpunkte = glattere Runde, weniger Sackgassen
+  const d = (km * 1000) / 4;
+  // Verschiedene Startwinkel für 3 Varianten
+  const baseAngles = [
+    [0, 90, 180, 270],    // N-O-S-W Kreuz
+    [45, 135, 225, 315],  // NO-SO-SW-NW Diagonal
+    [20, 110, 200, 290],  // Leicht gedreht
+  ];
+  const labels = ['Nord-Runde', 'Diagonal-Runde', 'West-Runde'];
   const results = [];
 
   for (let v = 0; v < count; v++) {
@@ -534,23 +544,25 @@ async function buildRoutes(origin, km, count) {
     for (const deg of angles) {
       const rad = deg * Math.PI / 180;
       const lat = origin.lat + (d / R) * Math.cos(rad) * (180 / Math.PI);
-      const lng = origin.lng + (d / R) * Math.sin(rad) * (180 / Math.PI) / Math.cos(origin.lat * Math.PI / 180);
+      const lng = origin.lng + (d / R) * Math.sin(rad) * (180 / Math.PI)
+                  / Math.cos(origin.lat * Math.PI / 180);
       pts.push({ lat, lng });
     }
-    pts.push(origin); // zurück zum Start
 
+    // OSRM trip endpoint: roundtrip=true verhindert Sackgassen
     const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
     try {
       const r = await fetch(
-        `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson`
+        `https://router.project-osrm.org/trip/v1/foot/${coords}` +
+        `?source=first&destination=first&roundtrip=true&overview=full&geometries=geojson`
       );
       const data = await r.json();
-      if (data.routes?.length) {
+      if (data.trips?.length) {
         results.push({
-          geometry: data.routes[0].geometry,
-          distance: data.routes[0].distance,
-          duration: data.routes[0].duration,
-          label: v === 0 ? 'Nord-Runde' : v === 1 ? 'Ost-Runde' : 'Süd-Runde'
+          geometry: data.trips[0].geometry,
+          distance: data.trips[0].distance,
+          duration: data.trips[0].duration,
+          label:    labels[v % 3]
         });
       }
     } catch {}
@@ -732,6 +744,7 @@ function saveWaypoint() {
 
   document.getElementById('wpCount').textContent = waypoints.length;
   document.getElementById('finishWalkBtn').disabled = waypoints.length < 2;
+  saveDraft(); // Fortschritt sichern
   closeWpModal();
   toast(`✅ WayPoint ${waypoints.length} gespeichert!`);
 }
@@ -800,7 +813,8 @@ async function publishFinalRoute() {
     });
     if (!pr.ok) { const e=await pr.json(); throw new Error(e.error||'Fehler beim Veröffentlichen'); }
 
-    // Erfolg
+    // Erfolg – Draft löschen
+    clearDraft();
     const shareLink = `${window.location.origin}/waypoints.html?route=${draftRouteId}`;
     document.getElementById('shareUrl').textContent = shareLink;
     document.getElementById('shareSection').style.display = 'block';
@@ -831,10 +845,151 @@ function shareNative() {
   }
 }
 
-// ── GPS beim Start ─────────────────────────────────────────────────────────────
+// ── DRAFT SPEICHERN / WIEDERHERSTELLEN ───────────────────────────────────────
+const DRAFT_KEY = 'sm_route_draft';
+
+function saveDraft() {
+  if (!routes.length) return;
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({
+    dist:          selectedDist,
+    routeIdx:      activeRouteIdx,
+    routes:        routes,
+    waypoints:     waypoints,
+    walkStartTime: walkStartTime,
+    userPos:       userPos
+  }));
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+function restoreDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    selectedDist    = d.dist      || 4;
+    routes          = d.routes    || [];
+    activeRouteIdx  = d.routeIdx  || 0;
+    waypoints       = d.waypoints || [];
+    walkStartTime   = d.walkStartTime || Date.now();
+    if (d.userPos) userPos = d.userPos;
+    return routes.length > 0;
+  } catch { return false; }
+}
 navigator.geolocation?.getCurrentPosition(p => {
   userPos = { lat: p.coords.latitude, lng: p.coords.longitude };
 }, null, { enableHighAccuracy: false, timeout: 8000 });
+
+// ── DRAFT WIEDERHERSTELLEN ────────────────────────────────────────────────────
+if (restoreDraft()) {
+  const banner = document.createElement('div');
+  banner.id = 'draftBanner';
+  banner.style.cssText = 'position:fixed;bottom:max(1.5rem,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:500;background:rgba(8,11,16,0.96);backdrop-filter:blur(20px);border:1px solid var(--acc-glow);border-radius:16px;padding:0.85rem 1.1rem;display:flex;align-items:center;gap:0.75rem;width:calc(100% - 2rem);max-width:340px;box-shadow:0 0 20px rgba(255,159,0,0.15);';
+  banner.innerHTML = `
+    <div style="flex:1;">
+      <div style="font-size:0.82rem;font-weight:700;color:var(--acc);margin-bottom:2px;">Unfertige Route gefunden</div>
+      <div style="font-size:0.72rem;color:var(--muted2);">${waypoints.length} WayPoint${waypoints.length!==1?'s':''} bereits gesetzt</div>
+    </div>
+    <button onclick="resumeWalk()" style="padding:7px 14px;border-radius:10px;background:var(--acc);border:none;color:#080b10;font-size:0.8rem;font-weight:700;cursor:pointer;">Weiter →</button>
+    <button onclick="clearDraft();document.getElementById('draftBanner').remove();" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid var(--bord2);color:var(--muted2);font-size:0.8rem;cursor:pointer;">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function resumeWalk() {
+  document.getElementById('draftBanner')?.remove();
+  showScreen(3);
+  // WayPoint-Liste aufbauen
+  document.getElementById('wpCount').textContent = waypoints.length;
+  document.getElementById('finishWalkBtn').disabled = waypoints.length < 2;
+  waypoints.forEach((wp,i) => {
+    const item = document.createElement('div');
+    item.className = 'wp-done-item';
+    item.innerHTML = `<span class="wp-done-num">${i+1}</span><span style="color:var(--muted2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(wp.question)}</span>`;
+    document.getElementById('wpDoneList').appendChild(item);
+  });
+  // Timer neu starten
+  walkStartTime = walkStartTime || Date.now();
+  if (walkTimerInt) clearInterval(walkTimerInt);
+  walkTimerInt = setInterval(() => {
+    document.getElementById('walkTimer').textContent = fmtTime(Math.round((Date.now()-walkStartTime)/1000));
+  }, 1000);
+  // Karte
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (walkMap) { walkMap.remove(); walkMap = null; walkUserMarker = null; }
+    const center = userPos ? [userPos.lng, userPos.lat] : [0,20];
+    walkMap = new maplibregl.Map({ container:'walkMap', style:getMapStyle(), center, zoom:15, attributionControl:false });
+    walkMap.on('load', () => {
+      walkMap.resize();
+      const route = routes[activeRouteIdx];
+      if (route) {
+        walkMap.addSource('walk-route',{type:'geojson',data:{type:'Feature',geometry:route.geometry}});
+        walkMap.addLayer({id:'walk-route-casing',type:'line',source:'walk-route',paint:{'line-color':'#080b10','line-width':7,'line-opacity':0.5}});
+        walkMap.addLayer({id:'walk-route',type:'line',source:'walk-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#ff9f00','line-width':3,'line-opacity':0.7,'line-dasharray':[2,2]}});
+      }
+      waypoints.forEach((wp,i) => {
+        const el=document.createElement('div');
+        el.style.cssText='width:28px;height:28px;background:#ff9f00;border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(255,159,0,0.8);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#080b10;';
+        el.textContent=i+1;
+        new maplibregl.Marker({element:el}).setLngLat([wp.lng,wp.lat]).addTo(walkMap);
+      });
+      if (userPos) addWalkUserMarker();
+    });
+    if (walkWatchId) navigator.geolocation.clearWatch(walkWatchId);
+    walkWatchId = navigator.geolocation.watchPosition(pos => {
+      userPos={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      if(walkUserMarker)walkUserMarker.setLngLat([userPos.lng,userPos.lat]);
+      else addWalkUserMarker();
+      walkMap?.easeTo({center:[userPos.lng,userPos.lat],duration:600});
+    },null,{enableHighAccuracy:true,maximumAge:5000});
+  }));
+}
+
+// ── GPX EXPORT ────────────────────────────────────────────────────────────────
+function exportGPX() {
+  const name = document.getElementById('routeName')?.value.trim() || 'SpotMe Route';
+  const route = routes[activeRouteIdx];
+  if (!route) { toast('⚠️ Keine Route vorhanden'); return; }
+
+  const trkpts = route.geometry.coordinates.map(([lng,lat]) =>
+    `      <trkpt lat="${lat.toFixed(7)}" lon="${lng.toFixed(7)}"/>`
+  ).join('\n');
+
+  const wpts = waypoints.map((wp,i) => `
+  <wpt lat="${wp.lat.toFixed(7)}" lon="${wp.lng.toFixed(7)}">
+    <name>WayPoint ${i+1}</name>
+    <desc>${wp.question.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</desc>
+  </wpt>`).join('');
+
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="SpotMe Caching"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>${name.replace(/&/g,'&amp;')}</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+${wpts}
+  <trk>
+    <name>${name.replace(/&/g,'&amp;')}</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>
+</gpx>`;
+
+  const blob = new Blob([gpx], { type:'application/gpx+xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${name.replace(/[^a-z0-9]/gi,'_')}.gpx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('📥 GPX gespeichert!');
+}
 </script>
 </body>
 </html>
