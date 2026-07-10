@@ -528,62 +528,76 @@ function getGPS() {
 // Generiert Rundrouten via OSRM trip endpoint (verhindert Sackgassen)
 async function buildRoutes(origin, km, count) {
   const R = 6371000;
-  // 4 Zwischenpunkte = glattere Runde, weniger Sackgassen
-  const d = (km * 1000) / 4;
-  // Verschiedene Startwinkel für 3 Varianten
-  const baseAngles = [
-    [0, 90, 180, 270],    // N-O-S-W Kreuz
-    [45, 135, 225, 315],  // NO-SO-SW-NW Diagonal
-    [20, 110, 200, 290],  // Leicht gedreht
-  ];
+  // Korrekte Kreisformel: r = Umfang/(2π) mit 0.70 Straßen-Overhead
+  const radius = (km * 1000) / (2 * Math.PI) * 0.70;
+  const N = 8; // 8 Punkte = glatte Runde ohne Sackgassen
   const labels = ['Nord-Runde', 'Diagonal-Runde', 'West-Runde'];
+  const startAngles = [0, 22.5, 45];
   const results = [];
 
+  // Snapped Punkt auf nächste echte Gehweg-Straße
+  async function snapToRoad(lat, lng) {
+    try {
+      const r = await fetch(
+        `https://router.project-osrm.org/nearest/v1/foot/${lng},${lat}?number=1`
+      ).then(r => r.json());
+      if (r.waypoints?.length) {
+        return { lat: r.waypoints[0].location[1], lng: r.waypoints[0].location[0] };
+      }
+    } catch {}
+    return { lat, lng };
+  }
+
   for (let v = 0; v < count; v++) {
-    const angles = baseAngles[v % 3];
-    const pts = [origin];
-    for (const deg of angles) {
+    const startAngle = startAngles[v % 3];
+    const pts = [];
+
+    // 8 gleichmäßige Punkte auf dem Kreis
+    for (let i = 0; i < N; i++) {
+      const deg = startAngle + (360 / N) * i;
       const rad = deg * Math.PI / 180;
-      const lat = origin.lat + (d / R) * Math.cos(rad) * (180 / Math.PI);
-      const lng = origin.lng + (d / R) * Math.sin(rad) * (180 / Math.PI)
+      const lat = origin.lat + (radius / R) * Math.cos(rad) * (180 / Math.PI);
+      const lng = origin.lng + (radius / R) * Math.sin(rad) * (180 / Math.PI)
                   / Math.cos(origin.lat * Math.PI / 180);
       pts.push({ lat, lng });
     }
 
-    // OSRM trip endpoint: roundtrip=true verhindert Sackgassen
-    const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
-    try {
-      // Erst trip versuchen, dann route als Fallback
-      let geometry = null, distance = null, duration = null;
+    // Alle Punkte auf echte Straßen snappen
+    const snapped = await Promise.all(pts.map(p => snapToRoad(p.lat, p.lng)));
+    const allPts = [origin, ...snapped];
+    const coords = allPts.map(p => `${p.lng},${p.lat}`).join(';');
 
+    try {
       const tripRes = await fetch(
         `https://router.project-osrm.org/trip/v1/foot/${coords}` +
         `?source=first&destination=last&roundtrip=true&overview=full&geometries=geojson`
       ).then(r => r.json()).catch(() => null);
 
       if (tripRes?.trips?.length) {
-        geometry = tripRes.trips[0].geometry;
-        distance = tripRes.trips[0].distance;
-        duration = tripRes.trips[0].duration;
-      } else {
-        // Fallback: route Endpoint mit Rückweg zum Start
-        const routeCoords = [...pts, origin].map(p => `${p.lng},${p.lat}`).join(';');
-        const routeRes = await fetch(
-          `https://router.project-osrm.org/route/v1/foot/${routeCoords}` +
-          `?overview=full&geometries=geojson`
-        ).then(r => r.json()).catch(() => null);
-
-        if (routeRes?.routes?.length) {
-          geometry = routeRes.routes[0].geometry;
-          distance = routeRes.routes[0].distance;
-          duration = routeRes.routes[0].duration;
-        }
+        results.push({
+          geometry: tripRes.trips[0].geometry,
+          distance: tripRes.trips[0].distance,
+          duration: tripRes.trips[0].duration,
+          label:    labels[v % 3]
+        });
+        continue;
       }
 
-      if (geometry) {
-        results.push({ geometry, distance, duration, label: labels[v % 3] });
+      // Fallback: route Endpoint
+      const routeRes = await fetch(
+        `https://router.project-osrm.org/route/v1/foot/${coords}` +
+        `?overview=full&geometries=geojson`
+      ).then(r => r.json()).catch(() => null);
+
+      if (routeRes?.routes?.length) {
+        results.push({
+          geometry: routeRes.routes[0].geometry,
+          distance: routeRes.routes[0].distance,
+          duration: routeRes.routes[0].duration,
+          label:    labels[v % 3]
+        });
       }
-    } catch(e) { console.warn('Route generation error:', e); }
+    } catch(e) { console.warn('Route error:', e); }
   }
   return results;
 }
