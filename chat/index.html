@@ -131,6 +131,21 @@
     .hidden { display: none !important; }
     .text-center { text-align: center; }
     .error { color: #ff4f7b; margin-top: 1rem; }
+    
+    /* P2P Status Indicator */
+    .p2p-indicator {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      animation: pulse 2s infinite;
+    }
+    .p2p-indicator.active { background: #4ade80; }
+    .p2p-indicator.inactive { background: #6b7280; animation: none; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
   </style>
 </head>
 <body>
@@ -138,7 +153,7 @@
   <div id="loginScreen">
     <div class="logo">💬</div>
     <h1>SpotMe Chat</h1>
-    <p class="subtitle">Eigenständiger Messenger</p>
+    <p class="subtitle">Eigenständiger Messenger mit P2P</p>
     <input type="text" id="loginCode" maxlength="6" placeholder="6-stelliger Code">
     <input type="password" id="loginToken" placeholder="Token (optional)">
     <button onclick="handleLogin()">Anmelden</button>
@@ -161,7 +176,10 @@
       <button class="back-btn" onclick="goBackToList()">←</button>
       <div class="header-info">
         <div class="header-name" id="headerName">...</div>
-        <div class="header-status" id="headerStatus">Offline</div>
+        <div class="header-status" id="headerStatus">
+          <span class="p2p-indicator inactive" id="p2pIndicator"></span>
+          Offline
+        </div>
       </div>
     </div>
     <div id="messages" class="messages-container"></div>
@@ -172,12 +190,17 @@
   </div>
 
 <script>
+// ── GLOBAL VARIABLES ───────────────────────────────────────────────────────
 const API = 'https://spotme-chat-obom.onrender.com/api';
 
 let CODE = null, TOKEN = null, PROFILE = null;
 let CURRENT_ROOM = null, PARTNER_CODE = null, PARTNER_NAME = null;
 let POLL_TIMER = null;
 const CHAT_PREFIX = 'sm_local_msg_';
+
+// WebRTC / P2P Status
+let webrtc = null;
+let isP2PConnected = false;
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 async function handleLogin() {
@@ -214,7 +237,13 @@ async function handleLogin() {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('chatListScreen').style.display = 'block';
     
+    // WebRTC initialisieren (PeerJS Setup)
+    initWebRTC();
+    
+    // Polling für Server-Nachrichten starten
     initPolling();
+    
+    // Chat Liste rendern
     renderChatList();
   } catch (e) {
     document.getElementById('loginError').textContent = e.message;
@@ -222,24 +251,37 @@ async function handleLogin() {
 }
 
 function handleLogout() {
+  // Cleanup WebRTC Verbindung
+  if (webrtc) {
+    webrtc.destroy();
+    webrtc = null;
+  }
+  isP2PConnected = false;
+  
+  // Cleanup Polling
+  if (POLL_TIMER) clearInterval(POLL_TIMER);
+  POLL_TIMER = null;
+  
+  // localStorage bereinigen
   localStorage.removeItem('sm_chat_code');
   localStorage.removeItem('sm_chat_token');
   localStorage.removeItem('sm_chat_profile');
   
+  // Reset globals
   CODE = null; TOKEN = null; PROFILE = null;
-  CURRENT_ROOM = null; PARTNER_CODE = null;
+  CURRENT_ROOM = null; PARTNER_CODE = null; PARTNER_NAME = null;
   
-  if (POLL_TIMER) clearInterval(POLL_TIMER);
-  
+  // UI zurücksetzen
   document.getElementById('chatListScreen').style.display = 'none';
   document.getElementById('chatDetailScreen').style.display = 'none';
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('loginCode').value = '';
   document.getElementById('loginToken').value = '';
   document.getElementById('loginError').textContent = '';
+  updateHeaderStatus('Offline', false);
 }
 
-// Autologin wenn gespeichert
+// Autologin versuchen wenn gespeichert
 async function autoLogin() {
   const savedCode = localStorage.getItem('sm_chat_code');
   const savedToken = localStorage.getItem('sm_chat_token');
@@ -259,18 +301,69 @@ async function autoLogin() {
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('chatListScreen').style.display = 'block';
       
+      initWebRTC();
       initPolling();
       renderChatList();
       return true;
     }
-  } catch {}
+  } catch (e) {
+    console.error('Autologin failed:', e);
+  }
   return false;
+}
+
+// ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
+function initWebRTC() {
+  // Weblink laden und SpotMeWebRTC Klasse global verfügbar machen
+  const script = document.createElement('script');
+  script.src = 'webrtc.js';
+  script.onload = () => {
+    console.log('[WebRTC] Script geladen');
+    if (window.SpotMeWebRTC) {
+      webrtc = new window.SpotMeWebRTC(CODE, TOKEN);
+      
+      // Event Handler setzen
+      webrtc.onConnect = () => {
+        console.log('[Chat] P2P Verbindung hergestellt');
+        isP2PConnected = true;
+        updateHeaderStatus('Online (P2P)', true);
+      };
+      
+      webrtc.onMessage = (msg) => {
+        console.log('[Chat] P2P Message received:', msg);
+        // Nachricht in LocalStorage speichern + UI rendern
+        const msgs = getMessages();
+        msgs.push(msg);
+        saveMessages(msgs);
+        renderMessages();
+        renderChatList();
+      };
+      
+      webrtc.onDisconnect = () => {
+        console.log('[Chat] P2P Verbindung getrennt');
+        isP2PConnected = false;
+        updateHeaderStatus('Offline', false);
+      };
+      
+      webrtc.onError = (err) => {
+        console.error('[Chat] WebRTC Error:', err);
+        updateHeaderStatus('Fallback: Server-Modus', false);
+      };
+    }
+  };
+  script.onerror = (err) => {
+    console.error('[WebRTC] Failed to load webrtc.js:', err);
+  };
+  document.head.appendChild(script);
 }
 
 // ── CHAT LIST ─────────────────────────────────────────────────────────────
 async function renderChatList() {
   const container = document.getElementById('chatList');
-  if (!CODE) { container.innerHTML = '<p class="text-center" style="padding:2rem;color:var(--muted2);">Keine Chats</p>'; return; }
+  if (!CODE) { 
+    container.innerHTML = '<p class="text-center" style="padding:2rem;color:var(--muted2);">Keine Chats</p>'; 
+    return; 
+  }
   
   // Alle Chats aus localStorage finden
   const chats = [];
@@ -317,7 +410,8 @@ async function renderChatList() {
   `).join('') || '<p class="text-center" style="padding:2rem;color:var(--muted2);">Noch keine Chats</p>';
 }
 
-function openChat(room, partnerCode, partnerName) {
+// ── OPEN CHAT & P2P CONNECTION ────────────────────────────────────────────
+async function openChat(room, partnerCode, partnerName) {
   CURRENT_ROOM = room;
   PARTNER_CODE = partnerCode;
   PARTNER_NAME = partnerName;
@@ -326,15 +420,75 @@ function openChat(room, partnerCode, partnerName) {
   document.getElementById('chatDetailScreen').style.display = 'flex';
   
   document.getElementById('headerName').textContent = partnerName;
-  document.getElementById('headerStatus').textContent = 'Online'; // TODO: Real Status
+  updateHeaderStatus('Verbinde...', false);
   
   renderMessages();
+  
+  // Versuch P2P Verbindung herzustellen
+  await attemptP2PConnection(partnerCode);
+}
+
+async function attemptP2PConnection(partnerCode) {
+  if (!webrtc) {
+    console.warn('[Chat] WebRTC nicht initialisiert');
+    updateHeaderStatus('Offline', false);
+    return;
+  }
+  
+  try {
+    // 1. Erst "Bereit"-Einladung senden (Signal zum Server)
+    await sendReadinessInvite(partnerCode);
+    
+    // 2. Peer-Connection starten
+    await webrtc.connect(partnerCode, (peerId) => {
+      console.log('[Chat] Peer ready:', peerId);
+    });
+    
+    // 3. Verbindung initiieren (Peer kommt auf uns zu durch send() in initiateConnection)
+    webrtc.initiateConnection(partnerCode);
+    
+    // Timeout: Nach 15 Sek noch keinen P2P → Server Fallback anzeigen
+    setTimeout(() => {
+      if (!isP2PConnected) {
+        console.log('[Chat] P2P Timeout, bleibe im Server-Modus');
+      }
+    }, 15000);
+    
+  } catch (err) {
+    console.error('[Chat] P2P Verbindung fehlgeschlagen:', err);
+    updateHeaderStatus('Fallback: Server-Modus', false);
+  }
+}
+
+async function sendReadinessInvite(partnerCode) {
+  try {
+    const res = await fetch(`${API}/invites/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: CODE,
+        to: partnerCode,
+        // Zeitfenster für dieses Treffen
+        time_start: Date.now(),
+        time_end: Date.now() + 2 * 60 * 60 * 1000  // 2 Stunden
+      })
+    });
+    
+    if (!res.ok) throw new Error('Invite fehlgeschlagen');
+    console.log('[Chat] Bereit-Invite gesendet');
+  } catch (err) {
+    console.error('[Chat] Invite Error:', err);
+    // Nicht fatal - P2P funktioniert trotzdem manchmal ohne Invite
+  }
 }
 
 function goBackToList() {
   CURRENT_ROOM = null;
   PARTNER_CODE = null;
   PARTNER_NAME = null;
+  
+  // P2P Connection nicht schließen, sondern im Hintergrund halten
+  // Optional: webrtc.cleanup(); wenn du Connection pro Chat schliessen willst
   
   document.getElementById('chatDetailScreen').style.display = 'none';
   document.getElementById('chatListScreen').style.display = 'block';
@@ -372,6 +526,7 @@ function renderMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
+// ── SEND MESSAGE (P2P Priority + Fallback) ────────────────────────────────
 async function sendMessage() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
@@ -379,14 +534,24 @@ async function sendMessage() {
   
   const myName = PROFILE?.name || CODE;
   
-  // Lokal sofort speichern
+  // Lokal sofort speichern (UX: sofort sichtbar)
   const msgs = getMessages();
   msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
   saveMessages(msgs);
   renderMessages();
   input.value = '';
   
-  // An Server senden
+  // Priority: P2P → Server Fallback
+  if (webrtc && webrtc.isConnected()) {
+    const sent = webrtc.send(text);
+    if (sent) {
+      console.log('[Chat] Via P2P gesendet');
+      updateHeaderStatus('Online (P2P)', true);
+      return;
+    }
+  }
+  
+  // Fallback zum Server (wenn Partner offline oder P2P fehlgeschlagen)
   try {
     const res = await fetch(`${API}/message`, {
       method: 'POST',
@@ -401,12 +566,25 @@ async function sendMessage() {
     });
     
     if (!res.ok) {
-      // In Outbox speichern (TODO: IndexedDB)
       console.warn('Nachricht nicht gesendet:', res.statusText);
+      // TODO: In Outbox speichern für späteren Retry
+    } else {
+      console.log('[Chat] Via Server gesendet');
+      updateHeaderStatus('Fallback: Server-Modus', false);
     }
   } catch (e) {
     console.error('Fehler beim Senden:', e);
   }
+}
+
+// ── HEADER STATUS UPDATE ──────────────────────────────────────────────────
+function updateHeaderStatus(status, isP2P) {
+  const el = document.getElementById('headerStatus');
+  const indicator = document.getElementById('p2pIndicator');
+  
+  el.innerHTML = `<span class="p2p-indicator ${isP2P ? 'active' : 'inactive'}"></span>${status}`;
+  
+  isP2PConnected = isP2P;
 }
 
 // ── POLLING ───────────────────────────────────────────────────────────────
@@ -425,6 +603,8 @@ async function initPolling() {
       
       // Neue Nachrichten in den entsprechenden Chats einfügen
       let renderedAny = false;
+      let listNeedsUpdate = false;
+      
       newMsgs.forEach(m => {
         const room = [CODE, m.sender_code].sort().join('-');
         const key = CHAT_PREFIX + room;
@@ -441,6 +621,7 @@ async function initPolling() {
             ts: new Date(m.created_at).getTime()
           });
           localStorage.setItem(key, JSON.stringify(msgs));
+          listNeedsUpdate = true;
           
           // Wenn aktueller Chat, neu rendern
           if (room === CURRENT_ROOM) {
@@ -450,7 +631,13 @@ async function initPolling() {
         }
       });
       
-      if (!renderedAny) renderChatList();
+      if (renderedAny) {
+        // Update Header Status wenn Server-Modus aktiv
+        updateHeaderStatus('Server-Modus (Polling)', false);
+      }
+      if (listNeedsUpdate && !renderedAny) {
+        renderChatList();
+      }
     } catch (e) {
       console.error('Polling-Fehler:', e);
     }
@@ -464,12 +651,14 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
+// ── SERVICE WORKER REGISTRATION ───────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/chat/sw.js')
+    .then(reg => console.log('[SW] Registered:', reg))
     .catch(console.error);
 }
 
+// ── INIT ──────────────────────────────────────────────────────────────────
 // Autologin versuchen
 autoLogin().catch(console.error);
 </script>
