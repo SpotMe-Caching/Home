@@ -11,9 +11,9 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "chat-v1.2.0";
-const CACHE_STATIC  = `spotme-chat-static-${CACHE_VERSION}`;
-const CACHE_API     = `spotme-chat-api-${CACHE_VERSION}`;
+const CACHE_VERSION = "chat-v1.2.5";
+const CACHE_STATIC = `spotme-chat-static-${CACHE_VERSION}`;
+const CACHE_API = `spotme-chat-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spotme-chat-runtime-${CACHE_VERSION}`;
 
 // ── STATISCHE ASSETS – werden bei Installation gecacht ──────────────────────
@@ -30,7 +30,7 @@ const STATIC_ASSETS = [
   // Fonts (optional – falls du Google Fonts nutzt)
   "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap",
   // Lucide Icons (falls im Chat genutzt)
-  "https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js"
+  "https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js",
 ];
 
 // API-Cache maximales Alter in Sekunden
@@ -39,28 +39,29 @@ const API_CACHE_MAX_AGE = 30; // 30 Sekunden – Chat soll frisch sein
 // Maximale Anzahl Runtime-Cache-Einträge
 const MAX_RUNTIME_ENTRIES = 50;
 
-
 // ══════════════════════════════════════════════════════════════════════════════
 // INSTALLATION
 // ══════════════════════════════════════════════════════════════════════════════
 self.addEventListener("install", (event) => {
   console.log(`[Chat SW] Installiere ${CACHE_VERSION}`);
   event.waitUntil(
-    caches.open(CACHE_STATIC)
+    caches
+      .open(CACHE_STATIC)
       .then((cache) => {
         // allSettled: einzelne Fehler brechen nicht alles ab
         return Promise.allSettled(
           STATIC_ASSETS.map((url) =>
-            cache.add(url).catch((err) =>
-              console.warn(`[Chat SW] Konnte nicht cachen: ${url}`, err)
-            )
-          )
+            cache
+              .add(url)
+              .catch((err) =>
+                console.warn(`[Chat SW] Konnte nicht cachen: ${url}`, err),
+              ),
+          ),
         );
       })
-      .then(() => self.skipWaiting())
+      .then(() => self.skipWaiting()),
   );
 });
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AKTIVIERUNG – alte Caches löschen
@@ -68,26 +69,27 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   console.log(`[Chat SW] Aktiviere ${CACHE_VERSION}`);
   event.waitUntil(
-    caches.keys()
+    caches
+      .keys()
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) =>
-              key.startsWith("spotme-chat-") &&
-              key !== CACHE_STATIC &&
-              key !== CACHE_API &&
-              key !== CACHE_RUNTIME
+            .filter(
+              (key) =>
+                key.startsWith("spotme-chat-") &&
+                key !== CACHE_STATIC &&
+                key !== CACHE_API &&
+                key !== CACHE_RUNTIME,
             )
             .map((key) => {
               console.log(`[Chat SW] Alter Cache gelöscht: ${key}`);
               return caches.delete(key);
-            })
-        )
+            }),
+        ),
       )
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()),
   );
 });
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FETCH – Routing je nach Request-Typ
@@ -118,9 +120,9 @@ self.addEventListener("fetch", (event) => {
                 new Response(body, {
                   status: clone.status,
                   statusText: clone.statusText,
-                  headers
-                })
-              )
+                  headers,
+                }),
+              ),
             );
           });
 
@@ -131,7 +133,7 @@ self.addEventListener("fetch", (event) => {
           const cached = await caches.match(request);
           if (cached) {
             const cachedAt = parseInt(
-              cached.headers.get("sw-cached-at") || "0"
+              cached.headers.get("sw-cached-at") || "0",
             );
             const ageSeconds = (Date.now() - cachedAt) / 1000;
 
@@ -147,10 +149,10 @@ self.addEventListener("fetch", (event) => {
             JSON.stringify({ error: "Offline – keine gecachten Daten" }),
             {
               status: 503,
-              headers: { "Content-Type": "application/json" }
-            }
+              headers: { "Content-Type": "application/json" },
+            },
           );
-        })
+        }),
     );
     return;
   }
@@ -165,9 +167,9 @@ self.addEventListener("fetch", (event) => {
           fetch(request)
             .then((response) => {
               if (response.ok) {
-                caches.open(CACHE_STATIC).then((cache) =>
-                  cache.put(request, response.clone())
-                );
+                caches
+                  .open(CACHE_STATIC)
+                  .then((cache) => cache.put(request, response.clone()));
               }
             })
             .catch(() => {});
@@ -178,9 +180,9 @@ self.addEventListener("fetch", (event) => {
         return fetch(request)
           .then((response) => {
             if (response.ok) {
-              caches.open(CACHE_STATIC).then((cache) =>
-                cache.put(request, response.clone())
-              );
+              caches
+                .open(CACHE_STATIC)
+                .then((cache) => cache.put(request, response.clone()));
             }
             return response;
           })
@@ -188,7 +190,7 @@ self.addEventListener("fetch", (event) => {
             // Fallback zur index.html (SPA-Verhalten)
             return caches.match("/chat/index.html");
           });
-      })
+      }),
     );
     return;
   }
@@ -197,8 +199,8 @@ self.addEventListener("fetch", (event) => {
   if (
     url.origin !== self.location.origin &&
     (url.hostname.includes("fonts.googleapis.com") ||
-     url.hostname.includes("fonts.gstatic.com") ||
-     url.hostname.includes("unpkg.com"))
+      url.hostname.includes("fonts.gstatic.com") ||
+      url.hostname.includes("unpkg.com"))
   ) {
     event.respondWith(
       caches.open(CACHE_RUNTIME).then(async (cache) => {
@@ -224,14 +226,13 @@ self.addEventListener("fetch", (event) => {
           limitRuntimeCache();
         }
         return response || new Response("", { status: 504 });
-      })
+      }),
     );
     return;
   }
 
   // Alle anderen Requests: normal durchlassen (nicht cachen)
 });
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HELPER: Runtime-Cache Größe begrenzen
@@ -243,11 +244,10 @@ async function limitRuntimeCache() {
     const toDelete = keys.slice(0, keys.length - MAX_RUNTIME_ENTRIES);
     await Promise.all(toDelete.map((req) => cache.delete(req)));
     console.log(
-      `[Chat SW] Runtime-Cache auf ${MAX_RUNTIME_ENTRIES} Einträge begrenzt`
+      `[Chat SW] Runtime-Cache auf ${MAX_RUNTIME_ENTRIES} Einträge begrenzt`,
     );
   }
 }
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PUSH NOTIFICATIONS
@@ -274,23 +274,19 @@ self.addEventListener("push", (event) => {
         action: "reply",
         title: "💬 Antworten",
         type: "text",
-        placeholder: "Nachricht eingeben…"
+        placeholder: "Nachricht eingeben…",
       },
       {
         action: "dismiss",
-        title: "Ignorieren"
-      }
-    ]
+        title: "Ignorieren",
+      },
+    ],
   };
 
   event.waitUntil(
-    self.registration.showNotification(
-      data.title || "SpotMe Chat",
-      options
-    )
+    self.registration.showNotification(data.title || "SpotMe Chat", options),
   );
 });
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // NOTIFICATION CLICK – App öffnen / fokussieren
@@ -309,11 +305,11 @@ self.addEventListener("notificationclick", (event) => {
           if (client) {
             client.postMessage({
               type: "PUSH_REPLY",
-              text: event.reply
+              text: event.reply,
             });
             client.focus();
           }
-        })
+        }),
     );
     return;
   }
@@ -333,7 +329,7 @@ self.addEventListener("notificationclick", (event) => {
             client.focus();
             client.postMessage({
               type: "PUSH_NAVIGATE",
-              url: targetUrl
+              url: targetUrl,
             });
             return;
           }
@@ -343,10 +339,9 @@ self.addEventListener("notificationclick", (event) => {
         if (clients.openWindow) {
           return clients.openWindow(targetUrl);
         }
-      })
+      }),
   );
 });
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MESSAGE vom Client (z.B. "neue Nachricht gesendet" → Badges updaten)
@@ -363,7 +358,6 @@ self.addEventListener("message", (event) => {
   }
 });
 
-
 // ══════════════════════════════════════════════════════════════════════════════
 // PERIODIC SYNC (für Hintergrund-Aktualisierung – experimentell)
 // Erfordert `periodic` Permission und registered Periodic Sync
@@ -377,7 +371,7 @@ self.addEventListener("periodicsync", (event) => {
           clientList.forEach((client) => {
             client.postMessage({ type: "PERIODIC_SYNC" });
           });
-        })
+        }),
     );
   }
 });
