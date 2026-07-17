@@ -278,6 +278,7 @@ const CHAT_PREFIX = 'sm_local_msg_';
 // WebRTC / P2P Status
 let webrtc = null;
 let isP2PConnected = false;
+let p2pConnectionTime = null;
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 async function handleLogin() {
@@ -322,6 +323,8 @@ async function handleLogin() {
     
     // Chat Liste rendern
     renderChatList();
+    // Nach renderChatList(); in handleLogin():
+       console.log('[Chat] Login erfolgreich, WebRTC initialisiert');
   } catch (e) {
     document.getElementById('loginError').textContent = e.message;
   }
@@ -334,6 +337,7 @@ function handleLogout() {
     webrtc = null;
   }
   isP2PConnected = false;
+  p2pConnectionTime = null;
   
   // Cleanup Polling
   if (POLL_TIMER) clearInterval(POLL_TIMER);
@@ -355,8 +359,14 @@ function handleLogout() {
   document.getElementById('loginCode').value = '';
   document.getElementById('loginToken').value = '';
   document.getElementById('loginError').textContent = '';
-  updateHeaderStatus('Offline', false);
-}
+  
+  // P2P UI resetten
+  const connStatus = document.getElementById('connectionStatus');
+  if (connStatus) {
+    connStatus.className = 'connection-status server';
+    connStatus.innerHTML = 'Verbindungsmodus prüfen...';
+  }
+  }
 
 // Autologin versuchen wenn gespeichert
 async function autoLogin() {
@@ -433,6 +443,122 @@ function initWebRTC() {
   };
   document.head.appendChild(script);
 }
+
+// ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
+function initWebRTC() {
+  // Weblink dynamisch laden und SpotMeWebRTC Klasse global verfügbar machen
+  const script = document.createElement('script');
+  script.type = 'module';
+  
+  // Wichtig: webrtc.js wird als ES Module geladen
+  script.src = 'webrtc.js';
+  script.onload = () => {
+    console.log('[WebRTC] Script geladen');
+    
+    // Import via ES Module
+    import('./webrtc.js').then(module => {
+      const SpotMeWebRTC = module.default;
+      
+      if (SpotMeWebRTC) {
+        webrtc = new SpotMeWebRTC(CODE, TOKEN);
+        
+        // Event Handler setzen
+        webrtc.onConnect = () => {
+          console.log('[Chat] P2P Verbindung hergestellt');
+          isP2PConnected = true;
+          p2pConnectionTime = new Date();
+          updateP2PUI(true, 'P2P Aktiv');
+        };
+        
+        webrtc.onMessage = (msg) => {
+          console.log('[Chat] P2P Message received:', msg);
+          // Nachricht in LocalStorage speichern + UI rendern
+          const msgs = getMessages();
+          msgs.push(msg);
+          saveMessages(msgs);
+          renderMessages();
+          renderChatList();
+        };
+        
+        webrtc.onDisconnect = () => {
+          console.log('[Chat] P2P Verbindung getrennt');
+          isP2PConnected = false;
+          p2pConnectionTime = null;
+          updateP2PUI(false, 'Verbindung getrennt');
+        };
+        
+        webrtc.onError = (err) => {
+          console.error('[Chat] WebRTC Error:', err);
+          updateP2PUI(false, 'Fehler');
+        };
+      }
+    }).catch(err => {
+      console.error('[WebRTC] Failed to import:', err);
+    });
+  };
+  script.onerror = (err) => {
+    console.error('[WebRTC] Failed to load webrtc.js:', err);
+  };
+  document.head.appendChild(script);
+  }
+
+// ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
+function initWebRTC() {
+  // Weblink dynamisch laden und SpotMeWebRTC Klasse global verfügbar machen
+  const script = document.createElement('script');
+  script.type = 'module';
+  
+  // Wichtig: webrtc.js wird als ES Module geladen
+  script.src = 'webrtc.js';
+  script.onload = () => {
+    console.log('[WebRTC] Script geladen');
+    
+    // Import via ES Module
+    import('./webrtc.js').then(module => {
+      const SpotMeWebRTC = module.default;
+      
+      if (SpotMeWebRTC) {
+        webrtc = new SpotMeWebRTC(CODE, TOKEN);
+        
+        // Event Handler setzen
+        webrtc.onConnect = () => {
+          console.log('[Chat] P2P Verbindung hergestellt');
+          isP2PConnected = true;
+          p2pConnectionTime = new Date();
+          updateP2PUI(true, 'P2P Aktiv');
+        };
+        
+        webrtc.onMessage = (msg) => {
+          console.log('[Chat] P2P Message received:', msg);
+          // Nachricht in LocalStorage speichern + UI rendern
+          const msgs = getMessages();
+          msgs.push(msg);
+          saveMessages(msgs);
+          renderMessages();
+          renderChatList();
+        };
+        
+        webrtc.onDisconnect = () => {
+          console.log('[Chat] P2P Verbindung getrennt');
+          isP2PConnected = false;
+          p2pConnectionTime = null;
+          updateP2PUI(false, 'Verbindung getrennt');
+        };
+        
+        webrtc.onError = (err) => {
+          console.error('[Chat] WebRTC Error:', err);
+          updateP2PUI(false, 'Fehler');
+        };
+      }
+    }).catch(err => {
+      console.error('[WebRTC] Failed to import:', err);
+    });
+  };
+  script.onerror = (err) => {
+    console.error('[WebRTC] Failed to load webrtc.js:', err);
+  };
+  document.head.appendChild(script);
+  }
 
 // ── CHAT LIST ─────────────────────────────────────────────────────────────
 async function renderChatList() {
