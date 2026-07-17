@@ -7,211 +7,174 @@
   <link rel="manifest" href="/chat/manifest.json">
   <meta name="theme-color" content="#0a0d12">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Outfit', sans-serif;
-      background: linear-gradient(135deg, #0a0d12 0%, #1a1f26 100%);
-      color: #e0e0e0;
-      height: 100vh;
-      overflow: hidden;
-    }
-    
-    /* Login - Screen */
-    #loginScreen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      padding: 2rem;
-    }
-    #loginScreen .logo { font-size: 3rem; margin-bottom: 1rem; }
-    #loginScreen h1 { margin-bottom: 0.5rem; color: #ff4f7b; }
-    #loginScreen .subtitle { color: var(--muted2); margin-bottom: 2rem; }
-    #loginScreen input {
-      width: 100%; max-width: 280px;
-      padding: 0.85rem; margin-bottom: 0.75rem;
-      border: 1px solid #333; border-radius: 10px;
-      background: #1a1f26; color: #fff;
-      font-size: 1rem; text-align: center;
-    }
-    #loginScreen button {
-      width: 100%; max-width: 280px;
-      padding: 0.85rem; margin-top: 1rem;
-      background: #ff4f7b; border: none;
-      border-radius: 10px; font-weight: 600;
-      color: #fff; cursor: pointer;
-    }
-    
-    /* Chat List */
-    #chatListScreen { display: none; height: 100vh; }
-    .chat-list-header {
-      padding: 1rem; background: #0f1218;
-      border-bottom: 1px solid var(--bord);
-    }
-    .chat-list { overflow-y: auto; height: calc(100vh - 60px); }
-    .chat-item {
-      padding: 1rem; border-bottom: 1px solid #222;
-      display: flex; align-items: center; gap: 1rem;
-      cursor: pointer;
-    }
-    .chat-item:hover { background: #15181e; }
-    .avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, #ff4f7b, #ff9f00);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; color: #fff; flex-shrink: 0;
-    }
-    .chat-info { flex: 1; min-width: 0; }
-    .chat-name { font-weight: 600; margin-bottom: 0.2rem; }
-    .chat-preview {
-      font-size: 0.85rem; color: var(--muted2);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .chat-meta { text-align: right; min-width: 70px; flex-shrink: 0; }
-    .chat-time { font-size: 0.75rem; color: var(--muted); }
-    .unread-badge {
-      background: #ff4f7b; color: #fff;
-      font-size: 0.7rem; padding: 2px 8px;
-      border-radius: 10px; margin-top: 5px;
-      display: inline-block;
-    }
-    
-    /* Chat Detail */
-    #chatDetailScreen { display: none; flex-direction: column; height: 100vh; }
-    .chat-header {
-      padding: 1rem; background: #0f1218;
-      border-bottom: 1px solid var(--bord);
-      display: flex; align-items: center; gap: 1rem;
-    }
-    .back-btn { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
-    .header-info { flex: 1; }
-    .header-name { font-weight: 600; }
-    .header-status { font-size: 0.75rem; color: var(--muted); }
-    .messages-container {
-      flex: 1; overflow-y: auto; padding: 1rem;
-      background: #0a0d12;
-    }
-    .message {
-      max-width: 75%; padding: 0.6rem 0.9rem;
-      border-radius: 12px; margin-bottom: 0.5rem;
-      word-wrap: break-word;
-    }
-    .message.mine {
-      align-self: flex-end; margin-left: auto;
-      background: linear-gradient(135deg, #ff4f7b, #ff9f00);
-    }
-    .message.other { align-self: flex-start; background: #1a1f26; }
-    .msg-author {
-      font-size: 0.7rem; color: #aaa; margin-bottom: 0.2rem;
-    }
-    .message.mine .msg-author { display: none; }
-    .msg-time {
-      font-size: 0.65rem; color: #888;
-      margin-top: 0.2rem; text-align: right;
-    }
-<!-- Connection Status Footer -->
-<div id="connectionStatus" class="connection-status server">
-  Verbindungsmodus prüfen...
-</div>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: linear-gradient(135deg, #0a0d12 0%, #1a1f26 100%);
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+  }
   
-    .input-bar {
-      padding: 0.75rem 1rem; background: #0f1218;
-      border-top: 1px solid var(--bord);
-      display: flex; gap: 0.5rem;
-    }
-    .input-bar input {
-      flex: 1; padding: 0.7rem; border-radius: 20px;
-      border: 1px solid #333; background: #1a1f26;
-      color: #fff; font-size: 1rem;
-    }
-    .input-bar button {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: #ff4f7b; border: none;
-      color: #fff; font-size: 1.2rem; cursor: pointer;
-    }
-    
-    /* P2P Badge in Chat-Liste */
-.p2p-badge-small {
-  position: absolute; top: 8px; right: 8px;
-  font-size: 0.65rem; padding: 2px 6px;
-  border-radius: 4px; background: rgba(74, 222, 128, 0.15);
-  color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3);
-}
-
-/* P2P Indikator im Header */
-.p2p-indicator {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 12px;
-  font-size: 0.75rem; font-weight: 500;
-}
-.p2p-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-.p2p-active .p2p-dot { background: #4ade80; }
-.p2p-active { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
-.p2p-inactive .p2p-dot { background: #6b7280; animation: none; }
-.p2p-inactive { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(0.9); }
-}
-
-/* P2P Marketing Banner */
-.p2p-banner {
-  display: none;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 197, 94, 0.05));
-  border-bottom: 1px solid rgba(74, 222, 128, 0.2);
-  font-size: 0.8rem; color: #4ade80;
-  text-align: center;
-}
-.p2p-banner.show { display: block; }
-.p2p-banner .icon { margin-right: 6px; }
-
-/* Nachrichten Delivery Status */
-.msg-delivery {
-  font-size: 0.6rem; color: #6b7280;
-  position: absolute; bottom: 4px; right: 8px;
-}
-.message.mine .msg-delivery::after { content: "✓"; }
-.message.mine.p2p .msg-delivery { color: #4ade80; }
-.message.mine.p2p .msg-delivery::after { content: "🔒 P2P"; }
-
-/* Connection Status Footer */
-.connection-status {
-  padding: 0.5rem 1rem; font-size: 0.75rem;
-  border-top: 1px solid #222; text-align: center;
-  color: var(--muted);
-}
-.connection-status.p2p { color: #4ade80; }
-.connection-status.server { color: #fb923c; }
-
-/* Success Message */
-.success { color: #4ade80; margin-top: 1rem; font-size: 0.85rem; }
-
-    /* Helpers */
-    .hidden { display: none !important; }
-    .text-center { text-align: center; }
-    .error { color: #ff4f7b; margin-top: 1rem; }
-    
-    /* P2P Status Indicator */
-    .p2p-indicator {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      margin-right: 4px;
-      animation: pulse 2s infinite;
-    }
-    .p2p-indicator.active { background: #4ade80; }
-    .p2p-indicator.inactive { background: #6b7280; animation: none; }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-  </style>
+  /* Login Screen */
+  #loginScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 2rem;
+  }
+  #loginScreen .logo { font-size: 3rem; margin-bottom: 1rem; }
+  #loginScreen h1 { margin-bottom: 0.5rem; color: #ff4f7b; }
+  #loginScreen .subtitle { color: var(--muted2); margin-bottom: 2rem; }
+  #loginScreen input {
+    width: 100%; max-width: 280px;
+    padding: 0.85rem; margin-bottom: 0.75rem;
+    border: 1px solid #333; border-radius: 10px;
+    background: #1a1f26; color: #fff;
+    font-size: 1rem; text-align: center;
+  }
+  #loginScreen button {
+    width: 100%; max-width: 280px;
+    padding: 0.85rem; margin-top: 1rem;
+    background: #ff4f7b; border: none;
+    border-radius: 10px; font-weight: 600;
+    color: #fff; cursor: pointer;
+  }
+  
+  /* Chat List */
+  #chatListScreen { display: none; height: 100vh; }
+  .chat-list-header {
+    padding: 1rem; background: #0f1218;
+    border-bottom: 1px solid var(--bord);
+  }
+  .chat-list { overflow-y: auto; height: calc(100vh - 60px); }
+  .chat-item {
+    padding: 1rem; border-bottom: 1px solid #222;
+    display: flex; align-items: center; gap: 1rem;
+    cursor: pointer; position: relative;
+  }
+  .chat-item:hover { background: #15181e; }
+  .avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff4f7b, #ff9f00);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .chat-info { flex: 1; min-width: 0; }
+  .chat-name { font-weight: 600; margin-bottom: 0.2rem; }
+  .chat-preview {
+    font-size: 0.85rem; color: var(--muted2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-meta { text-align: right; min-width: 70px; flex-shrink: 0; }
+  .chat-time { font-size: 0.75rem; color: var(--muted); }
+  .unread-badge {
+    background: #ff4f7b; color: #fff;
+    font-size: 0.7rem; padding: 2px 8px;
+    border-radius: 10px; margin-top: 5px;
+    display: inline-block;
+  }
+  
+  /* Chat Detail */
+  #chatDetailScreen { display: none; flex-direction: column; height: 100vh; }
+  .chat-header {
+    padding: 1rem; background: #0f1218;
+    border-bottom: 1px solid var(--bord);
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .back-btn { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
+  .header-info { flex: 1; }
+  .header-name { font-weight: 600; margin-bottom: 0.3rem; }
+  .header-status { font-size: 0.8rem; }
+  
+  /* P2P Indikator */
+  .p2p-indicator {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px;
+    font-size: 0.75rem; font-weight: 500;
+  }
+  .p2p-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .p2p-active .p2p-dot { background: #4ade80; }
+  .p2p-active { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+  .p2p-inactive .p2p-dot { background: #6b7280; animation: none; }
+  .p2p-inactive { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.9); }
+  }
+  
+  /* P2P Banner */
+  .p2p-banner {
+    display: none;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 197, 94, 0.05));
+    border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+    font-size: 0.8rem; color: #4ade80;
+    text-align: center;
+  }
+  .p2p-banner.show { display: block; }
+  
+  .messages-container {
+    flex: 1; overflow-y: auto; padding: 1rem;
+    background: #0a0d12;
+  }
+  .message {
+    max-width: 75%; padding: 0.6rem 0.9rem;
+    border-radius: 12px; margin-bottom: 0.5rem;
+    word-wrap: break-word; position: relative;
+  }
+  .message.mine {
+    align-self: flex-end; margin-left: auto;
+    background: linear-gradient(135deg, #ff4f7b, #ff9f00);
+  }
+  .message.other { align-self: flex-start; background: #1a1f26; }
+  .msg-author {
+    font-size: 0.7rem; color: #aaa; margin-bottom: 0.2rem;
+  }
+  .message.mine .msg-author { display: none; }
+  .msg-time {
+    font-size: 0.65rem; color: #888;
+    margin-top: 0.2rem; text-align: right;
+  }
+  
+  /* Input Bar */
+  .input-bar {
+    padding: 0.75rem 1rem; background: #0f1218;
+    border-top: 1px solid var(--bord);
+    display: flex; gap: 0.5rem;
+  }
+  .input-bar input {
+    flex: 1; padding: 0.7rem; border-radius: 20px;
+    border: 1px solid #333; background: #1a1f26;
+    color: #fff; font-size: 1rem;
+  }
+  .input-bar button {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #ff4f7b; border: none;
+    color: #fff; font-size: 1.2rem; cursor: pointer;
+  }
+  
+  /* Connection Status Footer */
+  .connection-status {
+    padding: 0.5rem 1rem; font-size: 0.75rem;
+    border-top: 1px solid #222; text-align: center;
+    color: var(--muted);
+  }
+  .connection-status.p2p { color: #4ade80; }
+  .connection-status.server { color: #fb923c; }
+  
+  /* Helpers */
+  .hidden { display: none !important; }
+  .text-center { text-align: center; }
+  .error { color: #ff4f7b; margin-top: 1rem; }
+  .success { color: #4ade80; margin-top: 1rem; font-size: 0.85rem; }
+</style>
 </head>
 <body>
   <!-- Login Screen -->
@@ -235,36 +198,39 @@
     <div id="chatList" class="chat-list"></div>
   </div>
 
-  <!-- Chat Detail -->
-  <div id="chatDetailScreen">
-
-<!-- P2P Banner -->
-<div id="p2pBanner" class="p2p-banner">
-  <span class="icon">🔒</span> 
-  <span id="p2pBannerText">Direct P2P Connection - Deine Nachrichten sind privat!</span>
-</div>
+<!-- Chat Detail -->
+<div id="chatDetailScreen">
+  <!-- P2P Banner -->
+  <div id="p2pBanner" class="p2p-banner">
+    <span class="icon">🔒</span> 
+    <span id="p2pBannerText">Direct P2P Connection - Deine Nachrichten sind privat!</span>
+  </div>
   
-      <div class="chat-header">
-  <button class="back-btn" onclick="goBackToList()">←</button>
-  <div class="header-info">
-    <div class="header-name" id="headerName">...</div>
-    <div class="header-status" id="headerStatus">
-      <span class="p2p-indicator p2p-inactive" id="p2pIndicator">
-        <span class="p2p-dot"></span>
-        <span id="p2pStatusText">Offline</span>
-      </span>
+  <div class="chat-header">
+    <button class="back-btn" onclick="goBackToList()">←</button>
+    <div class="header-info">
+      <div class="header-name" id="headerName">...</div>
+      <div class="header-status" id="headerStatus">
+        <span class="p2p-indicator p2p-inactive" id="p2pIndicator">
+          <span class="p2p-dot"></span>
+          <span id="p2pStatusText">Offline</span>
+        </span>
+      </div>
     </div>
+  </div>
+  
+  <div id="messages" class="messages-container"></div>
+  
+  <!-- Connection Status Footer -->
+  <div id="connectionStatus" class="connection-status server">
+    Verbindungsmodus prüfen...
+  </div>
+  
+  <div class="input-bar">
+    <input type="text" id="msgInput" placeholder="Nachricht..." onkeydown="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">➤</button>
   </div>
 </div>
-
-      
-    </div>
-    <div id="messages" class="messages-container"></div>
-    <div class="input-bar">
-      <input type="text" id="msgInput" placeholder="Nachricht..." onkeydown="if(event.key==='Enter') sendMessage()">
-      <button onclick="sendMessage()">➤</button>
-    </div>
-  </div>
 
 <script>
 // ── GLOBAL VARIABLES ───────────────────────────────────────────────────────
@@ -323,8 +289,7 @@ async function handleLogin() {
     
     // Chat Liste rendern
     renderChatList();
-    // Nach renderChatList(); in handleLogin():
-       console.log('[Chat] Login erfolgreich, WebRTC initialisiert');
+
   } catch (e) {
     document.getElementById('loginError').textContent = e.message;
   }
@@ -401,68 +366,19 @@ async function autoLogin() {
 
 // ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
 function initWebRTC() {
-  // Weblink laden und SpotMeWebRTC Klasse global verfügbar machen
-  const script = document.createElement('script');
-  script.src = 'webrtc.js';
-  script.onload = () => {
-    console.log('[WebRTC] Script geladen');
-    if (window.SpotMeWebRTC) {
-      webrtc = new window.SpotMeWebRTC(CODE, TOKEN);
-      
-      // Event Handler setzen
-      webrtc.onConnect = () => {
-        console.log('[Chat] P2P Verbindung hergestellt');
-        isP2PConnected = true;
-        updateHeaderStatus('Online (P2P)', true);
-      };
-      
-      webrtc.onMessage = (msg) => {
-        console.log('[Chat] P2P Message received:', msg);
-        // Nachricht in LocalStorage speichern + UI rendern
-        const msgs = getMessages();
-        msgs.push(msg);
-        saveMessages(msgs);
-        renderMessages();
-        renderChatList();
-      };
-      
-      webrtc.onDisconnect = () => {
-        console.log('[Chat] P2P Verbindung getrennt');
-        isP2PConnected = false;
-        updateHeaderStatus('Offline', false);
-      };
-      
-      webrtc.onError = (err) => {
-        console.error('[Chat] WebRTC Error:', err);
-        updateHeaderStatus('Fallback: Server-Modus', false);
-      };
-    }
-  };
-  script.onerror = (err) => {
-    console.error('[WebRTC] Failed to load webrtc.js:', err);
-  };
-  document.head.appendChild(script);
-}
-
-// ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
-function initWebRTC() {
-  // Weblink dynamisch laden und SpotMeWebRTC Klasse global verfügbar machen
   const script = document.createElement('script');
   script.type = 'module';
-  
-  // Wichtig: webrtc.js wird als ES Module geladen
   script.src = 'webrtc.js';
+  
   script.onload = () => {
     console.log('[WebRTC] Script geladen');
     
-    // Import via ES Module
     import('./webrtc.js').then(module => {
       const SpotMeWebRTC = module.default;
       
       if (SpotMeWebRTC) {
         webrtc = new SpotMeWebRTC(CODE, TOKEN);
         
-        // Event Handler setzen
         webrtc.onConnect = () => {
           console.log('[Chat] P2P Verbindung hergestellt');
           isP2PConnected = true;
@@ -472,7 +388,6 @@ function initWebRTC() {
         
         webrtc.onMessage = (msg) => {
           console.log('[Chat] P2P Message received:', msg);
-          // Nachricht in LocalStorage speichern + UI rendern
           const msgs = getMessages();
           msgs.push(msg);
           saveMessages(msgs);
@@ -496,67 +411,11 @@ function initWebRTC() {
       console.error('[WebRTC] Failed to import:', err);
     });
   };
-  script.onerror = (err) => {
-    console.error('[WebRTC] Failed to load webrtc.js:', err);
-  };
-  document.head.appendChild(script);
-  }
-
-// ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
-function initWebRTC() {
-  // Weblink dynamisch laden und SpotMeWebRTC Klasse global verfügbar machen
-  const script = document.createElement('script');
-  script.type = 'module';
   
-  // Wichtig: webrtc.js wird als ES Module geladen
-  script.src = 'webrtc.js';
-  script.onload = () => {
-    console.log('[WebRTC] Script geladen');
-    
-    // Import via ES Module
-    import('./webrtc.js').then(module => {
-      const SpotMeWebRTC = module.default;
-      
-      if (SpotMeWebRTC) {
-        webrtc = new SpotMeWebRTC(CODE, TOKEN);
-        
-        // Event Handler setzen
-        webrtc.onConnect = () => {
-          console.log('[Chat] P2P Verbindung hergestellt');
-          isP2PConnected = true;
-          p2pConnectionTime = new Date();
-          updateP2PUI(true, 'P2P Aktiv');
-        };
-        
-        webrtc.onMessage = (msg) => {
-          console.log('[Chat] P2P Message received:', msg);
-          // Nachricht in LocalStorage speichern + UI rendern
-          const msgs = getMessages();
-          msgs.push(msg);
-          saveMessages(msgs);
-          renderMessages();
-          renderChatList();
-        };
-        
-        webrtc.onDisconnect = () => {
-          console.log('[Chat] P2P Verbindung getrennt');
-          isP2PConnected = false;
-          p2pConnectionTime = null;
-          updateP2PUI(false, 'Verbindung getrennt');
-        };
-        
-        webrtc.onError = (err) => {
-          console.error('[Chat] WebRTC Error:', err);
-          updateP2PUI(false, 'Fehler');
-        };
-      }
-    }).catch(err => {
-      console.error('[WebRTC] Failed to import:', err);
-    });
-  };
   script.onerror = (err) => {
     console.error('[WebRTC] Failed to load webrtc.js:', err);
   };
+  
   document.head.appendChild(script);
   }
 
@@ -623,18 +482,16 @@ async function openChat(room, partnerCode, partnerName) {
   document.getElementById('chatDetailScreen').style.display = 'flex';
   
   document.getElementById('headerName').textContent = partnerName;
-  updateHeaderStatus('Verbinde...', false);
+  updateP2PUI(false, 'Verbinde...');  // ← Hier geändert
   
   renderMessages();
-  
-  // Versuch P2P Verbindung herzustellen
   await attemptP2PConnection(partnerCode);
-}
+  }
 
 async function attemptP2PConnection(partnerCode) {
   if (!webrtc) {
     console.warn('[Chat] WebRTC nicht initialisiert');
-    updateHeaderStatus('Offline', false);
+    updateP2PUI('Offline', false);
     return;
   }
   
@@ -659,7 +516,7 @@ async function attemptP2PConnection(partnerCode) {
     
   } catch (err) {
     console.error('[Chat] P2P Verbindung fehlgeschlagen:', err);
-    updateHeaderStatus('Fallback: Server-Modus', false);
+    updateP2PUI('Fallback: Server-Modus', false);
   }
 }
 
@@ -749,7 +606,7 @@ async function sendMessage() {
     const sent = webrtc.send(text);
     if (sent) {
       console.log('[Chat] Via P2P gesendet');
-      updateHeaderStatus('Online (P2P)', true);
+      updateP2PUI('Online (P2P)', true);
       return;
     }
   }
@@ -773,7 +630,7 @@ async function sendMessage() {
       // TODO: In Outbox speichern für späteren Retry
     } else {
       console.log('[Chat] Via Server gesendet');
-      updateHeaderStatus('Fallback: Server-Modus', false);
+      updateP2PUI('Fallback: Server-Modus', false);
     }
   } catch (e) {
     console.error('Fehler beim Senden:', e);
@@ -836,7 +693,7 @@ async function initPolling() {
       
       if (renderedAny) {
         // Update Header Status wenn Server-Modus aktiv
-        updateHeaderStatus('Server-Modus (Polling)', false);
+        updateP2PUI('Server-Modus (Polling)', false);
       }
       if (listNeedsUpdate && !renderedAny) {
         renderChatList();
