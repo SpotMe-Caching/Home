@@ -11,7 +11,7 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "chat-v1.3.0";
+const CACHE_VERSION = "chat-v1.3.5";
 const CACHE_STATIC = `spotme-chat-static-${CACHE_VERSION}`;
 const CACHE_API = `spotme-chat-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spotme-chat-runtime-${CACHE_VERSION}`;
