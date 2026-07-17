@@ -6,9 +6,11 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 export default class SpotMeWebRTC {
-  constructor(code, token) {
+  // ── KONSTRUKTOR ───────────────────────────────────────────────────────────
+  constructor(code, token, userName = null) {
     this.code = code;
     this.token = token;
+    this.userName = userName || code;  // ← FIX: User Name hier speichern
     this.peer = null;
     this.conn = null;
     this.room = null;
@@ -103,8 +105,9 @@ export default class SpotMeWebRTC {
   initiateConnection(partnerCode) {
     console.log('[WebRTC] Initiate to', partnerCode);
     
+    // FIX: this.userName statt PROFILE.name
     const conn = this.peer.connect(partnerCode, {
-      metadata: { from: this.code, fromName: PROFILE.name || this.code }
+      metadata: { from: this.code, fromName: this.userName }
     });
 
     this.handleConnection(conn);
@@ -118,10 +121,11 @@ export default class SpotMeWebRTC {
       return false;
     }
 
+    // FIX: this.userName statt PROFILE.name
     const payload = {
       type: 'MESSAGE',
       text,
-      fromName: PROFILE.name || this.code,
+      fromName: this.userName,
       ts: Date.now()
     };
 

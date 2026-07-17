@@ -382,8 +382,12 @@ function initWebRTC() {
       const SpotMeWebRTC = module.default;
       
       if (SpotMeWebRTC) {
-        webrtc = new SpotMeWebRTC(CODE, TOKEN);
+        // FIX: PROFILE.name als dritten Parameter übergeben
+        webrtc = new SpotMeWebRTC(CODE, TOKEN, PROFILE?.name || CODE);
         
+        console.log('[WebRTC] Initialisiert mit User:', PROFILE?.name || CODE);
+        
+        // Event Handler setzen
         webrtc.onConnect = () => {
           console.log('[Chat] P2P Verbindung hergestellt');
           isP2PConnected = true;
@@ -409,11 +413,13 @@ function initWebRTC() {
         
         webrtc.onError = (err) => {
           console.error('[Chat] WebRTC Error:', err);
+          console.error('[Chat] Error Details:', err.message);
           updateP2PUI(false, 'Fehler');
         };
       }
     }).catch(err => {
       console.error('[WebRTC] Failed to import:', err);
+      console.error('[WebRTC] Import Error Details:', err.message, err.stack);
     });
   };
   
@@ -487,43 +493,62 @@ async function openChat(room, partnerCode, partnerName) {
   document.getElementById('chatDetailScreen').style.display = 'flex';
   
   document.getElementById('headerName').textContent = partnerName;
-  updateP2PUI(false, 'Verbinde...');  // ← Hier geändert
+  updateP2PUI(false, 'Verbinde...');
   
   renderMessages();
+  
+  // Versuch P2P Verbindung herzustellen
   await attemptP2PConnection(partnerCode);
-  }
+}
 
 async function attemptP2PConnection(partnerCode) {
+  // SAFETY CHECKS
   if (!webrtc) {
     console.warn('[Chat] WebRTC nicht initialisiert');
-    updateP2PUI('Offline', false);
+    updateP2PUI(false, 'Fehler: WebRTC missing');
+    return;
+  }
+  
+  if (!CODE || !PARTNER_CODE) {
+    console.error('[Chat] Missing CODE or PARTNER_CODE:', { CODE, PARTNER_CODE });
+    updateP2PUI(false, 'Fehler: Invalid State');
     return;
   }
   
   try {
+    console.log('[Chat] Starting P2P connection to:', partnerCode);
+    
     // 1. Erst "Bereit"-Einladung senden (Signal zum Server)
-    await sendReadinessInvite(partnerCode);
+    await sendReadinessInvite(PARTNER_CODE);
+    console.log('[Chat] Invite gesendet');
     
     // 2. Peer-Connection starten
-    await webrtc.connect(partnerCode, (peerId) => {
+    await webrtc.connect(PARTNER_CODE, (peerId) => {
       console.log('[Chat] Peer ready:', peerId);
     });
+    console.log('[Chat] Peer connected');
     
     // 3. Verbindung initiieren (Peer kommt auf uns zu durch send() in initiateConnection)
-    webrtc.initiateConnection(partnerCode);
+    webrtc.initiateConnection(PARTNER_CODE);
+    console.log('[Chat] Connection initiated');
     
     // Timeout: Nach 15 Sek noch keinen P2P → Server Fallback anzeigen
     setTimeout(() => {
       if (!isP2PConnected) {
         console.log('[Chat] P2P Timeout, bleibe im Server-Modus');
+        if (!isP2PConnected) {
+          updateP2PUI(false, 'Server-Modus (Timeout)');
+        }
       }
     }, 15000);
     
   } catch (err) {
     console.error('[Chat] P2P Verbindung fehlgeschlagen:', err);
-    updateP2PUI('Fallback: Server-Modus', false);
+    console.error('[Chat] Error Message:', err.message);
+    console.error('[Chat] Error Stack:', err.stack);
+    updateP2PUI(false, 'Server-Modus');
   }
-}
+  }
 
 async function sendReadinessInvite(partnerCode) {
   try {
