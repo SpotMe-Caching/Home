@@ -3,7 +3,7 @@
   "short_name": "SpotMe Chat",
   "description": "Eigenständiger Messenger für SpotMe Caching – verschlüsselt, mobil, offline-fähig.",
   "start_url": "/index.html",
-  "scope": "/",
+  "scope": "/chat/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0a0d12",
