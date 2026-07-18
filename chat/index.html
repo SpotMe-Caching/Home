@@ -186,6 +186,9 @@
 </style>
 </head>
 <body>
+
+ <script src="webrtc.js"></script>
+
   <!-- Login Screen -->
   <div id="loginScreen">
     <div class="logo">💬</div>
@@ -377,50 +380,54 @@ async function autoLogin() {
 function initWebRTC() {
   console.log('[WebRTC] InitWebRTC called');
   
-  // Warten bis PeerJS global geladen ist
+  // PRÜFUNG: Ist PeerJS geladen?
   if (!window.Peer) {
-    console.error('[WebRTC] PeerJS not loaded globally!');
+    console.error('[WebRTC] PeerJS not loaded! Check Network tab.');
     return;
   }
+  console.log('[WebRTC] PeerJS loaded successfully');
   
-  // SpotMeWebRTC Klasse sollte jetzt auch existieren (global geladen aus webrtc.js)
-  if (window.SpotMeWebRTC) {
-    webrtc = new window.SpotMeWebRTC(CODE, TOKEN, PROFILE?.name || CODE);
-    
-    console.log('[WebRTC] Initialized with User:', PROFILE?.name || CODE);
-    
-    // Event Handler setzen
-    webrtc.onConnect = () => {
-      console.log('[Chat] P2P Verbindung hergestellt');
-      isP2PConnected = true;
-      p2pConnectionTime = new Date();
-      updateP2PUI(true, 'P2P Aktiv');
-    };
-    
-    webrtc.onMessage = (msg) => {
-      console.log('[Chat] P2P Message received:', msg);
-      const msgs = getMessages();
-      msgs.push(msg);
-      saveMessages(msgs);
-      renderMessages();
-      renderChatList();
-    };
-    
-    webrtc.onDisconnect = () => {
-      console.log('[Chat] P2P Verbindung getrennt');
-      isP2PConnected = false;
-      p2pConnectionTime = null;
-      updateP2PUI(false, 'Verbindung getrennt');
-    };
-    
-    webrtc.onError = (err) => {
-      console.error('[Chat] WebRTC Error:', err);
-      console.error('[Chat] Error Details:', err.message);
-      updateP2PUI(false, 'Fehler');
-    };
-  } else {
-    console.error('[WebRTC] SpotMeWebRTC class not found!');
+  // PRÜFUNG: Ist SpotMeWebRTC Klasse geladen?
+  if (!window.SpotMeWebRTC) {
+    console.error('[WebRTC] SpotMeWebRTC class not found! Check if webrtc.js loads.');
+    return;
   }
+  console.log('[WebRTC] SpotMeWebRTC class loaded successfully');
+  
+  // INSTANTIIEREN
+  webrtc = new window.SpotMeWebRTC(CODE, TOKEN, PROFILE?.name || CODE);
+  
+  console.log('[WebRTC] Instantiated with User:', PROFILE?.name || CODE);
+  
+  // Event Handler setzen
+  webrtc.onConnect = () => {
+    console.log('[Chat] P2P Verbindung hergestellt');
+    isP2PConnected = true;
+    p2pConnectionTime = new Date();
+    updateP2PUI(true, 'P2P Aktiv');
+  };
+  
+  webrtc.onMessage = (msg) => {
+    console.log('[Chat] P2P Message received:', msg);
+    const msgs = getMessages();
+    msgs.push(msg);
+    saveMessages(msgs);
+    renderMessages();
+    renderChatList();
+  };
+  
+  webrtc.onDisconnect = () => {
+    console.log('[Chat] P2P Verbindung getrennt');
+    isP2PConnected = false;
+    p2pConnectionTime = null;
+    updateP2PUI(false, 'Verbindung getrennt');
+  };
+  
+  webrtc.onError = (err) => {
+    console.error('[Chat] WebRTC Error:', err);
+    console.error('[Chat] Error Details:', err.message);
+    updateP2PUI(false, 'Fehler');
+  };
   }
 
 // ── CHAT LIST ─────────────────────────────────────────────────────────────
