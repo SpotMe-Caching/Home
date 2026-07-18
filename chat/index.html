@@ -2,6 +2,8 @@
 <html lang="de">
 <head>
 
+src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">
+
   <!-- Eruda – Mobile Console (nur für Debugging) -->
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script>
@@ -371,63 +373,52 @@ async function autoLogin() {
 
 // ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
 function initWebRTC() {
-  const script = document.createElement('script');
-  script.type = 'module';
-  script.src = 'webrtc.js';
+  console.log('[WebRTC] InitWebRTC called');
   
-  script.onload = () => {
-    console.log('[WebRTC] Script geladen');
+  // Warten bis PeerJS global geladen ist
+  if (!window.Peer) {
+    console.error('[WebRTC] PeerJS not loaded globally!');
+    return;
+  }
+  
+  // SpotMeWebRTC Klasse sollte jetzt auch existieren (global geladen aus webrtc.js)
+  if (window.SpotMeWebRTC) {
+    webrtc = new window.SpotMeWebRTC(CODE, TOKEN, PROFILE?.name || CODE);
     
-    import('./webrtc.js').then(module => {
-      const SpotMeWebRTC = module.default;
-      
-      if (SpotMeWebRTC) {
-        // FIX: PROFILE.name als dritten Parameter übergeben
-        webrtc = new SpotMeWebRTC(CODE, TOKEN, PROFILE?.name || CODE);
-        
-        console.log('[WebRTC] Initialisiert mit User:', PROFILE?.name || CODE);
-        
-        // Event Handler setzen
-        webrtc.onConnect = () => {
-          console.log('[Chat] P2P Verbindung hergestellt');
-          isP2PConnected = true;
-          p2pConnectionTime = new Date();
-          updateP2PUI(true, 'P2P Aktiv');
-        };
-        
-        webrtc.onMessage = (msg) => {
-          console.log('[Chat] P2P Message received:', msg);
-          const msgs = getMessages();
-          msgs.push(msg);
-          saveMessages(msgs);
-          renderMessages();
-          renderChatList();
-        };
-        
-        webrtc.onDisconnect = () => {
-          console.log('[Chat] P2P Verbindung getrennt');
-          isP2PConnected = false;
-          p2pConnectionTime = null;
-          updateP2PUI(false, 'Verbindung getrennt');
-        };
-        
-        webrtc.onError = (err) => {
-          console.error('[Chat] WebRTC Error:', err);
-          console.error('[Chat] Error Details:', err.message);
-          updateP2PUI(false, 'Fehler');
-        };
-      }
-    }).catch(err => {
-      console.error('[WebRTC] Failed to import:', err);
-      console.error('[WebRTC] Import Error Details:', err.message, err.stack);
-    });
-  };
-  
-  script.onerror = (err) => {
-    console.error('[WebRTC] Failed to load webrtc.js:', err);
-  };
-  
-  document.head.appendChild(script);
+    console.log('[WebRTC] Initialized with User:', PROFILE?.name || CODE);
+    
+    // Event Handler setzen
+    webrtc.onConnect = () => {
+      console.log('[Chat] P2P Verbindung hergestellt');
+      isP2PConnected = true;
+      p2pConnectionTime = new Date();
+      updateP2PUI(true, 'P2P Aktiv');
+    };
+    
+    webrtc.onMessage = (msg) => {
+      console.log('[Chat] P2P Message received:', msg);
+      const msgs = getMessages();
+      msgs.push(msg);
+      saveMessages(msgs);
+      renderMessages();
+      renderChatList();
+    };
+    
+    webrtc.onDisconnect = () => {
+      console.log('[Chat] P2P Verbindung getrennt');
+      isP2PConnected = false;
+      p2pConnectionTime = null;
+      updateP2PUI(false, 'Verbindung getrennt');
+    };
+    
+    webrtc.onError = (err) => {
+      console.error('[Chat] WebRTC Error:', err);
+      console.error('[Chat] Error Details:', err.message);
+      updateP2PUI(false, 'Fehler');
+    };
+  } else {
+    console.error('[WebRTC] SpotMeWebRTC class not found!');
+  }
   }
 
 // ── CHAT LIST ─────────────────────────────────────────────────────────────

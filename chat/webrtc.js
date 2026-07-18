@@ -1,18 +1,16 @@
 // ════════════════════════════════════════════════════════════════════════════
 // SPOTME CHAT · WebRTC Integration (PeerJS)
 //
-// Nutzt den bereits vorhandenen PeerJS Server (/peerjs) für P2P-Kommunikation.
-// Nach "Bereit"-Invite → Peer-Connection aufbauen → Nachrichten über Datenkanal.
+// PeerJS wird global via <script> in index.html geladen
 // ════════════════════════════════════════════════════════════════════════════
 
-import Peer from "https://unpkg.com/peerjs@1.5.2/dist/peerjs.esm.js";
-
-export default class SpotMeWebRTC {
+// Globaler Klassenkonstruktor (kein ES Module)
+window.SpotMeWebRTC = class SpotMeWebRTC {
   // ── KONSTRUKTOR ───────────────────────────────────────────────────────────
   constructor(code, token, userName = null) {
     this.code = code;
     this.token = token;
-    this.userName = userName || code; // ← FIX: User Name hier speichern
+    this.userName = userName || code;
     this.peer = null;
     this.conn = null;
     this.room = null;
@@ -55,7 +53,6 @@ export default class SpotMeWebRTC {
       });
 
       this.peer.on("connection", (conn) => {
-        // Partner kommt auf uns zu
         console.log("[WebRTC] Verbindung von", conn.peer);
         this.handleConnection(conn);
       });
@@ -107,7 +104,6 @@ export default class SpotMeWebRTC {
   initiateConnection(partnerCode) {
     console.log("[WebRTC] Initiate to", partnerCode);
 
-    // FIX: this.userName statt PROFILE.name
     const conn = this.peer.connect(partnerCode, {
       metadata: { from: this.code, fromName: this.userName },
     });
@@ -123,7 +119,6 @@ export default class SpotMeWebRTC {
       return false;
     }
 
-    // FIX: this.userName statt PROFILE.name
     const payload = {
       type: "MESSAGE",
       text,
@@ -160,4 +155,4 @@ export default class SpotMeWebRTC {
   destroy() {
     this.cleanup();
   }
-}
+};
