@@ -5,12 +5,14 @@
 // Nach "Bereit"-Invite → Peer-Connection aufbauen → Nachrichten über Datenkanal.
 // ════════════════════════════════════════════════════════════════════════════
 
+import Peer from "https://unpkg.com/peerjs@1.5.2/dist/peerjs.esm.js";
+
 export default class SpotMeWebRTC {
   // ── KONSTRUKTOR ───────────────────────────────────────────────────────────
   constructor(code, token, userName = null) {
     this.code = code;
     this.token = token;
-    this.userName = userName || code;  // ← FIX: User Name hier speichern
+    this.userName = userName || code; // ← FIX: User Name hier speichern
     this.peer = null;
     this.conn = null;
     this.room = null;
@@ -24,42 +26,42 @@ export default class SpotMeWebRTC {
 
   // ── INITIALISIERUNG ───────────────────────────────────────────────────────
   async connect(partnerCode, onReady) {
-    console.log('[WebRTC] Connect zu', partnerCode);
-    
+    console.log("[WebRTC] Connect zu", partnerCode);
+
     // Raum-ID generieren (symmetrisch: AB-CD == CD-AB)
-    this.room = [this.code, partnerCode].sort().join('-');
-    
+    this.room = [this.code, partnerCode].sort().join("-");
+
     // Peer-Instance erstellen mit unserer Code als ID
     this.peer = new Peer(this.code, {
       debug: 2,
       host: window.location.hostname,
       port: window.location.port || 443,
-      path: '/peerjs'
+      path: "/peerjs",
     });
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (this.peer && !this.peer.destroyed) {
           this.peer.destroy();
-          reject(new Error('Verbindungs-Timeout'));
+          reject(new Error("Verbindungs-Timeout"));
         }
       }, 60000);
 
-      this.peer.on('open', (id) => {
-        console.log('[WebRTC] Peer-ID:', id);
+      this.peer.on("open", (id) => {
+        console.log("[WebRTC] Peer-ID:", id);
         clearTimeout(timeout);
-        if (typeof onReady === 'function') onReady(id);
+        if (typeof onReady === "function") onReady(id);
         resolve(id);
       });
 
-      this.peer.on('connection', (conn) => {
+      this.peer.on("connection", (conn) => {
         // Partner kommt auf uns zu
-        console.log('[WebRTC] Verbindung von', conn.peer);
+        console.log("[WebRTC] Verbindung von", conn.peer);
         this.handleConnection(conn);
       });
 
-      this.peer.on('error', (err) => {
-        console.error('[WebRTC] Error:', err.type, err);
+      this.peer.on("error", (err) => {
+        console.error("[WebRTC] Error:", err.type, err);
         clearTimeout(timeout);
         if (this.onError) this.onError(err);
         reject(err);
@@ -70,32 +72,32 @@ export default class SpotMeWebRTC {
   // ── HANDLER FÜR EINGEHENDE VERBINDUNGEN ──────────────────────────────────
   handleConnection(conn) {
     this.conn = conn;
-    
-    conn.on('open', () => {
-      console.log('[WebRTC] Datenkanal geöffnet');
+
+    conn.on("open", () => {
+      console.log("[WebRTC] Datenkanal geöffnet");
       if (this.onConnect) this.onConnect();
     });
 
-    conn.on('data', (data) => {
-      console.log('[WebRTC] Received:', data);
-      if (this.onMessage && data.type === 'MESSAGE') {
+    conn.on("data", (data) => {
+      console.log("[WebRTC] Received:", data);
+      if (this.onMessage && data.type === "MESSAGE") {
         this.onMessage({
           text: data.text,
           from: conn.peer,
           fromName: data.fromName,
-          ts: Date.now()
+          ts: Date.now(),
         });
       }
     });
 
-    conn.on('close', () => {
-      console.log('[WebRTC] Verbindung geschlossen');
+    conn.on("close", () => {
+      console.log("[WebRTC] Verbindung geschlossen");
       if (this.onDisconnect) this.onDisconnect();
       this.cleanup();
     });
 
-    conn.on('error', (err) => {
-      console.error('[WebRTC] Connection Error:', err);
+    conn.on("error", (err) => {
+      console.error("[WebRTC] Connection Error:", err);
       if (this.onError) this.onError(err);
       this.cleanup();
     });
@@ -103,11 +105,11 @@ export default class SpotMeWebRTC {
 
   // ── AUSGEHENDE VERBINDUNG INITIIEREN ─────────────────────────────────────
   initiateConnection(partnerCode) {
-    console.log('[WebRTC] Initiate to', partnerCode);
-    
+    console.log("[WebRTC] Initiate to", partnerCode);
+
     // FIX: this.userName statt PROFILE.name
     const conn = this.peer.connect(partnerCode, {
-      metadata: { from: this.code, fromName: this.userName }
+      metadata: { from: this.code, fromName: this.userName },
     });
 
     this.handleConnection(conn);
@@ -117,16 +119,16 @@ export default class SpotMeWebRTC {
   // ── NACHRICHT SENDEN (P2P) ────────────────────────────────────────────────
   send(text) {
     if (!this.conn || !this.conn.open) {
-      console.warn('[WebRTC] Kein offener Kanal');
+      console.warn("[WebRTC] Kein offener Kanal");
       return false;
     }
 
     // FIX: this.userName statt PROFILE.name
     const payload = {
-      type: 'MESSAGE',
+      type: "MESSAGE",
       text,
       fromName: this.userName,
-      ts: Date.now()
+      ts: Date.now(),
     };
 
     this.conn.send(payload);
