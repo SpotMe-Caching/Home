@@ -29,12 +29,13 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     // Raum-ID generieren (symmetrisch: AB-CD == CD-AB)
     this.room = [this.code, partnerCode].sort().join("-");
 
-    // Peer-Instance erstellen mit unserer Code als ID
+    // PeerJS auf RENDERN Server zeigen!
     this.peer = new Peer(this.code, {
       debug: 2,
-      host: window.location.hostname,
-      port: window.location.port || 443,
+      host: "spotme-chat-obom.onrender.com", // ← DEIN RENDER SERVER!
+      port: 443,
       path: "/peerjs",
+      secure: true,
     });
 
     return new Promise((resolve, reject) => {
