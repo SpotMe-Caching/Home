@@ -31,11 +31,9 @@
 }
 
 body {
-  font-family: 'Outfit', sans-serif;
-  background: linear-gradient(135deg, #0a0d12 0%, #1a1f26 100%);
-  color: #e0e0e0;
   height: 100vh;
-  overflow: hidden;
+  height: 100dvh; /* Dynamic Viewport Height (modern Browser) */
+  min-height: 100dvh;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -186,15 +184,15 @@ body {
   display: none;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 .chat-header {
+  flex-shrink: 0;
   padding: 1rem;
   background: #0f1218;
   border-bottom: 1px solid var(--bord, rgba(255, 255, 255, 0.06));
-  display: flex;
-  align-items: center;
-  gap: 1rem;
 }
 
 .back-btn {
@@ -261,7 +259,8 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -272,9 +271,14 @@ body {
 }
 
 .p2p-banner {
+  flex-shrink: 0;
   display: none;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 197, 94, 0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(74, 222, 128, 0.1),
+    rgba(34, 197, 94, 0.05)
+  );
   border-bottom: 1px solid rgba(74, 222, 128, 0.2);
   font-size: 0.8rem;
   color: #4ade80;
@@ -294,6 +298,8 @@ body {
   overflow-y: auto;
   padding: 1rem;
   background: #0a0d12;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 .message {
@@ -338,11 +344,15 @@ body {
    ──────────────────────────────────────────────────────────────────────────── */
 
 .input-bar {
+  flex-shrink: 0; /* Niemals skalieren */
   padding: 0.75rem 1rem;
   background: #0f1218;
   border-top: 1px solid var(--bord, rgba(255, 255, 255, 0.06));
   display: flex;
   gap: 0.5rem;
+  position: sticky; /* Bleibt am unteren Rand kleben */
+  bottom: 0;
+  z-index: 100;
 }
 
 .input-bar input {
@@ -369,8 +379,8 @@ body {
 /* ────────────────────────────────────────────────────────────────────────────
    8. CONNECTION STATUS FOOTER
    ──────────────────────────────────────────────────────────────────────────── */
-
 .connection-status {
+  flex-shrink: 0;
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
   border-top: 1px solid #222;

@@ -13,7 +13,7 @@
   <script>eruda.init();</script>
 
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Spot Chat</title>
   <link rel="manifest" href="/chat/manifest.json">
   <meta name="theme-color" content="#0a0d12">
@@ -545,7 +545,7 @@ async function sendMessage() {
   } catch (e) {
     console.error('[Chat] Netzwerkfehler beim Senden:', e);
   }
-        }
+ }
 
 // ── HEADER STATUS UPDATE ──────────────────────────────────────────────────
 function updateHeaderStatus(status, isP2P) {
@@ -634,7 +634,31 @@ async function initPolling() {
       console.error('Polling-Fehler:', e);
     }
   }, 5000); // Alle 5 Sekunden
-        }
+}
+
+
+// ── MOBILE KEYBOARD DETECTION ─────────────────────────────────────────────
+function detectKeyboard() {
+  const threshold = window.innerHeight * 0.4; // Wenn Viewport < 60% = Tastatur
+  
+  if (window.innerHeight < threshold) {
+    console.log('[Chat] Keyboard detected');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('messages').style.paddingBottom = '50px';
+  } else {
+    console.log('[Chat] Keyboard hidden');
+    document.body.style.overflow = '';
+    document.getElementById('messages').style.paddingBottom = '';
+  }
+}
+
+// Resize-Event Listener (wird ausgelöst wenn Keyboard erscheint)
+window.addEventListener('resize', () => {
+  setTimeout(detectKeyboard, 200); // Kurz warten bis Animation fertig
+});
+
+// Direkt nach Login aufrufen
+detectKeyboard();
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function escapeHtml(s) {
