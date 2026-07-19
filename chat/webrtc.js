@@ -266,11 +266,3 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.reconnectAttempts = 0;
   }
 };
-estroyed) {
-      this.peer.destroy();
-    }
-    this.peer = null;
-    this.peerReady = false;
-    this.reconnectAttempts = 0;
-  }
-};
