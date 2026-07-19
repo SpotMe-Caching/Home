@@ -1,7 +1,7 @@
 {
-  "name": "SpotMe Chat 1.0",
-  "short_name": "SpotMe Chat 1.0",
-  "description": "Eigenständiger Messenger für SpotMe Caching – verschlüsselt, mobil, offline-fähig.",
+  "name": "Spot - Secure Messenger",
+  "short_name": "Spot",
+  "description": "Verschlüsselter P2P-Messenger für SpotMe – privat, mobil, offline-fähig.",
   "start_url": "https://spotme-caching.github.io/chat/index.html",
   "scope": "https://spotme-caching.github.io/chat/",
   "display": "fullscreen",
@@ -16,22 +16,16 @@
   "dir": "auto",
   "icons": [
     {
-      "src": "https://spotme-caching.github.io/chat/icons/pwa_192.png",
+      "src": "https://spotme-caching.github.io/chat/icons/spot_192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://spotme-caching.github.io/chat/icons/pwa_512.png",
+      "src": "https://spotme-caching.github.io/chat/icons/spot_512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://spotme-caching.github.io/chat/icons/pwa_512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
@@ -54,5 +48,5 @@
     "window-controls-overlay",
     "fullscreen"
   ],
-  "id": "spotmechat"
+  "id": "spotmessenger"
 }
