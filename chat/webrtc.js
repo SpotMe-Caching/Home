@@ -17,11 +17,11 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.peerReady = false;
 
     // Callbacks
-    this.onMessage = null;       // Nachricht empfangen
-    this.onConnect = null;       // P2P Datenkanal geöffnet
-    this.onDisconnect = null;    // P2P Verbindung getrennt
-    this.onError = null;         // Fehler
-    this.onPeerReady = null;     // Peer beim Server registriert (NEU)
+    this.onMessage = null; // Nachricht empfangen
+    this.onConnect = null; // P2P Datenkanal geöffnet
+    this.onDisconnect = null; // P2P Verbindung getrennt
+    this.onError = null; // Fehler
+    this.onPeerReady = null; // Peer beim Server registriert (NEU)
 
     // Reconnect
     this.reconnectAttempts = 0;
@@ -118,7 +118,9 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.reconnectAttempts++;
     const delay = 2000 * this.reconnectAttempts; // 2s, 4s, 6s, 8s, 10s
 
-    console.log(`[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`);
+    console.log(
+      `[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`,
+    );
 
     setTimeout(() => {
       this.register();
@@ -172,7 +174,11 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
   handleConnection(conn) {
     // Duplikat-Verbindung vermeiden
     if (this.conn && this.conn.peer === conn.peer && this.conn.open) {
-      console.log("[WebRTC] Bereits verbunden mit", conn.peer, "ignoriere Duplikat");
+      console.log(
+        "[WebRTC] Bereits verbunden mit",
+        conn.peer,
+        "ignoriere Duplikat",
+      );
       conn.close();
       return;
     }
@@ -267,7 +273,9 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
   // ── AUFRÄUMEN ─────────────────────────────────────────────────────────────
   cleanup() {
     if (this.conn) {
-      try { this.conn.close(); } catch {}
+      try {
+        this.conn.close();
+      } catch {}
       this.conn = null;
     }
     // Peer NICHT zerstören bei cleanup — nur bei Logout/destroy
@@ -276,7 +284,9 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
 
   destroy() {
     if (this.conn) {
-      try { this.conn.close(); } catch {}
+      try {
+        this.conn.close();
+      } catch {}
       this.conn = null;
     }
     if (this.peer && !this.peer.destroyed) {
