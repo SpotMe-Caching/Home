@@ -904,6 +904,38 @@ app.get("/api/profile/:code", async (req, res) => {
   }
 });
 
+// ── AUTH-VERIFY FÜR SPOT MESSENGER (eigenständige Chat-App) ──────────────────
+// GET /api/profile/:code prüft den Token NICHT (dient dem öffentlichen
+// Profil-Browsing in SpotMe Caching, wo Token fremder Nutzer nicht bekannt sind).
+// Für den Chat-Login brauchen wir echte Verifikation → eigener Endpoint.
+app.post("/api/auth/verify", async (req, res) => {
+  const { code, token } = req.body;
+  if (!code || !token) {
+    return res.status(400).json({ error: "code und token erforderlich" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT code, name, age, region, province, city,
+              orientation, role, trans, crossdresser,
+              looking_for AS "lookingFor",
+              category, bio,
+              wish_tags, offer_tags,
+              updated_at AS ts, visible_until, token
+       FROM profiles WHERE code = $1 AND spot = 'caching'`,
+      [code],
+    );
+    if (!rows.length || rows[0].token !== token) {
+      return res.status(403).json({ error: "Ungültiger Code oder Token" });
+    }
+    const profile = decryptProfile(rows[0]);
+    delete profile.token;
+    res.json(profile);
+  } catch (e) {
+    console.error("POST /api/auth/verify:", e.message);
+    res.status(500).json({ error: "Datenbankfehler" });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AVATAR UPLOAD / ABRUF / LÖSCHEN
 // ══════════════════════════════════════════════════════════════════════════════
