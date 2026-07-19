@@ -11,7 +11,7 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "chat-v1.15.0";
+const CACHE_VERSION = "chat-v1.15.2";
 const CACHE_STATIC = `spotme-chat-static-${CACHE_VERSION}`;
 const CACHE_API = `spotme-chat-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spotme-chat-runtime-${CACHE_VERSION}`;
@@ -19,6 +19,8 @@ const CACHE_RUNTIME = `spotme-chat-runtime-${CACHE_VERSION}`;
 // ── STATISCHE ASSETS – werden bei Installation gecacht ──────────────────────
 const STATIC_ASSETS = [
   "/chat/",
+  "/chat/messenger.css",
+  "/chat/webrtc.js",
   "/chat/index.html",
   "/chat/chat.css",
   "/chat/app.js",
