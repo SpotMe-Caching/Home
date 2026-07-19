@@ -309,22 +309,29 @@ body {
   margin-bottom: 0.5rem;
   word-wrap: break-word;
   position: relative;
+  color: #e8eaf0; /* FIX: fehlte komplett → Text war unsichtbar auf .other */
+  line-height: 1.4;
 }
 
 .message.mine {
   align-self: flex-end;
   margin-left: auto;
   background: linear-gradient(135deg, #ff4f7b, #ff9f00);
+  color: #1a0f08; /* dunkler Warmton statt reinem Schwarz – ruhiger auf dem Gradient */
+  box-shadow: 0 2px 10px rgba(255, 79, 123, 0.25);
 }
 
 .message.other {
   align-self: flex-start;
   background: #1a1f26;
+  border-left: 3px solid #ff9f00; /* Akzent statt reiner Farbfläche – markiert Absender-Bubbles */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .msg-author {
   font-size: 0.7rem;
-  color: #aaa;
+  color: #ff9f00; /* FIX: #aaa war auf dunklem BG kaum lesbar, jetzt Akzentfarbe wie im Rest der App */
+  font-weight: 600;
   margin-bottom: 0.2rem;
 }
 
@@ -337,6 +344,14 @@ body {
   color: #888;
   margin-top: 0.2rem;
   text-align: right;
+}
+
+.message.mine .msg-time {
+  color: rgba(26, 15, 8, 0.6); /* passend zum dunklen Text auf dem hellen Gradient */
+}
+
+.message.other .msg-time {
+  color: #7a8290; /* FIX: #888 auf #1a1f26 war grenzwertig, jetzt mehr Kontrast */
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
