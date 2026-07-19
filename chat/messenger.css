@@ -272,31 +272,21 @@ body {
 
 .p2p-banner {
   flex-shrink: 0;
-  display: block;
-  padding: 0.6rem 1rem;
-  font-size: 0.78rem;
-  text-align: center;
-  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
-
-.p2p-banner.p2p {
+  display: none;
+  padding: 0.75rem 1rem;
   background: linear-gradient(
     135deg,
     rgba(74, 222, 128, 0.1),
     rgba(34, 197, 94, 0.05)
   );
   border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+  font-size: 0.8rem;
   color: #4ade80;
+  text-align: center;
 }
 
-.p2p-banner.server {
-  background: linear-gradient(
-    135deg,
-    rgba(251, 146, 60, 0.12),
-    rgba(251, 146, 60, 0.05)
-  );
-  border-bottom: 1px solid rgba(251, 146, 60, 0.25);
-  color: #fb923c;
+.p2p-banner.show {
+  display: block;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -318,7 +308,6 @@ body {
   border-radius: 12px;
   margin-bottom: 0.5rem;
   word-wrap: break-word;
-  white-space: pre-wrap; /* FIX: sonst werden \n in mehrzeiligen Nachrichten ignoriert */
   position: relative;
   color: #e8eaf0; /* FIX: fehlte komplett → Text war unsichtbar auf .other */
   line-height: 1.4;
@@ -375,31 +364,20 @@ body {
   background: #0f1218;
   border-top: 1px solid var(--bord, rgba(255, 255, 255, 0.06));
   display: flex;
-  align-items: flex-end; /* Button bleibt unten, wenn Textarea wächst */
   gap: 0.5rem;
   position: sticky; /* Bleibt am unteren Rand kleben */
   bottom: 0;
   z-index: 100;
 }
 
-.input-bar textarea {
+.input-bar input {
   flex: 1;
-  padding: 0.65rem 0.9rem;
+  padding: 0.7rem;
   border-radius: 20px;
   border: 1px solid #333;
   background: #1a1f26;
   color: #fff;
   font-size: 1rem;
-  font-family: inherit;
-  resize: none;
-  max-height: 7.5rem; /* ~5 Zeilen, danach scrollt es intern */
-  overflow-y: auto;
-  line-height: 1.35;
-}
-
-.input-bar textarea:focus {
-  outline: none;
-  border-color: #ff4f7b;
 }
 
 .input-bar button {
@@ -414,8 +392,24 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   8. STATUS (jetzt in der Topbar vereint – siehe .p2p-banner oben)
+   8. CONNECTION STATUS FOOTER
    ──────────────────────────────────────────────────────────────────────────── */
+.connection-status {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  border-top: 1px solid #222;
+  text-align: center;
+  color: var(--muted, #4a6070);
+}
+
+.connection-status.p2p {
+  color: #4ade80;
+}
+
+.connection-status.server {
+  color: #fb923c;
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
    9. HELPERS
