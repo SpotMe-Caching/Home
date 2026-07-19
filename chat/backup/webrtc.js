@@ -1,8 +1,12 @@
 // ════════════════════════════════════════════════════════════════════════════
-// SPOTME CHAT · WebRTC Integration (PeerJS) - V2.1 FIX (ID Collision)
+// SPOTME CHAT · WebRTC Integration (PeerJS)
+//
+// V2: Peer wird beim Login registriert, nicht erst beim Chat-Öffnen
+// PeerJS wird global via <script> in index.html geladen
 // ════════════════════════════════════════════════════════════════════════════
 
 window.SpotMeWebRTC = class SpotMeWebRTC {
+  // ── KONSTRUKTOR ───────────────────────────────────────────────────────────
   constructor(code, token, userName = null) {
     this.code = code;
     this.token = token;
@@ -12,27 +16,26 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.room = null;
     this.peerReady = false;
 
-    this.onMessage = null;
-    this.onConnect = null;
-    this.onDisconnect = null;
-    this.onError = null;
-    this.onPeerReady = null;
+    // Callbacks
+    this.onMessage = null; // Nachricht empfangen
+    this.onConnect = null; // P2P Datenkanal geöffnet
+    this.onDisconnect = null; // P2P Verbindung getrennt
+    this.onError = null; // Fehler
+    this.onPeerReady = null; // Peer beim Server registriert (NEU)
 
+    // Reconnect
     this.reconnectAttempts = 0;
     this.MAX_RECONNECT = 5;
-    this.isDestroyed = false; // Sicherheitsflag
   }
 
+  // ── PEER BEIM LOGIN REGISTRIEREN (NEU) ───────────────────────────────────
+  // Wird sofort nach Login aufgerufen, damit andere Nutzer uns finden können
   register() {
     console.log("[WebRTC] Registriere Peer mit ID:", this.code);
-    this.isDestroyed = false;
 
-    // Falls noch ein Peer existiert, hart zerstören
-    if (this.peer) {
-      try {
-        this.peer.destroy();
-      } catch (e) {}
-      this.peer = null;
+    // Falls schon ein Peer existiert (z.B. Re-Login), erst zerstören
+    if (this.peer && !this.peer.destroyed) {
+      this.peer.destroy();
     }
 
     this.peer = new Peer(this.code, {
@@ -43,48 +46,39 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       secure: true,
     });
 
+    // ── Peer erfolgreich beim Server registriert ──
     this.peer.on("open", (id) => {
-      console.log("[WebRTC] Peer erfolgreich registriert, ID:", id);
+      console.log("[WebRTC] Peer registriert, ID:", id);
       this.peerReady = true;
       this.reconnectAttempts = 0;
       if (this.onPeerReady) this.onPeerReady(id);
     });
 
+    // ── Eingehende Verbindung (Partner ruft uns an) ──
     this.peer.on("connection", (conn) => {
       console.log("[WebRTC] Eingehende Verbindung von:", conn.peer);
       this.handleConnection(conn);
     });
 
-    // ── FEHLERBEHANDLUNG FIX ──────────────────────────────────────────────
+    // ── Fehler ──
     this.peer.on("error", (err) => {
       console.error("[WebRTC] Peer Error:", err.type, err);
 
-      // 1. ID bereits vergeben → Abwarten, bis der alte Eintrag auf dem Server stirbt
+      // ID bereits vergeben → alter Peer wahrscheinlich stale
       if (err.type === "unavailable-id") {
-        console.warn("[WebRTC] ID bereits vergeben. Warte 5s für Server-Cleanup...");
-        this.peerReady = false;
-        
-        // Alten Peer hart zerstören
-        if (this.peer && !this.peer.destroyed) this.peer.destroy();
-        this.peer = null;
-
-        setTimeout(() => {
-          if (!this.isDestroyed) {
-            console.log("[WebRTC] Führe erneute Registrierung durch...");
-            this.register();
-          }
-        }, 5000); // ⬅️ 5 Sekunden warten (lässt den Server die alte Socket-ID vergessen)
+        console.warn("[WebRTC] ID bereits vergeben. Versuche Reconnect...");
+        this.tryReconnect();
         return;
       }
 
-      // 2. Server nicht erreichbar → Reconnect-Logik
+      // Server nicht erreichbar → Reconnect versuchen
       if (err.type === "network" || err.type === "server-error") {
         console.warn("[WebRTC] Server nicht erreichbar. Versuche Reconnect...");
         this.tryReconnect();
         return;
       }
 
-      // 3. Partner nicht online (kein Fehler, einfach ignorieren)
+      // peer-unavailable → Partner ist nicht online, nicht kritisch
       if (err.type === "peer-unavailable") {
         if (this.onError) this.onError(err);
         return;
@@ -94,47 +88,53 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       if (this.onError) this.onError(err);
     });
 
+    // ── Peer getrennt (z.B. Server-Restart) ──
     this.peer.on("disconnected", () => {
       console.warn("[WebRTC] Peer disconnected vom Server");
       this.peerReady = false;
+      // Automatisch versuchen wiederzuverbinden
       if (!this.peer.destroyed) {
         this.peer.reconnect();
       }
     });
 
+    // ── Peer geschlossen ──
     this.peer.on("close", () => {
       console.log("[WebRTC] Peer geschlossen");
       this.peerReady = false;
     });
   }
 
+  // ── RECONNECT-LOGIK ─────────────────────────────────────────────────────
   tryReconnect() {
-    if (this.isDestroyed) return;
     if (this.reconnectAttempts >= this.MAX_RECONNECT) {
       console.error("[WebRTC] Max Reconnect-Versuche erreicht");
       if (this.onError) {
-        this.onError(new Error("Maximale Reconnect-Versuche erreicht. Bitte Seite neu laden."));
+        this.onError(new Error("Maximale Reconnect-Versuche erreicht"));
       }
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = 2000 * this.reconnectAttempts;
+    const delay = 2000 * this.reconnectAttempts; // 2s, 4s, 6s, 8s, 10s
 
-    console.log(`[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`);
+    console.log(
+      `[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`,
+    );
 
     setTimeout(() => {
-      if (!this.isDestroyed) {
-        this.register();
-      }
+      this.register();
     }, delay);
   }
 
+  // ── AUF PEER-BEREITSCHAFT WARTEN (NEU) ───────────────────────────────────
+  // Stellt sicher, dass der Peer registriert ist, bevor wir verbinden
   async waitForReady() {
     if (this.peerReady && this.peer && this.peer.id) {
       return this.peer.id;
     }
 
+    console.log("[WebRTC] Warte auf Peer-Registrierung...");
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         clearInterval(checkInterval);
@@ -145,13 +145,21 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
         if (this.peerReady && this.peer && this.peer.id) {
           clearInterval(checkInterval);
           clearTimeout(timeout);
+          console.log("[WebRTC] Peer ist bereit:", this.peer.id);
           resolve(this.peer.id);
         }
       }, 200);
     });
   }
 
+  // ── VERBINDUNG ZU PARTNER AUFBAUEN ───────────────────────────────────────
+  // Erstellt KEINEN neuen Peer mehr, sondern nutzt den beim Login registrierten
   async connect(partnerCode, onReady) {
+    console.log("[WebRTC] Connect zu", partnerCode);
+
+    this.room = [this.code, partnerCode].sort().join("-");
+
+    // Warten bis unser eigener Peer bereit ist
     try {
       const peerId = await this.waitForReady();
       if (typeof onReady === "function") onReady(peerId);
@@ -162,20 +170,30 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     }
   }
 
+  // ── HANDLER FÜR VERBINDUNGEN (eingehend & ausgehend) ────────────────────
   handleConnection(conn) {
+    // Duplikat-Verbindung vermeiden
     if (this.conn && this.conn.peer === conn.peer && this.conn.open) {
+      console.log(
+        "[WebRTC] Bereits verbunden mit",
+        conn.peer,
+        "ignoriere Duplikat",
+      );
       conn.close();
       return;
     }
 
     this.conn = conn;
 
+    // ── Datenkanal geöffnet ──
     conn.on("open", () => {
       console.log("[WebRTC] Datenkanal geöffnet zu", conn.peer);
       if (this.onConnect) this.onConnect(conn.peer);
     });
 
+    // ── Nachricht empfangen ──
     conn.on("data", (data) => {
+      console.log("[WebRTC] Nachricht von", conn.peer, ":", data);
       if (this.onMessage && data.type === "MESSAGE") {
         this.onMessage({
           text: data.text,
@@ -186,23 +204,31 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       }
     });
 
+    // ── Verbindung geschlossen ──
     conn.on("close", () => {
       console.log("[WebRTC] Verbindung geschlossen zu", conn.peer);
-      if (this.conn === conn) this.conn = null;
+      if (this.conn === conn) {
+        this.conn = null;
+      }
       if (this.onDisconnect) this.onDisconnect(conn.peer);
     });
 
+    // ── Verbindungsfehler ──
     conn.on("error", (err) => {
       console.error("[WebRTC] Connection Error:", err);
       if (this.onError) this.onError(err);
+      // Verbindung nicht automatisch schließen — PeerJS handles das selbst
     });
   }
 
+  // ── AUSGEHENDE VERBINDUNG INITIIEREN ─────────────────────────────────────
   initiateConnection(partnerCode) {
     if (!this.peer || !this.peerReady) {
       console.error("[WebRTC] Peer nicht bereit für initiateConnection");
       return null;
     }
+
+    console.log("[WebRTC] Initiiere Verbindung zu", partnerCode);
 
     const conn = this.peer.connect(partnerCode, {
       metadata: { from: this.code, fromName: this.userName },
@@ -213,30 +239,56 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     return conn;
   }
 
+  // ── NACHRICHT SENDEN (P2P) ────────────────────────────────────────────────
   send(text) {
     if (!this.conn || !this.conn.open) {
       console.warn("[WebRTC] Kein offener Datenkanal");
       return false;
     }
 
-    this.conn.send({ type: "MESSAGE", text, fromName: this.userName, ts: Date.now() });
+    const payload = {
+      type: "MESSAGE",
+      text: text,
+      fromName: this.userName,
+      ts: Date.now(),
+    };
+
+    this.conn.send(payload);
     return true;
   }
 
-  isConnected() { return this.conn && this.conn.open; }
-  isPeerReady() { return this.peerReady; }
-  getRoomId() { return this.room; }
+  // ── STATUS ABFRAGEN ───────────────────────────────────────────────────────
+  isConnected() {
+    return this.conn && this.conn.open;
+  }
 
+  isPeerReady() {
+    return this.peerReady;
+  }
+
+  getRoomId() {
+    return this.room;
+  }
+
+  // ── AUFRÄUMEN ─────────────────────────────────────────────────────────────
   cleanup() {
     if (this.conn) {
-      try { this.conn.close(); } catch {}
+      try {
+        this.conn.close();
+      } catch {}
       this.conn = null;
     }
+    // Peer NICHT zerstören bei cleanup — nur bei Logout/destroy
+    // Der Peer bleibt registriert, damit uns andere erreichen können
   }
 
   destroy() {
-    this.isDestroyed = true;
-    this.cleanup();
+    if (this.conn) {
+      try {
+        this.conn.close();
+      } catch {}
+      this.conn = null;
+    }
     if (this.peer && !this.peer.destroyed) {
       this.peer.destroy();
     }
