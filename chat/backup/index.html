@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+
 <!-- External CSS -->
 <link rel="stylesheet" href="messenger.css">
-
-
-
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"> </script>
 
   <!-- Eruda – Mobile Console (nur für Debugging)
@@ -46,10 +44,10 @@
 
 <!-- Chat Detail -->
 <div id="chatDetailScreen">
-  <!-- Status Banner (vereint: früher Top-Banner + Footer) -->
-  <div id="p2pBanner" class="p2p-banner server">
-    <span class="icon">☁️</span> 
-    <span id="p2pBannerText">Verbindung wird hergestellt...</span>
+  <!-- P2P Banner -->
+  <div id="p2pBanner" class="p2p-banner">
+    <span class="icon">🔒</span> 
+    <span id="p2pBannerText">Direct P2P Connection - Deine Nachrichten sind privat!</span>
   </div>
   
   <div class="chat-header">
@@ -67,8 +65,13 @@
   
   <div id="messages" class="messages-container"></div>
   
+  <!-- Connection Status Footer -->
+  <div id="connectionStatus" class="connection-status server">
+    Verbindungsmodus prüfen...
+  </div>
+  
   <div class="input-bar">
-    <textarea id="msgInput" placeholder="Nachricht..." rows="1"></textarea>
+    <input type="text" id="msgInput" placeholder="Nachricht..." onkeydown="if(event.key==='Enter') sendMessage()">
     <button onclick="sendMessage()">➤</button>
   </div>
 </div>
@@ -180,11 +183,10 @@ function handleLogout() {
   document.getElementById('loginError').textContent = '';
   
   // P2P UI resetten
-  const banner = document.getElementById('p2pBanner');
-  const bannerText = document.getElementById('p2pBannerText');
-  if (banner) {
-    banner.className = 'p2p-banner server';
-    bannerText.textContent = 'Verbindung wird hergestellt...';
+  const connStatus = document.getElementById('connectionStatus');
+  if (connStatus) {
+    connStatus.className = 'connection-status server';
+    connStatus.innerHTML = 'Verbindungsmodus prüfen...';
   }
   }
 
@@ -585,29 +587,6 @@ function renderMessages(appendOnly = false) {
 }
 
 // ── SEND MESSAGE (P2P Priority + Fallback) ────────────────────────────────
-// ── EINGABE: mehrzeilig, Auto-Grow, Strg/Cmd+Enter zum Senden ─────────────
-// Return/Enter macht jetzt einen Zeilenumbruch (Standard-Textarea-Verhalten).
-// Zum Senden: Button ➤ oder Strg+Enter / Cmd+Enter für Desktop-Tester.
-(function setupMsgInput() {
-  const input = document.getElementById('msgInput');
-  if (!input) return;
-
-  const autoGrow = () => {
-    input.style.height = 'auto';
-    input.style.height = input.scrollHeight + 'px';
-  };
-
-  input.addEventListener('input', autoGrow);
-
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      sendMessage();
-    }
-    // Normales Enter/Shift+Enter → Standardverhalten der Textarea (neue Zeile)
-  });
-})();
-
 async function sendMessage() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
@@ -627,7 +606,6 @@ async function sendMessage() {
   saveMessages(msgs);
   renderMessages(true);
   input.value = '';
-  input.style.height = 'auto';
 
   // Priority: P2P → Server Fallback
   if (webrtc && typeof webrtc.isConnected === 'function' && webrtc.isConnected()) {
@@ -794,28 +772,27 @@ function updateP2PUI(active, message) {
   const statusText = document.getElementById('p2pStatusText');
   const banner = document.getElementById('p2pBanner');
   const bannerText = document.getElementById('p2pBannerText');
-  const bannerIcon = banner ? banner.querySelector('.icon') : null;
-
+  const connStatus = document.getElementById('connectionStatus');
+  
   if (!indicator) return;
-
+  
   if (active) {
     indicator.className = 'p2p-indicator p2p-active';
     statusText.textContent = message || 'P2P Aktiv';
-    banner.className = 'p2p-banner p2p';
-    if (bannerIcon) bannerIcon.textContent = '🔒';
-    bannerText.textContent = (message && message !== 'P2P Aktiv')
-      ? message
-      : 'Direct P2P Connection - Deine Nachrichten sind privat!';
+    banner.classList.add('show');
+    bannerText.textContent = message || 'Direct P2P Connection - Deine Nachrichten sind privat!';
+    connStatus.className = 'connection-status p2p';
+    connStatus.innerHTML = '🔒 <strong>P2P-Verschlüsselung</strong> - Keine Server-Zwischenspeicherung';
     isP2PConnected = true;
   } else {
     indicator.className = 'p2p-indicator p2p-inactive';
     statusText.textContent = message || 'Server-Modus';
-    banner.className = 'p2p-banner server';
-    if (bannerIcon) bannerIcon.textContent = '☁️';
-    bannerText.innerHTML = 'Server-Relay - Nachrichten werden temporär gespeichert';
+    banner.classList.remove('show');
+    connStatus.className = 'connection-status server';
+    connStatus.innerHTML = '☁️ <strong>Server-Relay</strong> - Nachrichten werden temporär gespeichert';
     isP2PConnected = false;
   }
-}
+  }
   
 // ── SERVICE WORKER REGISTRATION ───────────────────────────────────────────
 if ('serviceWorker' in navigator) {

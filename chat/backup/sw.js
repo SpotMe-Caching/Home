@@ -11,7 +11,7 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "spot-v1.22.6";
+const CACHE_VERSION = "spot-v1.22.5";
 const CACHE_STATIC = `spot-static-${CACHE_VERSION}`;
 const CACHE_API = `spot-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spot-runtime-${CACHE_VERSION}`;
