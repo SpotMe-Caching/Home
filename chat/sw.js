@@ -11,7 +11,7 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "spot-v1.22.1";
+const CACHE_VERSION = "spot-v1.22.2";
 const CACHE_STATIC = `spot-static-${CACHE_VERSION}`;
 const CACHE_API = `spot-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spot-runtime-${CACHE_VERSION}`;
@@ -23,12 +23,6 @@ const STATIC_ASSETS = [
   "/chat/messenger.css",
   "/chat/webrtc.js",
   "/chat/index.html",
-  "/chat/chat.css",
-  "/chat/app.js",
-  "/chat/auth.js",
-  "/chat/storage.js",
-  "/chat/networking.js",
-  "/chat/ui.js",
   "/chat/manifest.json",
   // Fonts (optional – falls du Google Fonts nutzt)
   "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap",

@@ -84,6 +84,7 @@ const API = 'https://spotme-chat-obom.onrender.com/api';
 
 let CODE = null, TOKEN = null, PROFILE = null;
 let CURRENT_ROOM = null, PARTNER_CODE = null, PARTNER_NAME = null;
+let RENDERED_MSG_COUNT = 0; // FIX: für inkrementelles Rendern in renderMessages()
 let POLL_TIMER = null;
 const CHAT_PREFIX = 'sm_local_msg_';
 
@@ -271,7 +272,7 @@ function initWebRTC() {
 
     // UI aktualisieren
     if (room === CURRENT_ROOM) {
-      renderMessages();
+      renderMessages(true);
     }
     renderChatList();
   };
@@ -398,8 +399,16 @@ async function attemptP2PConnection(partnerCode) {
 
     // 3. Verbindung zum Partner initiieren
     // Partner muss ebenfalls registriert sein (Login → register())
-    webrtc.initiateConnection(PARTNER_CODE);
-    console.log('[Chat] Verbindung initiert');
+    // FIX: Nur die Seite mit dem "kleineren" Code initiiert aktiv.
+    // Öffnen beide Seiten den Chat gleichzeitig, entstehen sonst zwei
+    // parallele Connections und this.conn wird inkonsistent überschrieben —
+    // das war der Grund für "Nachricht kommt erst beim Verlassen des Chats".
+    if (CODE < PARTNER_CODE) {
+      webrtc.initiateConnection(PARTNER_CODE);
+      console.log('[Chat] Verbindung initiert (wir sind Initiator)');
+    } else {
+      console.log('[Chat] Warte auf eingehende Verbindung von', PARTNER_CODE);
+    }
 
     // Timeout: Nach 3 Sek kein P2P → Server-Modus anzeigen
     setTimeout(() => {
@@ -469,11 +478,11 @@ function saveMessages(msgs) {
   localStorage.setItem(CHAT_PREFIX + CURRENT_ROOM, JSON.stringify(msgs));
 }
 
-function renderMessages() {
+function renderMessages(appendOnly = false) {
   const container = document.getElementById('messages');
   const msgs = getMessages();
-  
-  container.innerHTML = msgs.map(m => {
+
+  const renderMsg = (m) => {
     const isMine = m.from === CODE;
     return `
       <div class="message ${isMine ? 'mine' : 'other'}">
@@ -482,8 +491,20 @@ function renderMessages() {
         <div class="msg-time">${new Date(m.ts).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</div>
       </div>
     `;
-  }).join('');
-  
+  };
+
+  // FIX: Bei jeder eingehenden Nachricht wurde vorher die komplette Liste
+  // neu gebaut (innerHTML = alles) → Reflow/Ruckeln bei langen Chats.
+  // Jetzt: nur neue Nachrichten anhängen, wenn wir schon im selben Room sind.
+  if (appendOnly && container.dataset.room === CURRENT_ROOM && msgs.length > RENDERED_MSG_COUNT) {
+    const neue = msgs.slice(RENDERED_MSG_COUNT);
+    container.insertAdjacentHTML('beforeend', neue.map(renderMsg).join(''));
+  } else {
+    container.innerHTML = msgs.map(renderMsg).join('');
+    container.dataset.room = CURRENT_ROOM;
+  }
+
+  RENDERED_MSG_COUNT = msgs.length;
   container.scrollTop = container.scrollHeight;
 }
 
@@ -505,7 +526,7 @@ async function sendMessage() {
   const msgs = getMessages();
   msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
   saveMessages(msgs);
-  renderMessages();
+  renderMessages(true);
   input.value = '';
 
   // Priority: P2P → Server Fallback
@@ -596,7 +617,7 @@ async function initPolling() {
               listNeedsUpdate = true;
 
               if (room === CURRENT_ROOM) {
-                renderMessages();
+                renderMessages(true);
                 renderedAny = true;
               }
             }
