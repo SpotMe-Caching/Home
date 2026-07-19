@@ -83,102 +83,6 @@ let RENDERED_MSG_COUNT = 0; // FIX: für inkrementelles Rendern in renderMessage
 let POLL_TIMER = null;
 const CHAT_PREFIX = 'sm_local_msg_';
 
-// ══════════════════════════════════════════════════════════════════════════
-// LOKALE VERSCHLÜSSELUNG (AES-GCM, Web Crypto API)
-// Philosophie: Server ist nur 7-Tage-Zwischenspeicher, P2P ist per WebRTC
-// (DTLS) verschlüsselt – aber localStorage lag bisher im Klartext auf dem
-// Gerät. Das ist das lokale "Backup" (bleibt bis App/Speicher gelöscht wird),
-// also muss es genauso codiert sein wie der Rest der Kette.
-// Schlüssel wird aus CODE+TOKEN abgeleitet (PBKDF2) – nie gespeichert,
-// nur pro Session im Speicher gehalten.
-// ══════════════════════════════════════════════════════════════════════════
-let _localCryptoKey = null;
-
-async function getLocalCryptoKey() {
-  if (_localCryptoKey) return _localCryptoKey;
-  if (!CODE || !TOKEN) {
-    throw new Error('Kein CODE/TOKEN vorhanden – Verschlüsselung nicht möglich');
-  }
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(CODE + ':' + TOKEN),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-  _localCryptoKey = await crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: enc.encode('spotme-chat-local-v1'),
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-  return _localCryptoKey;
-}
-
-// Beim Logout: Schlüssel aus dem Speicher werfen
-function clearLocalCryptoKey() {
-  _localCryptoKey = null;
-}
-
-async function encryptLocalData(obj) {
-  const key = await getLocalCryptoKey();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const enc = new TextEncoder();
-  const data = enc.encode(JSON.stringify(obj));
-  const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-  const combined = new Uint8Array(iv.length + cipherBuf.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(cipherBuf), iv.length);
-  let binary = '';
-  combined.forEach(b => binary += String.fromCharCode(b));
-  return 'enc1:' + btoa(binary); // Prefix markiert Format-Version
-}
-
-async function decryptLocalData(stored) {
-  if (typeof stored !== 'string' || !stored.startsWith('enc1:')) {
-    // Altes Klartext-Format (vor Verschlüsselungs-Update) → Migration
-    return JSON.parse(stored);
-  }
-  const key = await getLocalCryptoKey();
-  const binary = atob(stored.slice(5));
-  const combined = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) combined[i] = binary.charCodeAt(i);
-  const iv = combined.slice(0, 12);
-  const data = combined.slice(12);
-  const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-  return JSON.parse(new TextDecoder().decode(plainBuf));
-}
-
-// Wrapper: Nachrichten eines Rooms laden/speichern (ersetzt direkte
-// localStorage.getItem/setItem-Aufrufe für Chat-Nachrichten)
-async function loadRoomMessages(room) {
-  const raw = localStorage.getItem(CHAT_PREFIX + room);
-  if (!raw) return [];
-  try {
-    const msgs = await decryptLocalData(raw);
-    return Array.isArray(msgs) ? msgs : [];
-  } catch (e) {
-    console.error('[Crypto] Entschlüsselung fehlgeschlagen für', room, e);
-    return [];
-  }
-}
-
-async function saveRoomMessages(room, msgs) {
-  try {
-    const enc = await encryptLocalData(msgs);
-    localStorage.setItem(CHAT_PREFIX + room, enc);
-  } catch (e) {
-    console.error('[Crypto] Verschlüsselung fehlgeschlagen für', room, e);
-  }
-}
-
 // WebRTC / P2P Status
 let webrtc = null;
 let isP2PConnected = false;
@@ -266,7 +170,6 @@ function handleLogout() {
   // Reset globals
   CODE = null; TOKEN = null; PROFILE = null;
   CURRENT_ROOM = null; PARTNER_CODE = null; PARTNER_NAME = null;
-  clearLocalCryptoKey(); // Schlüssel war nur aus CODE+TOKEN abgeleitet, jetzt ungültig
   
   // UI zurücksetzen
   document.getElementById('chatListScreen').style.display = 'none';
@@ -415,14 +318,16 @@ function initWebRTC() {
   };
 
   // ── Nachricht via P2P empfangen ──
-  webrtc.onMessage = async (msg) => {
+  webrtc.onMessage = (msg) => {
     console.log('[Chat] P2P Nachricht empfangen:', msg);
 
     // WICHTIG: Room aus Absender-Code berechnen, nicht CURRENT_ROOM nutzen
     // (Nachricht kann ankommen, wenn Chat gar nicht geöffnet ist)
     const room = [CODE, msg.from].sort().join('-');
+    const key = CHAT_PREFIX + room;
 
-    const msgs = await loadRoomMessages(room);
+    let msgs = [];
+    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
 
     // Duplikat-Check
     const exists = msgs.some(e =>
@@ -438,7 +343,7 @@ function initWebRTC() {
         text: msg.text,
         ts: msg.ts || Date.now()
       });
-      await saveRoomMessages(room, msgs);
+      localStorage.setItem(key, JSON.stringify(msgs));
     }
 
     // UI aktualisieren
@@ -493,8 +398,8 @@ async function renderChatList() {
     if (!partnerCode) continue;
     
     let msgs = [];
-    try { msgs = await decryptLocalData(localStorage.getItem(key)); } catch (e) { msgs = []; }
-    if (!Array.isArray(msgs) || !msgs.length) continue;
+    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
+    if (!msgs.length) continue;
     
     const lastMsg = msgs[msgs.length - 1];
     const time = new Date(lastMsg.ts);
@@ -536,7 +441,7 @@ async function openChat(room, partnerCode, partnerName) {
   document.getElementById('headerName').textContent = partnerName;
   updateP2PUI(false, 'Verbinde...');
 
-  await renderMessages();
+  renderMessages();
 
   // Versuch P2P Verbindung herzustellen
   await attemptP2PConnection(partnerCode);
@@ -637,19 +542,21 @@ function goBackToList() {
 }
 
 // ── MESSAGES ──────────────────────────────────────────────────────────────
-async function getMessages() {
+function getMessages() {
   if (!CURRENT_ROOM) return [];
-  return await loadRoomMessages(CURRENT_ROOM);
+  try {
+    return JSON.parse(localStorage.getItem(CHAT_PREFIX + CURRENT_ROOM) || '[]');
+  } catch (e) { return []; }
 }
 
-async function saveMessages(msgs) {
+function saveMessages(msgs) {
   if (!CURRENT_ROOM) return;
-  await saveRoomMessages(CURRENT_ROOM, msgs);
+  localStorage.setItem(CHAT_PREFIX + CURRENT_ROOM, JSON.stringify(msgs));
 }
 
-async function renderMessages(appendOnly = false) {
+function renderMessages(appendOnly = false) {
   const container = document.getElementById('messages');
-  const msgs = await getMessages();
+  const msgs = getMessages();
 
   const renderMsg = (m) => {
     const isMine = m.from === CODE;
@@ -715,10 +622,10 @@ async function sendMessage() {
   const myName = PROFILE?.name || CODE;
 
   // Lokal sofort speichern (UX: sofort sichtbar)
-  const msgs = await getMessages();
+  const msgs = getMessages();
   msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
-  await saveMessages(msgs);
-  await renderMessages(true);
+  saveMessages(msgs);
+  renderMessages(true);
   input.value = '';
   input.style.height = 'auto';
 
@@ -787,10 +694,12 @@ async function initPolling() {
           let renderedAny = false;
           let listNeedsUpdate = false;
 
-          for (const m of newMsgs) {
+          newMsgs.forEach(m => {
             const room = [CODE, m.sender_code].sort().join('-');
+            const key = CHAT_PREFIX + room;
 
-            const msgs = await loadRoomMessages(room);
+            let msgs = [];
+            try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {};
 
             const exists = msgs.some(e =>
               e.from === m.sender_code &&
@@ -804,15 +713,15 @@ async function initPolling() {
                 text: m.message,
                 ts: new Date(m.created_at).getTime()
               });
-              await saveRoomMessages(room, msgs);
+              localStorage.setItem(key, JSON.stringify(msgs));
               listNeedsUpdate = true;
 
               if (room === CURRENT_ROOM) {
-                await renderMessages(true);
+                renderMessages(true);
                 renderedAny = true;
               }
             }
-          }
+          });
 
           if (renderedAny) {
             updateP2PUI('Server-Modus (Polling)', false);
