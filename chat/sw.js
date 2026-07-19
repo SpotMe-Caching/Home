@@ -11,7 +11,7 @@
 //   • Externe Ressourcen      → Stale-While-Revalidate
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = "spot-v1.22.0";
+const CACHE_VERSION = "spot-v1.22.1";
 const CACHE_STATIC = `spot-static-${CACHE_VERSION}`;
 const CACHE_API = `spot-api-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `spot-runtime-${CACHE_VERSION}`;
@@ -79,7 +79,12 @@ self.addEventListener("activate", (event) => {
           keys
             .filter(
               (key) =>
-                key.startsWith("spotme-chat-") &&
+                key.startsWith("spot-static-") ||
+                key.startsWith("spot-api-") ||
+                key.startsWith("spot-runtime-"),
+            )
+            .filter(
+              (key) =>
                 key !== CACHE_STATIC &&
                 key !== CACHE_API &&
                 key !== CACHE_RUNTIME,
