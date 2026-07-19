@@ -250,7 +250,7 @@ function initWebRTC() {
     const key = CHAT_PREFIX + room;
 
     let msgs = [];
-    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
 
     // Duplikat-Check
     const exists = msgs.some(e =>
@@ -321,7 +321,7 @@ async function renderChatList() {
     if (!partnerCode) continue;
     
     let msgs = [];
-    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
     if (!msgs.length) continue;
     
     const lastMsg = msgs[msgs.length - 1];
@@ -461,7 +461,7 @@ function getMessages() {
   if (!CURRENT_ROOM) return [];
   try {
     return JSON.parse(localStorage.getItem(CHAT_PREFIX + CURRENT_ROOM) || '[]');
-  } catch { return []; }
+  } catch (e) { return []; }
 }
 
 function saveMessages(msgs) {
@@ -533,7 +533,7 @@ async function sendMessage() {
         sender_name: myName,
         message: text,
         spot_type: 'caching_chat'
-      })
+        })
     });
 
     if (!res.ok) {
@@ -578,7 +578,7 @@ async function initPolling() {
             const key = CHAT_PREFIX + room;
 
             let msgs = [];
-            try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch {};
+            try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {};
 
             const exists = msgs.some(e =>
               e.from === m.sender_code &&
