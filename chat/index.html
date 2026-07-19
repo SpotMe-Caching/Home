@@ -102,13 +102,22 @@ async function handleLogin() {
     document.getElementById('loginError').textContent = 'Bitte 6-stelligen Code eingeben';
     return;
   }
+
+  // Spot Messenger läuft hier als eigenständige App (kein Trust-Kontext
+  // von SpotMe Caching, das seinen eigenen Chat-Layer separat implementiert) →
+  // Token ist Pflicht, sonst könnte jeder mit fremdem Code rein.
+  if (!token) {
+    document.getElementById('loginError').textContent = 'Token erforderlich (siehe SpotMe Caching Profil)';
+    return;
+  }
   
   try {
-    // Profil beim Server prüfen
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['x-spotme-token'] = token;
-    
-    const res = await fetch(`${API}/profile/${code}?spot=caching`, { headers });
+    // Echte Server-Verifikation (code + token müssen zusammenpassen)
+    const res = await fetch(`${API}/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, token })
+    });
     if (!res.ok) {
       throw new Error('Profil nicht gefunden oder ungültiger Token');
     }
@@ -133,6 +142,9 @@ async function handleLogin() {
     
     // Polling für Server-Nachrichten starten
     initPolling();
+
+    // Web Push registrieren (eigene Subscription für /chat/ Scope)
+    initPushNotifications();
     
     // Chat Liste rendern
     renderChatList();
@@ -186,12 +198,21 @@ async function autoLogin() {
   const savedToken = localStorage.getItem('sm_chat_token');
   
   if (!savedCode) return false;
+
+  // Alte Session ohne Token (aus Zeit vor dem Pflicht-Token) → verwerfen,
+  // Nutzer muss sich einmalig mit Token neu einloggen.
+  if (!savedToken) {
+    localStorage.removeItem('sm_chat_code');
+    localStorage.removeItem('sm_chat_profile');
+    return false;
+  }
   
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (savedToken) headers['x-spotme-token'] = savedToken;
-    
-    const res = await fetch(`${API}/profile/${savedCode}?spot=caching`, { headers });
+    const res = await fetch(`${API}/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: savedCode, token: savedToken })
+    });
     if (res.ok) {
       CODE = savedCode;
       TOKEN = savedToken;
@@ -202,6 +223,7 @@ async function autoLogin() {
       
       initWebRTC();
       initPolling();
+      initPushNotifications();
       renderChatList();
       return true;
     }
@@ -209,6 +231,64 @@ async function autoLogin() {
     console.error('Autologin failed:', e);
   }
   return false;
+}
+
+// ── WEB PUSH SETUP ────────────────────────────────────────────────────────
+// Fehlte bisher komplett im Chat-Frontend (Auskopplung vom Root-Chat).
+// WICHTIG: subscribe() läuft über die /chat/sw.js Registrierung –
+// eine alte Subscription der Root-App wirkt hier NICHT, weil
+// Push-Events immer an die SW-Registrierung gehen, die subscribed hat.
+async function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('[Push] Nicht unterstützt in diesem Browser');
+    return;
+  }
+  if (!CODE) return;
+
+  try {
+    const reg = await navigator.serviceWorker.ready; // wartet auf /chat/sw.js
+
+    // Bereits subscribed? Dann nur sicherstellen, dass Server sie kennt.
+    let sub = await reg.pushManager.getSubscription();
+
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        console.warn('[Push] Berechtigung verweigert');
+        return;
+      }
+
+      const keyRes = await fetch(`${API}/push/vapid-public-key`);
+      const { publicKey } = await keyRes.json();
+      if (!publicKey) {
+        console.warn('[Push] Kein VAPID Public Key vom Server');
+        return;
+      }
+
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+    }
+
+    // Subscription beim Server hinterlegen (idempotent, überschreibt alte)
+    await fetch(`${API}/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: CODE, token: TOKEN, subscription: sub })
+    });
+
+    console.log('[Push] Subscription aktiv für', CODE);
+  } catch (err) {
+    console.error('[Push] Setup fehlgeschlagen:', err);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 // ── WEBRTC / P2P SETUP ────────────────────────────────────────────────────
