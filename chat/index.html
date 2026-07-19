@@ -401,13 +401,13 @@ async function attemptP2PConnection(partnerCode) {
     webrtc.initiateConnection(PARTNER_CODE);
     console.log('[Chat] Verbindung initiert');
 
-    // Timeout: Nach 15 Sek kein P2P → Server-Modus anzeigen
+    // Timeout: Nach 3 Sek kein P2P → Server-Modus anzeigen
     setTimeout(() => {
       if (!isP2PConnected) {
         console.log('[Chat] P2P Timeout, bleibe im Server-Modus');
         updateP2PUI(false, 'Server-Modus (Timeout)');
       }
-    }, 15000);
+    }, 3000);
 
   } catch (err) {
     console.error('[Chat] P2P Verbindung fehlgeschlagen:', err);

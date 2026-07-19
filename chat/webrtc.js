@@ -61,9 +61,11 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
 
       // 1. ID bereits vergeben → Abwarten, bis der alte Eintrag auf dem Server stirbt
       if (err.type === "unavailable-id") {
-        console.warn("[WebRTC] ID bereits vergeben. Warte 5s für Server-Cleanup...");
+        console.warn(
+          "[WebRTC] ID bereits vergeben. Warte 5s für Server-Cleanup...",
+        );
         this.peerReady = false;
-        
+
         // Alten Peer hart zerstören
         if (this.peer && !this.peer.destroyed) this.peer.destroy();
         this.peer = null;
@@ -113,7 +115,11 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     if (this.reconnectAttempts >= this.MAX_RECONNECT) {
       console.error("[WebRTC] Max Reconnect-Versuche erreicht");
       if (this.onError) {
-        this.onError(new Error("Maximale Reconnect-Versuche erreicht. Bitte Seite neu laden."));
+        this.onError(
+          new Error(
+            "Maximale Reconnect-Versuche erreicht. Bitte Seite neu laden.",
+          ),
+        );
       }
       return;
     }
@@ -121,7 +127,9 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.reconnectAttempts++;
     const delay = 2000 * this.reconnectAttempts;
 
-    console.log(`[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`);
+    console.log(
+      `[WebRTC] Reconnect in ${delay}ms (Versuch ${this.reconnectAttempts}/${this.MAX_RECONNECT})`,
+    );
 
     setTimeout(() => {
       if (!this.isDestroyed) {
@@ -138,8 +146,8 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         clearInterval(checkInterval);
-        reject(new Error("Peer-Registrierung Timeout (30s)"));
-      }, 30000);
+        reject(new Error("Peer-Registrierung Timeout (10s)"));
+      }, 10000);
 
       const checkInterval = setInterval(() => {
         if (this.peerReady && this.peer && this.peer.id) {
@@ -219,17 +227,30 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       return false;
     }
 
-    this.conn.send({ type: "MESSAGE", text, fromName: this.userName, ts: Date.now() });
+    this.conn.send({
+      type: "MESSAGE",
+      text,
+      fromName: this.userName,
+      ts: Date.now(),
+    });
     return true;
   }
 
-  isConnected() { return this.conn && this.conn.open; }
-  isPeerReady() { return this.peerReady; }
-  getRoomId() { return this.room; }
+  isConnected() {
+    return this.conn && this.conn.open;
+  }
+  isPeerReady() {
+    return this.peerReady;
+  }
+  getRoomId() {
+    return this.room;
+  }
 
   cleanup() {
     if (this.conn) {
-      try { this.conn.close(); } catch {}
+      try {
+        this.conn.close();
+      } catch {}
       this.conn = null;
     }
   }
@@ -238,6 +259,14 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.isDestroyed = true;
     this.cleanup();
     if (this.peer && !this.peer.destroyed) {
+      this.peer.destroy();
+    }
+    this.peer = null;
+    this.peerReady = false;
+    this.reconnectAttempts = 0;
+  }
+};
+estroyed) {
       this.peer.destroy();
     }
     this.peer = null;
