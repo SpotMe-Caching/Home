@@ -703,7 +703,9 @@ async function renderMessages(appendOnly = false) {
 
 async function sendMessage() {
   const input = document.getElementById('msgInput');
-  const text = input.value.trim();
+  // FIX: Mehrfaches Enter erzeugt sonst viele Leerzeilen → riesige Bubble.
+  // Maximal eine Leerzeile zwischen Absätzen bleibt erlaubt.
+  const text = input.value.trim().replace(/\n{3,}/g, '\n\n');
 
   if (!text) return;
 
