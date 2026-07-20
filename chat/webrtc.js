@@ -23,7 +23,7 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.isDestroyed = false; // Sicherheitsflag
   }
 
-  register() {
+  async register() {
     console.log("[WebRTC] Registriere Peer mit ID:", this.code);
     this.isDestroyed = false;
 
@@ -34,6 +34,31 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       } catch (e) {}
       this.peer = null;
     }
+
+    // FIX: Vor der Peer-Registrierung ein kurzlebiges Ticket holen.
+    // Ohne gültiges Ticket kappt der Server die Verbindung sofort wieder –
+    // verhindert dass fremde die eigene Code-ID als Peer kapern.
+    try {
+      const ticketRes = await fetch(
+        "https://spotme-chat-obom.onrender.com/api/peer-ticket",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: this.code, token: this.token }),
+        },
+      );
+      if (!ticketRes.ok) {
+        console.error("[WebRTC] Ticket-Anforderung fehlgeschlagen:", ticketRes.status);
+        if (this.onError) this.onError({ type: "ticket-failed" });
+        return;
+      }
+    } catch (e) {
+      console.error("[WebRTC] Ticket-Anforderung fehlgeschlagen:", e);
+      if (this.onError) this.onError({ type: "ticket-failed" });
+      return;
+    }
+
+    if (this.isDestroyed) return; // Zwischenzeitlich zerstört (z.B. Logout)
 
     this.peer = new Peer(this.code, {
       debug: 2,
