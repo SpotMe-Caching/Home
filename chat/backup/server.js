@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v11.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v10.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -125,72 +125,6 @@ const peerServer = ExpressPeerServer(server, {
   proxied: true,
 });
 app.use("/peerjs", peerServer);
-
-// ── PEERJS IDENTITÄTS-SCHUTZ ────────────────────────────────────────────────
-// PeerJS vergibt IDs (= unser 6-stelliger Code) ohne jede Prüfung gegen den
-// Server. Ist ein Nutzer offline, könnte sich sonst jeder mit dessen Code
-// registrieren und alle künftigen P2P-Verbindungsversuche kapern.
-// Fix: Client muss sich VOR der Peer-Registrierung ein kurzlebiges Ticket
-// holen (nur mit gültigem Token möglich). Bei der tatsächlichen PeerJS-
-// Verbindung wird geprüft, ob für diese ID gerade ein frisches Ticket
-// ausgestellt wurde – falls nicht, wird die Verbindung sofort gekappt.
-const peerTickets = new Map(); // code -> expiresAt (Timestamp)
-const PEER_TICKET_TTL_MS = 30_000;
-
-app.post("/api/peer-ticket", async (req, res) => {
-  const { code, token } = req.body;
-  if (!code || !token) {
-    return res.status(400).json({ error: "code und token erforderlich" });
-  }
-  try {
-    const { rows } = await pool.query(
-      `SELECT token FROM profiles WHERE code = $1 AND spot = 'caching' LIMIT 1`,
-      [code],
-    );
-    if (!rows.length || rows[0].token !== token) {
-      return res.status(403).json({ error: "Ungültiger Code oder Token" });
-    }
-    peerTickets.set(code, Date.now() + PEER_TICKET_TTL_MS);
-    res.json({ ok: true, ttl: PEER_TICKET_TTL_MS });
-  } catch (e) {
-    console.error("POST /api/peer-ticket:", e.message);
-    res.status(500).json({ error: "Datenbankfehler" });
-  }
-});
-
-// Aufräumen abgelaufener Tickets (verhindert unbegrenztes Map-Wachstum)
-setInterval(() => {
-  const now = Date.now();
-  for (const [code, expiresAt] of peerTickets) {
-    if (expiresAt < now) peerTickets.delete(code);
-  }
-}, 60_000);
-
-peerServer.on("connection", (client) => {
-  const id = client.getId();
-  const expiresAt = peerTickets.get(id);
-
-  if (!expiresAt || expiresAt < Date.now()) {
-    console.warn(`🚫 PeerJS: Verbindung ohne gültiges Ticket für ID "${id}" – gekappt`);
-    try {
-      // Realm-basiertes Entfernen (versionsunabhängigster Weg im peer-Paket)
-      const realm = peerServer.get("realm");
-      if (realm && typeof realm.removeClientById === "function") {
-        realm.removeClientById(id);
-      }
-      // Fallback: Socket direkt schließen
-      const socket = client.getSocket?.();
-      if (socket && typeof socket.close === "function") socket.close();
-    } catch (e) {
-      console.error("PeerJS Kick fehlgeschlagen:", e.message);
-    }
-    return;
-  }
-
-  // Ticket ist einmalig gültig
-  peerTickets.delete(id);
-  console.log(`✅ PeerJS: ID "${id}" mit gültigem Ticket verbunden`);
-});
 
 // ---------- PostgreSQL Pool ----------
 const pool = new Pool({
@@ -424,7 +358,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v11.0 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v10.0 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
@@ -1408,13 +1342,13 @@ app.get("/api/offline-messages/:code", async (req, res) => {
 // Jeder der ein Profil hat kann eine Nachricht schicken.
 // Das verhindert anonymen Spam ohne einen Login zu erzwingen.
 app.post("/api/message", async (req, res) => {
-  const { recipient, sender_code, sender_name, message, spot_type, token } = req.body;
+  const { recipient, sender_code, sender_name, message, spot_type } = req.body;
 
   // Pflichtfelder prüfen
-  if (!recipient || !sender_code || !message || !token) {
+  if (!recipient || !sender_code || !message) {
     return res
       .status(400)
-      .json({ error: "recipient, sender_code, message und token sind Pflicht" });
+      .json({ error: "recipient, sender_code und message sind Pflicht" });
   }
 
   // Selbst-Nachrichten verhindern
@@ -1431,15 +1365,15 @@ app.post("/api/message", async (req, res) => {
   }
 
   try {
-    // FIX: Vorher wurde nur geprüft OB der sender_code ein Profil hat –
-    // nicht OB der Aufrufer dieses Profil auch besitzt. Jeder konnte sich
-    // als jeder ausgeben. Jetzt: Token muss zum sender_code passen.
-    const senderCheck = await pool.query(
-      `SELECT token FROM profiles WHERE code = $1 AND spot = 'caching' LIMIT 1`,
+    // Sicherheits-Check: Hat der Absender ein Profil im System?
+    // Das verhindert dass anonyme Bots Nachrichten schicken können.
+    // Profil muss im caching-Spot existieren.
+    const senderExists = await pool.query(
+      `SELECT 1 FROM profiles WHERE code = $1 AND spot = 'caching' LIMIT 1`,
       [sender_code],
     );
-    if (!senderCheck.rows.length || senderCheck.rows[0].token !== token) {
-      return res.status(403).json({ error: "Ungültiger Absender-Token" });
+    if (!senderExists.rows.length) {
+      return res.status(403).json({ error: "Absender hat kein Profil" });
     }
 
     // Postfach-Limit: maximal 100 ungelesene Chat-Nachrichten pro Empfänger
@@ -1490,23 +1424,8 @@ app.post("/api/message", async (req, res) => {
 app.get("/api/messages/:code", async (req, res) => {
   const { code } = req.params;
   const spot_type = req.query.spot_type || "caching_chat";
-  const token = req.query.token || req.headers["x-spotme-token"];
-
-  // FIX: Vorher kein Token-Check – jeder der den Code kannte, konnte fremde
-  // Nachrichten abholen (und sie damit serverseitig als "read" markieren,
-  // sodass der echte Empfänger sie nie zu sehen bekam). Jetzt: nur der
-  // Code-Besitzer selbst darf sein eigenes Postfach leeren.
-  if (!token) return res.status(401).json({ error: "Token fehlt" });
 
   try {
-    const auth = await pool.query(
-      `SELECT token FROM profiles WHERE code = $1 AND spot = 'caching' LIMIT 1`,
-      [code],
-    );
-    if (!auth.rows.length || auth.rows[0].token !== token) {
-      return res.status(403).json({ error: "Ungültiger Token" });
-    }
-
     // Nachrichten der letzten 48 Stunden abrufen
     // Ältere Nachrichten sind im localStorage bereits gespeichert
     const { rows } = await pool.query(
