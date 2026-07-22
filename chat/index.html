@@ -28,11 +28,47 @@
     <div class="logo">🐱</div>
     <h1>Spot - Chat</h1>
     <p class="subtitle">Eigenständiger Messenger mit P2P</p>
-    <input type="text" id="loginCode" maxlength="6" placeholder="6-stelliger Code">
-    <input type="password" id="loginToken" placeholder="Token (optional)">
-    <button onclick="handleLogin()">Anmelden</button>
-    <p id="loginError" class="error"></p>
+
+    <div id="loginForm">
+      <input type="text" id="loginCode" maxlength="6" placeholder="6-stelliger Code">
+      <input type="password" id="loginToken" placeholder="Token">
+      <button onclick="handleLogin()">Anmelden</button>
+      <p id="loginError" class="error"></p>
+      <button type="button" class="link-btn" onclick="showRegisterForm()">Neu hier? Jetzt registrieren</button>
+    </div>
+
+    <div id="registerForm" class="hidden">
+      <input type="text" id="registerName" maxlength="40" placeholder="Dein Anzeigename">
+      <button onclick="handleRegister()">Code erstellen</button>
+      <p id="registerError" class="error"></p>
+      <button type="button" class="link-btn" onclick="showLoginForm()">Ich habe schon einen Code</button>
+    </div>
+
     <a href="/" style="margin-top:1rem; color:#ff4f7b; font-size:0.85rem;">← Zurück zu SpotME Caching</a>
+  </div>
+
+  <!-- Credentials Layer: einmalige Anzeige nach Registrierung -->
+  <div id="credentialsLayer" class="hidden overlay">
+    <div class="overlay-card">
+      <h2>🔐 Dein Zugang</h2>
+      <p>Speichere Code und Token jetzt an einem sicheren Ort. Ohne sie kommst du auf einem anderen Gerät nicht mehr rein!</p>
+
+      <label>Code</label>
+      <div class="copy-row">
+        <input type="text" id="credCode" readonly>
+        <button onclick="copyField('credCode')">Kopieren</button>
+      </div>
+
+      <label>Token</label>
+      <div class="copy-row">
+        <input type="text" id="credToken" readonly>
+        <button onclick="copyField('credToken')">Kopieren</button>
+      </div>
+
+      <p id="copyFeedback" class="copy-feedback"></p>
+
+      <button class="primary-btn" onclick="dismissCredentialsLayer()">Gespeichert, weiter zum Chat</button>
+    </div>
   </div>
 
   <!-- Chat List -->
@@ -185,6 +221,90 @@ let isP2PConnected = false;
 let p2pConnectionTime = null;
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
+// ── REGISTRIERUNG (neuer Nutzer, eigenständiger Messenger) ────────────────
+function showRegisterForm() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('registerForm').classList.remove('hidden');
+  document.getElementById('loginError').textContent = '';
+}
+
+function showLoginForm() {
+  document.getElementById('registerForm').classList.add('hidden');
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('registerError').textContent = '';
+}
+
+async function handleRegister() {
+  const name = document.getElementById('registerName').value.trim();
+  const errEl = document.getElementById('registerError');
+  errEl.textContent = '';
+
+  if (!name) {
+    errEl.textContent = 'Bitte einen Anzeigenamen eingeben';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/messenger/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Registrierung fehlgeschlagen');
+    }
+
+    const { code, token, name: registeredName } = await res.json();
+
+    // Automatisch "eingeloggt" – Code+Token lokal hinterlegen
+    CODE = code;
+    TOKEN = token;
+    PROFILE = { code, name: registeredName };
+
+    localStorage.setItem('sm_chat_code', code);
+    localStorage.setItem('sm_chat_token', token);
+    localStorage.setItem('sm_chat_profile', JSON.stringify(PROFILE));
+
+    // Zugangsdaten-Layer zeigen, BEVOR es in den Chat geht
+    document.getElementById('credCode').value = code;
+    document.getElementById('credToken').value = token;
+    document.getElementById('copyFeedback').textContent = '';
+    document.getElementById('credentialsLayer').classList.remove('hidden');
+  } catch (e) {
+    console.error('[Register]', e);
+    errEl.textContent = e.message || 'Registrierung fehlgeschlagen';
+  }
+}
+
+async function copyField(fieldId) {
+  const el = document.getElementById(fieldId);
+  const feedback = document.getElementById('copyFeedback');
+  try {
+    await navigator.clipboard.writeText(el.value);
+    feedback.textContent = '✅ Kopiert!';
+  } catch (e) {
+    // Fallback für ältere WebViews ohne Clipboard-API
+    el.select();
+    el.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    feedback.textContent = '✅ Kopiert!';
+  }
+  setTimeout(() => { feedback.textContent = ''; }, 2000);
+}
+
+function dismissCredentialsLayer() {
+  document.getElementById('credentialsLayer').classList.add('hidden');
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('chatListScreen').style.display = 'block';
+
+  initWebRTC();
+  initPolling();
+  initPushNotifications();
+  renderChatList();
+}
+
 async function handleLogin() {
   const code = document.getElementById('loginCode').value.trim();
   const token = document.getElementById('loginToken').value.trim();
@@ -275,6 +395,7 @@ function handleLogout() {
   document.getElementById('loginCode').value = '';
   document.getElementById('loginToken').value = '';
   document.getElementById('loginError').textContent = '';
+  showLoginForm(); // falls noch auf Registrieren-Ansicht: zurück zu Login
   
   // P2P UI resetten
   const banner = document.getElementById('p2pBanner');

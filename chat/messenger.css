@@ -90,6 +90,110 @@ body {
   cursor: pointer;
 }
 
+.link-btn {
+  width: auto !important;
+  max-width: none !important;
+  background: none !important;
+  color: #ff9f00 !important;
+  font-weight: 400 !important;
+  font-size: 0.85rem;
+  padding: 0.4rem !important;
+  margin-top: 0.5rem !important;
+  text-decoration: underline;
+}
+
+/* ── CREDENTIALS LAYER (nach Registrierung) ───────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 999;
+}
+
+.overlay-card {
+  background: #14181f;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.overlay-card h2 {
+  color: #ff9f00;
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+}
+
+.overlay-card p {
+  color: #ccc;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 1rem;
+}
+
+.overlay-card label {
+  display: block;
+  color: #7a8290;
+  font-size: 0.75rem;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.copy-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.copy-row input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #1a1f26;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: monospace;
+}
+
+.copy-row button {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #ff9f00;
+  color: #1a0f08;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-feedback {
+  color: #4ade80;
+  font-size: 0.85rem;
+  text-align: center;
+  min-height: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.overlay-card .primary-btn {
+  width: 100%;
+  padding: 0.85rem;
+  background: linear-gradient(135deg, #ff4f7b, #ff9f00);
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #1a0f08;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    3. CHAT LIST
    ──────────────────────────────────────────────────────────────────────────── */
