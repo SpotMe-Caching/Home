@@ -75,9 +75,22 @@
   <div id="chatListScreen">
     <div class="chat-list-header">
       <h2>💬 Chats</h2>
-      <button class="logout-btn" onclick="handleLogout()" style="float:right;background:none;border:none;color:#ff4f7b;cursor:pointer;font-size:0.85rem;">Abmelden</button>
+      <button class="new-chat-btn" onclick="showNewChatLayer()" title="Neuer Chat">+</button>
+      <button class="logout-btn" onclick="handleLogout()" style="background:none;border:none;color:#ff4f7b;cursor:pointer;font-size:0.85rem;flex-shrink:0;">Abmelden</button>
     </div>
     <div id="chatList" class="chat-list"></div>
+  </div>
+
+  <!-- Neuer Chat: Partner-Code eingeben -->
+  <div id="newChatLayer" class="hidden overlay">
+    <div class="overlay-card">
+      <h2>💬 Neuer Chat</h2>
+      <p>Gib den 6-stelligen Code deines Chatpartners ein.</p>
+      <input type="text" id="newChatCode" maxlength="6" placeholder="6-stelliger Code" style="width:100%;padding:0.6rem 0.75rem;border:1px solid #333;border-radius:8px;background:#1a1f26;color:#fff;font-size:1rem;text-align:center;margin-bottom:0.75rem;">
+      <p id="newChatError" class="error"></p>
+      <button class="primary-btn" onclick="startNewChat()">Chat starten</button>
+      <button type="button" class="link-btn" onclick="hideNewChatLayer()" style="width:100%;text-align:center;">Abbrechen</button>
+    </div>
   </div>
 
 <!-- Chat Detail -->
@@ -590,6 +603,52 @@ async function initWebRTC() {
 
   // ── NEU: Peer SOFORT beim Login registrieren ──
   await webrtc.register();
+}
+
+// ── NEUER CHAT (Partner per Code hinzufügen) ──────────────────────────────
+function showNewChatLayer() {
+  document.getElementById('newChatCode').value = '';
+  document.getElementById('newChatError').textContent = '';
+  document.getElementById('newChatLayer').classList.remove('hidden');
+  document.getElementById('newChatCode').focus();
+}
+
+function hideNewChatLayer() {
+  document.getElementById('newChatLayer').classList.add('hidden');
+}
+
+async function startNewChat() {
+  const partnerCode = document.getElementById('newChatCode').value.trim();
+  const errEl = document.getElementById('newChatError');
+  errEl.textContent = '';
+
+  if (!/^\d{6}$/.test(partnerCode)) {
+    errEl.textContent = 'Bitte 6-stelligen Code eingeben';
+    return;
+  }
+  if (partnerCode === CODE) {
+    errEl.textContent = 'Das ist dein eigener Code';
+    return;
+  }
+
+  try {
+    // Öffentlicher Profil-Check – existiert der Code überhaupt?
+    const res = await fetch(`${API}/profile/${partnerCode}?spot=caching`);
+    if (!res.ok) {
+      errEl.textContent = 'Kein Nutzer mit diesem Code gefunden';
+      return;
+    }
+    const profile = await res.json();
+    const partnerName = profile.name || partnerCode;
+
+    hideNewChatLayer();
+
+    const room = [CODE, partnerCode].sort().join('-');
+    await openChat(room, partnerCode, partnerName);
+  } catch (e) {
+    console.error('[NewChat]', e);
+    errEl.textContent = 'Fehler beim Prüfen des Codes';
+  }
 }
 
 // ── CHAT LIST ─────────────────────────────────────────────────────────────
