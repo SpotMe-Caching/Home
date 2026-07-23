@@ -582,6 +582,20 @@ async function initWebRTC() {
     renderChatList();
   };
 
+  // ── Zustellbestätigung (P2P) ── NUR "zugestellt", NIE "gelesen"/Uhrzeit
+  webrtc.onAck = async (peerCode, ackTs) => {
+    const room = [CODE, peerCode].sort().join('-');
+    const msgs = await loadRoomMessages(room);
+    const msg = msgs.find(m => m.from === CODE && m.ts === ackTs);
+    if (msg && msg.status !== 'delivered') {
+      msg.status = 'delivered';
+      await saveRoomMessages(room, msgs);
+      if (room === CURRENT_ROOM) {
+        await renderMessages(); // Status-Änderung an bestehender Bubble → Full-Render
+      }
+    }
+  };
+
   // ── P2P Verbindung getrennt ──
   webrtc.onDisconnect = (peerId) => {
     console.log('[Chat] P2P Verbindung getrennt:', peerId);
@@ -833,11 +847,18 @@ async function renderMessages(appendOnly = false) {
 
   const renderMsg = (m) => {
     const isMine = m.from === CODE;
+    // Nur "gesendet" (✓) vs. "zugestellt" (✓✓) – bewusst KEIN Lesestatus
+    // und KEINE zusätzliche Uhrzeit dafür (würde Online-Zeiten verraten).
+    const statusTick = isMine
+      ? (m.status === 'delivered'
+          ? '<span class="msg-status delivered" title="Zugestellt">✓✓</span>'
+          : '<span class="msg-status sent" title="Gesendet">✓</span>')
+      : '';
     return `
       <div class="message ${isMine ? 'mine' : 'other'}">
         <div class="msg-author">${escapeHtml(m.fromName || m.from)}</div>
         ${escapeHtml(m.text)}
-        <div class="msg-time">${new Date(m.ts).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</div>
+        <div class="msg-time">${new Date(m.ts).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}${statusTick}</div>
       </div>
     `;
   };
@@ -895,10 +916,12 @@ async function sendMessage() {
   }
 
   const myName = PROFILE?.name || CODE;
+  const ts = Date.now(); // EIN Timestamp für lokale Bubble + P2P-Ack-Matching
 
   // Lokal sofort speichern (UX: sofort sichtbar)
   const msgs = await getMessages();
-  msgs.push({ from: CODE, fromName: myName, text, ts: Date.now() });
+  const msgObj = { from: CODE, fromName: myName, text, ts, status: 'sent' };
+  msgs.push(msgObj);
   await saveMessages(msgs);
   await renderMessages(true);
   input.value = '';
@@ -907,11 +930,11 @@ async function sendMessage() {
   // Priority: P2P → Server Fallback
   if (webrtc && typeof webrtc.isConnected === 'function' && webrtc.isConnected()) {
     try {
-      const sent = webrtc.send(text);
+      const sent = webrtc.send(text, ts);
       if (sent) {
         console.log('[Chat] Via P2P gesendet');
         updateP2PUI(true, 'P2P Aktiv');
-        return;
+        return; // Ack kommt asynchron über webrtc.onAck rein
       }
     } catch (err) {
       console.error('[Chat] P2P Send Error, fällt auf Server zurück:', err);
@@ -938,6 +961,19 @@ async function sendMessage() {
     } else {
       console.log('[Chat] Via Server gesendet');
       updateP2PUI(false, 'Server-Modus');
+
+      // "delivered" = Push-Zustellung an den Dienst hat geklappt.
+      // KEIN Lesestatus, keine Uhrzeit – nur ob die Benachrichtigung raus ist.
+      const data = await res.json().catch(() => ({}));
+      if (data.delivered) {
+        const current = await getMessages();
+        const stored = current.find(m => m.from === CODE && m.ts === ts);
+        if (stored) {
+          stored.status = 'delivered';
+          await saveMessages(current);
+          if (CURRENT_ROOM) await renderMessages();
+        }
+      }
     }
   } catch (e) {
     console.error('[Chat] Netzwerkfehler beim Senden:', e);

@@ -482,6 +482,20 @@ body {
   color: rgba(26, 15, 8, 0.6); /* passend zum dunklen Text auf dem hellen Gradient */
 }
 
+.msg-status {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: -1px; /* Haken enger zusammenrücken */
+}
+
+.msg-status.sent {
+  color: rgba(26, 15, 8, 0.45); /* dezent – nur "gesendet" */
+}
+
+.msg-status.delivered {
+  color: #1a0f08; /* voller Kontrast – "zugestellt" bestätigt */
+}
+
 .message.other .msg-time {
   color: #7a8290; /* FIX: #888 auf #1a1f26 war grenzwertig, jetzt mehr Kontrast */
 }

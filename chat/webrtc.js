@@ -13,6 +13,7 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     this.peerReady = false;
 
     this.onMessage = null;
+    this.onAck = null; // Zustellbestätigung (KEIN Lesestatus!)
     this.onConnect = null;
     this.onDisconnect = null;
     this.onError = null;
@@ -216,6 +217,18 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
           fromName: data.fromName,
           ts: data.ts || Date.now(),
         });
+        // Sofort-Ack: bestätigt nur ZUSTELLUNG (Datenkanal offen, Nachricht
+        // angekommen). KEIN Lesestatus, keine Uhrzeit-Info über "online" –
+        // das würde Rückschlüsse auf die Anwesenheit des Partners erlauben.
+        try {
+          conn.send({ type: "ACK", ackTs: data.ts });
+        } catch (e) {
+          console.warn("[WebRTC] Ack konnte nicht gesendet werden:", e);
+        }
+        return;
+      }
+      if (this.onAck && data.type === "ACK") {
+        this.onAck(conn.peer, data.ackTs);
       }
     });
 
@@ -246,7 +259,7 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
     return conn;
   }
 
-  send(text) {
+  send(text, ts = Date.now()) {
     if (!this.conn || !this.conn.open) {
       console.warn("[WebRTC] Kein offener Datenkanal");
       return false;
@@ -256,7 +269,7 @@ window.SpotMeWebRTC = class SpotMeWebRTC {
       type: "MESSAGE",
       text,
       fromName: this.userName,
-      ts: Date.now(),
+      ts,
     });
     return true;
   }
