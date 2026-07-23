@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// SPOTME SERVER v11.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
+// SPOTME SERVER v12.0 – PostgreSQL (inkl. SpotCache & Messenger Invites)
 //
 // Features:
 //   • 24h Offline-Sichtbarkeit  → visible_until Timestamp pro Profil
@@ -424,7 +424,7 @@ async function initDB() {
         `ALTER TABLE user_spots ADD COLUMN IF NOT EXISTS image_status TEXT DEFAULT 'pending'`,
       )
       .catch(() => {});
-    console.log("✅ v11.0 – Alle Spalten bereit (inkl. SpotCache)");
+    console.log("✅ v12.0 – Alle Spalten bereit (inkl. SpotCache)");
   } catch (e) {
     console.log(
       "ℹ️ Spalten existieren bereits oder konnten nicht angelegt werden",
@@ -1517,14 +1517,16 @@ app.post("/api/message", async (req, res) => {
     );
 
     console.log(`💬 Chat: ${sender_code} → ${recipient}`);
-    // Push-Benachrichtigung an Empfänger (fire-and-forget)
-    sendPushToCode(
+    // Push-Benachrichtigung an Empfänger – jetzt awaited für den
+    // "Zugestellt"-Haken. Zeigt NUR ob die Push-Zustellung an den Dienst
+    // geklappt hat, NICHT ob/wann der Empfänger sie gelesen hat.
+    const delivered = await sendPushToCode(
       recipient,
       "💬 Neue Nachricht",
       `${sender_name || sender_code}: ${clean.slice(0, 80)}`,
       "/",
     );
-    res.json({ success: true });
+    res.json({ success: true, delivered });
   } catch (e) {
     console.error("POST /api/message:", e.message);
     res.status(500).json({ error: "Datenbankfehler" });
@@ -3375,40 +3377,53 @@ app.delete("/api/bluesky/disconnect", async (req, res) => {
 // Fire-and-forget (kein await nötig), blockiert den Request-Handler nicht.
 // Abgelaufene Subscriptions (410/404) werden automatisch aus der DB gelöscht.
 async function sendPushToCode(code, title, body, url = "/") {
-  if (!process.env.VAPID_PUBLIC_KEY) return;
+  if (!process.env.VAPID_PUBLIC_KEY) return false;
   try {
     const { rows } = await pool.query(
       "SELECT * FROM push_subscriptions WHERE code = $1",
       [code],
     );
-    if (!rows.length) return;
+    if (!rows.length) return false;
     const payload = JSON.stringify({
       title,
       body,
       url,
       tag: `spotme-${Date.now()}`,
     });
-    for (const sub of rows) {
-      webpush
-        .sendNotification(
+
+    // Awaiten statt fire-and-forget: Aufrufer braucht das Ergebnis für den
+    // "Zugestellt"-Haken beim Absender (KEIN Lesestatus, nur ob die
+    // Benachrichtigung erfolgreich an den Push-Dienst übergeben wurde).
+    const results = await Promise.allSettled(
+      rows.map((sub) =>
+        webpush.sendNotification(
           {
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
           payload,
-        )
-        .catch(async (err) => {
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await pool
-              .query("DELETE FROM push_subscriptions WHERE endpoint = $1", [
-                sub.endpoint,
-              ])
-              .catch(() => {});
-          }
-        });
-    }
+        ),
+      ),
+    );
+
+    // Abgelaufene Subscriptions aufräumen
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        const err = r.reason;
+        if (err?.statusCode === 410 || err?.statusCode === 404) {
+          pool
+            .query("DELETE FROM push_subscriptions WHERE endpoint = $1", [
+              rows[i].endpoint,
+            ])
+            .catch(() => {});
+        }
+      }
+    });
+
+    return results.some((r) => r.status === "fulfilled");
   } catch (e) {
     console.error("sendPushToCode:", e.message);
+    return false;
   }
 }
 
